@@ -1,0 +1,1415 @@
+@page "/burser/reports"
+@namespace paa_frontend.Client.Pages.Burser
+@layout paa_frontend.Client.Layout.BurserPortalLayout
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components
+@using Microsoft.JSInterop
+@using paa_frontend.Client.Services
+@using paa_frontend.Client.Services.StudentsPortal
+@using paa_frontend.Shared.Models
+@inject IJSRuntime JSRuntime
+@inject StudentProfileServiceClient StudentService
+@inject FinanceServiceClient FinanceService
+@inject paa_frontend.Client.Services.NotificationService NotificationService
+
+<style>
+    /* ── MOBILE: Zoom out the report panel so the full A4 preview is visible ── */
+    @@media (max-width: 900px) {
+        .print-area {
+            transform-origin: top left;
+            transform: scale(0.62);
+            width: 161.29%;
+            margin-bottom: -38%;
+        }
+    }
+
+    @@media (max-width: 640px) {
+        .print-area {
+            transform: scale(0.48);
+            width: 208.33%;
+            margin-bottom: -52%;
+        }
+    }
+
+    @@media print {
+        /* Reset mobile zoom for printing */
+        .print-area {
+            transform: none !important;
+            width: 100% !important;
+            margin-bottom: 0 !important;
+        }
+
+        /* Hide all layout decoration, header, background, modals, etc. */
+        header, .fixed, .no-print, img:not(.print-logo) {
+            display: none !important;
+        }
+
+        /* Reset margins, paddings, and heights on all wrapper elements to collapse them completely */
+        .min-h-screen, main, .max-w-\[1250px\], .burser-reports-page {
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            min-height: 0 !important;
+        }
+
+        /* Hide all sibling elements of the path to the print area */
+        .min-h-screen > *:not(main),
+        main > *:not(.max-w-\[1250px\]),
+        .max-w-\[1250px\] > *:not(.print-area),
+        .burser-reports-page > *:not(.print-area) {
+            display: none !important;
+        }
+
+        /* Format the print-area element to hug the walls */
+        .print-area {
+            display: block !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+            background: white !important;
+            box-sizing: border-box !important;
+        }
+
+        .print-area .px-10, .print-area .p-10 {
+            padding-left: 2mm !important;
+            padding-right: 2mm !important;
+            padding-top: 2mm !important;
+            padding-bottom: 2mm !important;
+        }
+
+        /* Reduce font sizes and narrow layout spacing */
+        .print-area, .print-area * {
+            font-size: 11px !important;
+        }
+
+        .print-area h2 {
+            font-size: 18px !important;
+        }
+
+        .print-area h3 {
+            font-size: 14px !important;
+        }
+
+        .print-area table th, .print-area table td {
+            padding: 4px 6px !important;
+            font-size: 10px !important;
+        }
+
+        body, html {
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100% !important;
+            overflow: hidden !important;
+        }
+
+        @@page {
+            size: A4 portrait;
+            margin: 2mm !important;
+        }
+    }
+</style>
+
+<!-- MODAL: Record School Movement (Income / Expense) -->
+@if (showMovementModal)
+{
+    <div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 no-print animate-fade-in" style="pointer-events: all;">
+        <div class="bg-white rounded-3xl p-6 md:p-8 shadow-2xl max-w-xl w-full border border-slate-100 max-h-[92vh] overflow-y-auto">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
+                <div>
+                    <h2 class="text-xl font-extrabold text-slate-900 tracking-tight">Record School Movement</h2>
+                    <p class="text-xs font-medium text-slate-500 mt-0.5">Track school revenue or operational expenses outside student fees.</p>
+                </div>
+                <button type="button" class="h-9 w-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-black text-lg flex items-center justify-center transition-colors" @onclick="() => showMovementModal = false">
+                    ×
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div class="flex gap-2 p-1 bg-slate-100 rounded-xl">
+                    <button type="button" class="flex-1 py-2.5 rounded-lg text-xs font-black transition-all @(cashflowRequest.Type == "EXPENSE" ? "bg-rose-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900")" @onclick='() => cashflowRequest.Type = "EXPENSE"'>
+                        Expense (Money Out)
+                    </button>
+                    <button type="button" class="flex-1 py-2.5 rounded-lg text-xs font-black transition-all @(cashflowRequest.Type == "INCOME" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900")" @onclick='() => cashflowRequest.Type = "INCOME"'>
+                        Income (Money In)
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Amount (USD) <span class="text-rose-500">*</span></label>
+                        <input type="number" step="0.01" min="0" class="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black focus:bg-white focus:border-emerald-500 transition-all" placeholder="0.00" @bind="cashflowRequest.Amount" />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Category <span class="text-rose-500">*</span></label>
+                        <select class="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:bg-white focus:border-emerald-500 transition-all" @bind="cashflowRequest.Category">
+                            <option value="">Select category...</option>
+                            @if (cashflowRequest.Type == "EXPENSE")
+                            {
+                                <option value="Salaries">Salaries &amp; Wages</option>
+                                <option value="Stationery">Stationery &amp; Books</option>
+                                <option value="Utilities">Utilities &amp; Bills</option>
+                                <option value="Maintenance">Repairs &amp; Maintenance</option>
+                                <option value="Transport">Transport &amp; Fuel</option>
+                                <option value="Catering">Catering &amp; Food</option>
+                                <option value="Events">Sports &amp; Events</option>
+                                <option value="Other">Other Expenses</option>
+                            }
+                            else
+                            {
+                                <option value="School Fees">School Fees</option>
+                                <option value="Uniforms">Uniforms Sales</option>
+                                <option value="Donations">Donations &amp; Grants</option>
+                                <option value="Facility Hire">Facility Hire</option>
+                                <option value="Tuckshop">Tuckshop Revenue</option>
+                                <option value="Other">Other Income</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Payment Method <span class="text-rose-500">*</span></label>
+                        <select class="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:bg-white focus:border-emerald-500 transition-all" @bind="cashflowRequest.PaymentMethod">
+                            <option value="">Select method...</option>
+                            <option value="CASH">Cash</option>
+                            <option value="BANK_TRANSFER">Bank Transfer</option>
+                            <option value="PAYNOW_MOBILE">Paynow Mobile</option>
+                            <option value="CHEQUE">Cheque</option>
+                            <option value="CARD">Debit / Credit Card</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Currency</label>
+                        <select class="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:bg-white focus:border-emerald-500 transition-all" @bind="cashflowRequest.Currency">
+                            <option value="USD">USD ($)</option>
+                            <option value="ZIG">ZIG</option>
+                            <option value="ZAR">ZAR (R)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Description <span class="text-rose-500">*</span></label>
+                    <input class="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:border-emerald-500 transition-all" placeholder="e.g. Science lab equipment maintenance" @bind="cashflowRequest.Description" />
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Counterparty <span class="text-slate-400 font-normal">(Supplier / Beneficiary)</span></label>
+                        <input class="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:border-emerald-500 transition-all" placeholder="e.g. City Power / Stationer" @bind="cashflowRequest.Counterparty" />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Date of Movement</label>
+                        <input type="date" class="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:bg-white focus:border-emerald-500 transition-all" @bind-value="cashflowOccurredOnValue" @bind-value:format="yyyy-MM-dd" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                <button type="button" class="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-colors" @onclick="() => showMovementModal = false">
+                    Cancel
+                </button>
+                <button type="button" class="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2" @onclick="RecordCashflowAsync" disabled="@isSavingCashflow">
+                    @if (isSavingCashflow)
+                    {
+                        <svg class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                        <span>Saving...</span>
+                    }
+                    else
+                    {
+                        <span>Save Movement</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- MODAL: Issue Student Refund -->
+@if (showRefundModal)
+{
+    <div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 no-print animate-fade-in" style="pointer-events: all;">
+        <div class="bg-white rounded-3xl p-6 md:p-8 shadow-2xl max-w-md w-full border border-slate-100">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
+                <div>
+                    <h2 class="text-xl font-extrabold text-slate-900 tracking-tight">Issue Student Refund</h2>
+                    <p class="text-xs font-medium text-slate-500 mt-0.5">Reverses a student payment and updates the cashbook.</p>
+                </div>
+                <button type="button" class="h-9 w-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-black text-lg flex items-center justify-center transition-colors" @onclick="() => showRefundModal = false">
+                    ×
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Payment Reference <span class="text-rose-500">*</span></label>
+                    <input class="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:bg-white focus:border-emerald-500 transition-all" placeholder="e.g. PAY-2026-00001" @bind="refundPaymentReference" />
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Reason for Refund <span class="text-rose-500">*</span></label>
+                    <input class="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:border-emerald-500 transition-all" placeholder="e.g. Duplicate payment / Overpayment" @bind="refundReason" />
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Original Payment Method</label>
+                    <select class="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:bg-white focus:border-emerald-500 transition-all" @bind="refundPaymentMethod">
+                        <option value="">Original method (auto-detect)</option>
+                        <option value="CASH">Cash</option>
+                        <option value="BANK_TRANSFER">Bank Transfer</option>
+                        <option value="PAYNOW_WEB">Paynow Web</option>
+                        <option value="PAYNOW_MOBILE">Paynow Mobile</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                <button type="button" class="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-colors" @onclick="() => showRefundModal = false">
+                    Cancel
+                </button>
+                <button type="button" class="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2" @onclick="IssueRefundAsync" disabled="@isRefunding">
+                    @if (isRefunding)
+                    {
+                        <svg class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                        <span>Processing...</span>
+                    }
+                    else
+                    {
+                        <span>Process Refund</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="burser-reports-page max-w-[1250px] min-w-0 mx-auto pb-12 overflow-x-hidden">
+    <!-- Header -->
+    <div class="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4 no-print animate-fade-in">
+        <div>
+            <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                <span class="cursor-pointer hover:text-emerald-600 transition-colors" @onclick='() => NavTo("/burser/students")'>Students &amp; Accounts</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="9 18 15 12 9 6" /></svg>
+                <span>Financial Reports</span>
+            </div>
+            <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Financial Reports</h1>
+            <p class="text-sm font-medium text-slate-500 mt-1">Review student account statements, school cashbook, and multi-currency registers.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2.5">
+            <button type="button" class="px-4 py-2.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all shadow-sm flex items-center gap-2" @onclick="() => OpenMovementModal(false)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                <span>Record Movement</span>
+            </button>
+            <button type="button" class="px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200 hover:bg-amber-100 text-amber-800 text-xs font-bold transition-all shadow-sm flex items-center gap-2" @onclick="() => showRefundModal = true">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+                <span>Issue Refund</span>
+            </button>
+            <button type="button" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2 shrink-0" @onclick="PrintDocument">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                <span>@(activeTab == "student" ? "Print Statement" : activeTab == "cashflow" ? "Print Cashbook" : "Print Register")</span>
+            </button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(statusMessage))
+    {
+        <div class="mb-6 rounded-2xl border @(statusIsError ? "bg-rose-50 border-rose-200 text-rose-700" : "bg-emerald-50 border-emerald-200 text-emerald-700") p-4 text-sm font-medium flex items-center justify-between no-print animate-fade-in">
+            <span>@statusMessage</span>
+            <button type="button" class="text-xs font-bold underline ml-4" @onclick='() => statusMessage = ""'>Dismiss</button>
+        </div>
+    }
+
+    <!-- Tab Selection -->
+    <div class="flex flex-wrap gap-2 p-1.5 bg-white/70 backdrop-blur-md rounded-2xl w-fit mb-6 shadow-sm border border-slate-200 no-print animate-fade-in">
+        <button type="button" class="px-5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 @(activeTab == "student" ? "bg-slate-900 text-white shadow-sm" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100")" @onclick='() => SwitchTab("student")'>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            <span>Student Statement</span>
+            @if (selectedStudent is not null)
+            {
+                <span class="ml-1 w-2 h-2 rounded-full bg-emerald-400"></span>
+            }
+        </button>
+        <button type="button" class="px-5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 @(activeTab == "cashflow" ? "bg-slate-900 text-white shadow-sm" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100")" @onclick='() => SwitchTab("cashflow")'>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+            <span>School Cashbook</span>
+        </button>
+        <button type="button" class="px-5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 @(activeTab == "register" ? "bg-slate-900 text-white shadow-sm" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100")" @onclick='() => SwitchTab("register")'>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+            <span>Transaction Register</span>
+        </button>
+    </div>
+
+    <!-- CONTEXTUAL FILTER SECTION -->
+    @if (activeTab == "student")
+    {
+        <!-- Tab 1: Student Search Filter -->
+        <div class="mb-6 p-5 bg-white/80 backdrop-blur-md border border-slate-200 rounded-3xl shadow-sm no-print animate-fade-in-up">
+            <div class="flex items-center justify-between gap-3 mb-3">
+                <div>
+                    <h2 class="text-base font-extrabold text-slate-900 tracking-tight">Find Student Statement</h2>
+                    <p class="text-xs font-medium text-slate-500 mt-0.5">Search by student name, ID, or form to inspect their ledger and print their official statement.</p>
+                </div>
+                @if (isLoadingStudent)
+                {
+                    <span class="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
+                        <svg class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                        Loading statement
+                    </span>
+                }
+            </div>
+
+            <div class="relative">
+                <input class="w-full py-3.5 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all"
+                       placeholder="Search by name, ID, classroom..."
+                       @bind="studentSearchTerm"
+                       @bind:event="oninput"
+                       @onfocus="OpenStudentSearch" />
+                @if (showStudentMatches)
+                {
+                    <div class="absolute z-30 mt-2 w-full max-h-72 overflow-auto rounded-2xl border border-slate-200 bg-white shadow-xl">
+                        @if (FilteredStudents.Any())
+                        {
+                            @foreach (var student in FilteredStudents)
+                            {
+                                <button type="button"
+                                        class="w-full text-left px-4 py-3 border-b border-slate-100 last:border-b-0 hover:bg-slate-50 transition-colors flex items-center justify-between"
+                                        @onclick="() => SelectStudentAsync(student)">
+                                    <div>
+                                        <div class="text-sm font-black text-slate-900">@student.LastName, @student.FirstName</div>
+                                        <div class="text-xs font-bold text-slate-500 mt-0.5">ID: @student.Id | @(FormatClassroom(student.Form, student.Classroom))</div>
+                                    </div>
+                                    <span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg">Select</span>
+                                </button>
+                            }
+                        }
+                        else
+                        {
+                            <div class="px-4 py-3 text-sm font-medium text-slate-500">No students match that search.</div>
+                        }
+                    </div>
+                }
+            </div>
+
+            @if (selectedStudent is not null)
+            {
+                <div class="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="h-10 w-10 rounded-xl bg-slate-900 text-white font-black flex items-center justify-center text-sm">
+                            @selectedStudent.FirstName.FirstOrDefault()@selectedStudent.LastName.FirstOrDefault()
+                        </div>
+                        <div>
+                            <div class="text-sm font-black text-slate-900">@selectedStudent.FirstName @selectedStudent.LastName</div>
+                            <div class="text-xs font-bold text-slate-500">ID: @selectedStudent.Id | @(FormatClassroom(selectedStudent.Form, selectedStudent.Classroom))</div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="rounded-xl px-3.5 py-1.5 border @(currentBalance > 0 ? "bg-rose-50 border-rose-200 text-rose-700" : currentBalance < 0 ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-emerald-50 border-emerald-200 text-emerald-700")">
+                            <span class="text-[10px] uppercase font-black tracking-wider block">Balance</span>
+                            <span class="text-sm font-black">@FormatBalance(currentBalance)</span>
+                        </div>
+                        <button type="button" class="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-bold transition-all" @onclick="ClearSelectedStudent">
+                            Clear Student
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <!-- Tabs 2 & 3: Date Range & Preset Filter Bar -->
+        <div class="mb-6 p-5 bg-white/80 backdrop-blur-md border border-slate-200 rounded-3xl shadow-sm no-print animate-fade-in-up">
+            <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Period Presets</label>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" class="px-3 py-2 rounded-xl text-xs font-bold transition-all @(IsPresetActive("month") ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200")" @onclick='() => ApplyPreset("month")'>
+                            This Month
+                        </button>
+                        <button type="button" class="px-3 py-2 rounded-xl text-xs font-bold transition-all @(IsPresetActive("30days") ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200")" @onclick='() => ApplyPreset("30days")'>
+                            Last 30 Days
+                        </button>
+                        <button type="button" class="px-3 py-2 rounded-xl text-xs font-bold transition-all @(IsPresetActive("term") ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200")" @onclick='() => ApplyPreset("term")'>
+                            This Term (90d)
+                        </button>
+                        <button type="button" class="px-3 py-2 rounded-xl text-xs font-bold transition-all @(IsPresetActive("today") ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200")" @onclick='() => ApplyPreset("today")'>
+                            Today
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-end gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Start Date</label>
+                        <input type="date" class="py-2.5 px-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:border-emerald-500 transition-all" @bind-value="periodStartValue" @bind-value:format="yyyy-MM-dd" />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">End Date</label>
+                        <input type="date" class="py-2.5 px-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:border-emerald-500 transition-all" @bind-value="periodEndValue" @bind-value:format="yyyy-MM-dd" />
+                    </div>
+                    <button type="button" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2" @onclick="RefreshPeriodDataAsync" disabled="@isLoadingCashflow">
+                        @if (isLoadingCashflow)
+                        {
+                            <svg class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                            <span>Updating...</span>
+                        }
+                        else
+                        {
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                            <span>Update Report</span>
+                        }
+                    </button>
+                </div>
+            </div>
+
+            @if (activeTab == "register")
+            {
+                <div class="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1">Filter Register:</span>
+                        <button type="button" class="px-3.5 py-1.5 rounded-lg text-xs font-black transition-all @(registerFilterMode == "all" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200")" @onclick='() => registerFilterMode = "all"'>
+                            All Transactions
+                        </button>
+                        <button type="button" class="px-3.5 py-1.5 rounded-lg text-xs font-black transition-all @(registerFilterMode == "noncash" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200")" @onclick='() => registerFilterMode = "noncash"'>
+                            Non-Cash Only (Bank &amp; Mobile)
+                        </button>
+                    </div>
+
+                    <!-- Currency Totals -->
+                    <div class="flex flex-wrap items-center gap-2">
+                        @foreach (var total in GetCurrencyTotals())
+                        {
+                            <div class="px-3 py-1 rounded-xl bg-slate-900 text-white flex items-center gap-1.5 text-xs">
+                                <span class="font-extrabold text-slate-400 text-[10px]">@total.Key:</span>
+                                <span class="font-black font-mono">@FormatCurrencyValue(total.Key, total.Value)</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- TAB 2 ONSCREEN KPI METRICS (when on School Cashbook) -->
+    @if (activeTab == "cashflow" && schoolCashflow is not null)
+    {
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6 no-print animate-fade-in-up">
+            <div class="rounded-3xl bg-white/80 backdrop-blur-md border border-slate-200 p-5 shadow-sm">
+                <div class="text-[0.65rem] font-black uppercase tracking-widest text-emerald-600 mb-1">Today Income</div>
+                <div class="text-2xl font-black text-emerald-700">@schoolCashflow.TodayIncome.ToString("C")</div>
+                <div class="text-[11px] font-bold text-slate-400 mt-1">Receipts today</div>
+            </div>
+            <div class="rounded-3xl bg-white/80 backdrop-blur-md border border-slate-200 p-5 shadow-sm">
+                <div class="text-[0.65rem] font-black uppercase tracking-widest text-rose-600 mb-1">Today Expenses</div>
+                <div class="text-2xl font-black text-rose-600">@schoolCashflow.TodayExpenses.ToString("C")</div>
+                <div class="text-[11px] font-bold text-slate-400 mt-1">Outflow today</div>
+            </div>
+            <div class="rounded-3xl bg-white/80 backdrop-blur-md border border-slate-200 p-5 shadow-sm">
+                <div class="text-[0.65rem] font-black uppercase tracking-widest text-blue-600 mb-1">Today Net</div>
+                <div class="text-2xl font-black @(schoolCashflow.TodayNet >= 0 ? "text-blue-700" : "text-rose-600")">@schoolCashflow.TodayNet.ToString("C")</div>
+                <div class="text-[11px] font-bold text-slate-400 mt-1">Net movement today</div>
+            </div>
+            <div class="rounded-3xl bg-slate-900 text-white p-5 shadow-sm">
+                <div class="text-[0.65rem] font-black uppercase tracking-widest text-slate-400 mb-1">Period Net Balance</div>
+                <div class="text-2xl font-black @(schoolCashflow.NetTotal >= 0 ? "text-emerald-400" : "text-rose-400")">@schoolCashflow.NetTotal.ToString("C")</div>
+                <div class="text-[11px] font-bold text-slate-400 mt-1">Total across selected dates</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 no-print animate-fade-in-up">
+            <div class="rounded-3xl bg-white/80 backdrop-blur-md border border-slate-200 p-5 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-black uppercase tracking-widest text-slate-700">Income by Category</h3>
+                    <span class="text-xs font-bold text-slate-400">Total: @((schoolCashflow.CashFeeIncome + schoolCashflow.NonCashFeeIncome + schoolCashflow.OtherIncome).ToString("C"))</span>
+                </div>
+                <div class="space-y-2 max-h-56 overflow-y-auto pr-1">
+                    @if (schoolCashflow.IncomeByCategory.Any())
+                    {
+                        @foreach (var category in schoolCashflow.IncomeByCategory.OrderByDescending(x => x.Value))
+                        {
+                            <div class="flex items-center justify-between rounded-xl bg-slate-50 px-3.5 py-2.5 text-xs">
+                                <span class="font-bold text-slate-700">@category.Key</span>
+                                <span class="font-black text-slate-900">@category.Value.ToString("C")</span>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-xs text-slate-400 py-4 text-center">No category breakdown recorded for this period.</div>
+                    }
+                </div>
+            </div>
+
+            <div class="rounded-3xl bg-white/80 backdrop-blur-md border border-slate-200 p-5 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-black uppercase tracking-widest text-slate-700">Daily Cash Movements</h3>
+                    <span class="text-xs font-bold text-slate-400">@schoolCashflow.DailySummaries.Count recorded days</span>
+                </div>
+                <div class="space-y-2 max-h-56 overflow-y-auto pr-1">
+                    @if (schoolCashflow.DailySummaries.Any())
+                    {
+                        @foreach (var day in schoolCashflow.DailySummaries.OrderByDescending(x => x.Date))
+                        {
+                            <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/60 px-3.5 py-2.5 text-xs">
+                                <span class="font-bold text-slate-700">@day.Date</span>
+                                <span class="font-black @(day.Net >= 0 ? "text-emerald-700" : "text-rose-700")">@day.Net.ToString("C")</span>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-xs text-slate-400 py-4 text-center">No daily movements for this period.</div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(loadError))
+    {
+        <div class="bg-rose-50 border border-rose-200 rounded-2xl p-5 text-rose-700 font-medium mb-6 no-print">
+            @loadError
+        </div>
+    }
+
+    <!-- PRINTABLE A4 REPORT DOCUMENT AREA -->
+    <div class="print-area relative bg-white w-full mx-auto shadow-xl border border-slate-200 rounded-3xl overflow-hidden animate-fade-in-up delay-75">
+        <!-- Print Watermark -->
+        <div class="hidden print-block absolute inset-0 opacity-[0.03] flex items-center justify-center pointer-events-none">
+            <img src="/images/demo-logo.svg" alt="PrimeApp Demo" class="w-[450px] h-[450px] object-contain print-logo" />
+        </div>
+
+        <div class="relative z-10 px-8 pt-8 pb-6 flex flex-col gap-4">
+            <!-- Official School Letterhead Header -->
+            <div class="flex justify-between items-start gap-4 pb-4 border-b border-dashed border-stone-400 w-full">
+                <div class="flex gap-3">
+                    <img src="/images/demo-logo.svg" alt="PrimeApp Demo" class="w-16 h-16 object-contain print-logo" />
+                    <div>
+                        <div class="text-[1.35rem] font-black leading-tight uppercase text-slate-900">PrimeApp Demo</div>
+                        <div class="text-[0.72rem] font-semibold mt-1 text-slate-500">Equipping youngsters to compete internationally</div>
+                        <div class="text-[0.72rem] mt-1 text-slate-500">0783841141 / 0785638463 • cliftonmataruse2@gmail.com</div>
+                    </div>
+                </div>
+                <div class="text-right text-[0.8rem] leading-tight font-semibold text-slate-800">
+                    <div>20440</div>
+                    <div>VICTORY PARK</div>
+                    <div>RUWA, ZIMBABWE</div>
+                </div>
+            </div>
+
+            <!-- Report Document Header Strip -->
+            <div class="flex justify-between items-center py-2">
+                <div>
+                    <h3 class="text-lg font-black text-slate-900 uppercase tracking-wider">
+                        @(activeTab == "student" ? "Student Statement of Account" : activeTab == "cashflow" ? "School Cashbook Report" : registerFilterMode == "noncash" ? "Non-Cash Transaction Register" : "General Transaction Register")
+                    </h3>
+                    @if (activeTab != "student")
+                    {
+                        <div class="text-xs text-slate-500 font-semibold mt-0.5">
+                            Period: @periodStartValue.ToString("dd MMM yyyy") – @periodEndValue.ToString("dd MMM yyyy")
+                        </div>
+                    }
+                </div>
+                <div class="text-right text-xs text-slate-500 font-bold">
+                    Generated: @DateTime.Today.ToString("dd MMM yyyy")
+                </div>
+            </div>
+        </div>
+
+        <div class="relative z-10 px-8 pb-8 pt-0">
+            <!-- TAB 1 DOCUMENT: STUDENT STATEMENT -->
+            @if (activeTab == "student")
+            {
+                @if (selectedStudent is null)
+                {
+                    <div class="text-center py-20 text-slate-400 no-print">
+                        <svg class="h-12 w-12 mx-auto mb-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        <div class="text-base font-extrabold text-slate-600">No Student Selected</div>
+                        <div class="text-xs font-medium text-slate-400 mt-1 max-w-sm mx-auto">Use the search box above to select a student and view their official fee statement.</div>
+                    </div>
+                }
+                else
+                {
+                    <div class="mb-6 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                            <div class="text-base font-black text-slate-900">@selectedStudent.FirstName @selectedStudent.LastName</div>
+                            <div class="text-xs font-bold text-slate-500 mt-0.5">
+                                Student ID: <strong class="text-slate-700">@selectedStudent.Id</strong>
+                                @if (!string.IsNullOrWhiteSpace(selectedStudent.TempId))
+                                {
+                                    <span> • Temp: <strong class="text-slate-700">@selectedStudent.TempId</strong></span>
+                                }
+                                <span> • Classroom: <strong class="text-slate-700">@(FormatClassroom(selectedStudent.Form, selectedStudent.Classroom))</strong></span>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-[10px] font-black uppercase tracking-widest text-slate-400">Current Outstanding</div>
+                            <div class="text-xl font-black @(currentBalance > 0 ? "text-rose-600" : currentBalance < 0 ? "text-blue-600" : "text-emerald-600")">
+                                @FormatBalance(currentBalance)
+                            </div>
+                        </div>
+                    </div>
+
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="bg-slate-100 border-b-2 border-slate-900">
+                            <tr>
+                                <th class="py-3 px-2.5 font-black uppercase tracking-wider">Date</th>
+                                <th class="py-3 px-2.5 font-black uppercase tracking-wider">Reference</th>
+                                <th class="py-3 px-2.5 font-black uppercase tracking-wider">Description</th>
+                                <th class="py-3 px-2.5 font-black uppercase tracking-wider text-right">Debit (Billed)</th>
+                                <th class="py-3 px-2.5 font-black uppercase tracking-wider text-right">Credit (Paid)</th>
+                                <th class="py-3 px-2.5 font-black uppercase tracking-wider text-right">Balance</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-200 font-medium text-slate-700">
+                            @if (studentRows.Any())
+                            {
+                                @foreach (var row in studentRows)
+                                {
+                                    <tr class="hover:bg-slate-50/80 transition-colors">
+                                        <td class="py-3 px-2.5">@row.When.ToString("dd MMM yyyy")</td>
+                                        <td class="py-3 px-2.5 font-mono text-[11px]">@row.Reference</td>
+                                        <td class="py-3 px-2.5">@row.Description</td>
+                                        <td class="py-3 px-2.5 text-right font-semibold text-rose-700">@FormatMoneyOrDash(row.Charge)</td>
+                                        <td class="py-3 px-2.5 text-right font-semibold text-emerald-700">@FormatMoneyOrDash(row.Paid)</td>
+                                        <td class="py-3 px-2.5 text-right font-black @(row.RunningBalance > 0 ? "text-rose-600" : row.RunningBalance < 0 ? "text-blue-600" : "text-emerald-600")">
+                                            @if (row.RunningBalance > 0)
+                                            {
+                                                <span>Debit @row.RunningBalance.ToString("C")</span>
+                                            }
+                                            else if (row.RunningBalance < 0)
+                                            {
+                                                <span>Credit @Math.Abs(row.RunningBalance).ToString("C")</span>
+                                            }
+                                            else
+                                            {
+                                                <span>Settled</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="6" class="py-8 text-center text-slate-400 text-xs">No account activity recorded for this student.</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    <div class="mt-8 pt-6 border-t border-slate-200 grid grid-cols-2 gap-8 text-xs text-slate-500">
+                        <div>
+                            <div class="font-bold text-slate-700 mb-1">Burser Office Notes:</div>
+                            <p class="leading-relaxed">This statement reflects all debited term charges and credited receipts as of @DateTime.Today.ToString("dd MMMM yyyy"). For any queries, please visit the accounts office.</p>
+                        </div>
+                        <div class="text-right">
+                            <div class="h-12 border-b border-slate-300 w-48 ml-auto"></div>
+                            <div class="mt-1 font-bold text-slate-700">Authorized Signature &amp; Stamp</div>
+                        </div>
+                    </div>
+                }
+            }
+
+            <!-- TAB 2 DOCUMENT: SCHOOL CASHBOOK -->
+            else if (activeTab == "cashflow")
+            {
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+                    <div class="rounded-2xl bg-emerald-50 border border-emerald-100 p-3.5">
+                        <div class="text-[9px] font-black uppercase tracking-wider text-emerald-600">Cash Fees In</div>
+                        <div class="text-lg font-black text-emerald-800 mt-1">@((schoolCashflow?.CashFeeIncome ?? 0).ToString("C"))</div>
+                    </div>
+                    <div class="rounded-2xl bg-blue-50 border border-blue-100 p-3.5">
+                        <div class="text-[9px] font-black uppercase tracking-wider text-blue-600">Non-Cash Fees In</div>
+                        <div class="text-lg font-black text-blue-800 mt-1">@((schoolCashflow?.NonCashFeeIncome ?? 0).ToString("C"))</div>
+                    </div>
+                    <div class="rounded-2xl bg-amber-50 border border-amber-100 p-3.5">
+                        <div class="text-[9px] font-black uppercase tracking-wider text-amber-600">Other Income</div>
+                        <div class="text-lg font-black text-amber-800 mt-1">@((schoolCashflow?.OtherIncome ?? 0).ToString("C"))</div>
+                    </div>
+                    <div class="rounded-2xl bg-rose-50 border border-rose-100 p-3.5">
+                        <div class="text-[9px] font-black uppercase tracking-wider text-rose-600">Total Money Out</div>
+                        <div class="text-lg font-black text-rose-800 mt-1">@((schoolCashflow?.TotalMoneyOut ?? 0).ToString("C"))</div>
+                    </div>
+                    <div class="rounded-2xl bg-slate-900 text-white p-3.5">
+                        <div class="text-[9px] font-black uppercase tracking-wider text-slate-400">Net Balance</div>
+                        <div class="text-lg font-black @((schoolCashflow?.NetTotal ?? 0) >= 0 ? "text-emerald-400" : "text-rose-400") mt-1">
+                            @((schoolCashflow?.NetTotal ?? 0).ToString("C"))
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3 flex items-center justify-between">
+                    <div class="text-xs font-black uppercase tracking-wider text-slate-700">Cashbook Movement Ledger</div>
+                    <span class="text-xs font-bold text-slate-400">@cashflowMovements.Count entries</span>
+                </div>
+
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead class="bg-slate-100 border-b-2 border-slate-900">
+                        <tr>
+                            <th class="py-3 px-2.5 font-black uppercase tracking-wider">Date</th>
+                            <th class="py-3 px-2.5 font-black uppercase tracking-wider">Reference</th>
+                            <th class="py-3 px-2.5 font-black uppercase tracking-wider">Type</th>
+                            <th class="py-3 px-2.5 font-black uppercase tracking-wider">Category</th>
+                            <th class="py-3 px-2.5 font-black uppercase tracking-wider">Description</th>
+                            <th class="py-3 px-2.5 font-black uppercase tracking-wider text-right">Amount (USD)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200 font-medium text-slate-700">
+                        @if (cashflowMovements.Any())
+                        {
+                            @foreach (var item in cashflowMovements.OrderByDescending(m => m.OccurredOn))
+                            {
+                                <tr class="hover:bg-slate-50/80 transition-colors">
+                                    <td class="py-3 px-2.5">@item.OccurredOn</td>
+                                    <td class="py-3 px-2.5 font-mono text-[11px]">@item.TransactionReference</td>
+                                    <td class="py-3 px-2.5">
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-black @(item.Type == "INCOME" ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800")">
+                                            @item.Type
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-2.5 font-bold text-slate-700">@item.Category</td>
+                                    <td class="py-3 px-2.5">@item.Description</td>
+                                    <td class="py-3 px-2.5 text-right font-black @(item.Type == "INCOME" ? "text-emerald-700" : "text-rose-700")">
+                                        @(item.Type == "EXPENSE" ? $"-${item.AmountUsd:N2}" : $"${item.AmountUsd:N2}")
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="6" class="py-8 text-center text-slate-400 text-xs">No cashbook movements found for the selected period.</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+
+            <!-- TAB 3 DOCUMENT: TRANSACTION REGISTER -->
+            else
+            {
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead class="bg-slate-100 border-b-2 border-slate-900">
+                        <tr>
+                            <th class="py-3 px-2 font-black uppercase tracking-wider">Source</th>
+                            <th class="py-3 px-2 font-black uppercase tracking-wider">Reference</th>
+                            <th class="py-3 px-2 font-black uppercase tracking-wider">Method</th>
+                            <th class="py-3 px-2 font-black uppercase tracking-wider">Description</th>
+                            <th class="py-3 px-2 font-black uppercase tracking-wider">Date</th>
+                            <th class="py-3 px-2 font-black uppercase tracking-wider text-right">Original Amt</th>
+                            <th class="py-3 px-2 font-black uppercase tracking-wider text-center">Curr</th>
+                            <th class="py-3 px-2 font-black uppercase tracking-wider text-right">USD Equiv</th>
+                            <th class="py-3 px-2 font-black uppercase tracking-wider text-right">Running Total</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200 font-medium text-slate-700">
+                        @{
+                            var sortedRegister = registerRows.OrderBy(r => r.When).ToList();
+                            if (registerFilterMode == "noncash")
+                            {
+                                sortedRegister = sortedRegister.Where(r => r.Method != "CASH").ToList();
+                            }
+                            decimal runningTotal = 0;
+                        }
+                        @if (sortedRegister.Any())
+                        {
+                            @foreach (var row in sortedRegister)
+                            {
+                                runningTotal += row.Amount;
+                                <tr class="hover:bg-slate-50/80 transition-colors">
+                                    <td class="py-2.5 px-2">
+                                        <span class="px-2 py-0.5 rounded-full text-[9px] font-black @(row.Source == "Student Fees" ? "bg-emerald-100 text-emerald-800" : row.Source == "Expense" ? "bg-rose-100 text-rose-800" : "bg-blue-100 text-blue-800")">
+                                            @row.Source
+                                        </span>
+                                    </td>
+                                    <td class="py-2.5 px-2 font-mono text-[10px]">@row.Reference</td>
+                                    <td class="py-2.5 px-2 font-semibold">@row.Method</td>
+                                    <td class="py-2.5 px-2 max-w-[220px] truncate" title="@row.Description">@row.Description</td>
+                                    <td class="py-2.5 px-2 whitespace-nowrap">@row.When</td>
+                                    <td class="py-2.5 px-2 text-right font-mono">@row.OriginalAmount.ToString("N2")</td>
+                                    <td class="py-2.5 px-2 text-center">
+                                        <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-700 border border-slate-200">@row.OriginalCurrency</span>
+                                    </td>
+                                    <td class="py-2.5 px-2 text-right font-mono font-bold">@row.Amount.ToString("N2")</td>
+                                    <td class="py-2.5 px-2 text-right font-black font-mono @(runningTotal >= 0 ? "text-emerald-700" : "text-rose-600")">
+                                        @runningTotal.ToString("N2")
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="9" class="py-8 text-center text-slate-400 text-xs">No register entries found for this period and filter.</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public int? StudentId { get; set; }
+
+    private sealed class StudentStatementRow
+    {
+        public DateTime When { get; init; }
+        public string Reference { get; init; } = string.Empty;
+        public string Description { get; init; } = string.Empty;
+        public decimal Charge { get; init; }
+        public decimal Paid { get; init; }
+        public decimal RunningBalance { get; init; }
+        public string Status { get; init; } = string.Empty;
+    }
+
+    private sealed class RegisterRow
+    {
+        public string Source { get; init; } = string.Empty;
+        public string Reference { get; init; } = string.Empty;
+        public string Method { get; init; } = string.Empty;
+        public string Description { get; init; } = string.Empty;
+        public string When { get; init; } = string.Empty;
+        public decimal Amount { get; init; }
+        public decimal OriginalAmount { get; init; }
+        public string OriginalCurrency { get; init; } = "USD";
+    }
+
+    private string activeTab = "student";
+    private string registerFilterMode = "all";
+    private bool showMovementModal;
+    private bool showRefundModal;
+
+    private bool isLoading = true;
+    private bool isLoadingStudent;
+    private bool isLoadingCashflow;
+    private string loadError = string.Empty;
+    private string statusMessage = string.Empty;
+    private bool statusIsError;
+
+    private List<StudentProfileModel.Student> students = new();
+    private StudentProfileModel.Student? selectedStudent;
+    private int selectedStudentId;
+    private FinancialStatementDto? statement;
+    private List<PaymentRecord> paymentHistory = new();
+    private List<StudentStatementRow> studentRows = new();
+    private decimal currentBalance;
+    private string studentSearchTerm = string.Empty;
+    private bool showStudentMatches;
+
+    private CashFlowSummaryDto? schoolCashflow;
+    private List<CashFlowResponseDto> cashflowMovements = new();
+    private List<RegisterRow> registerRows = new();
+    private bool cashflowLoaded;
+
+    private DateTime periodStartValue = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateTime periodEndValue = DateTime.Today;
+    private CashFlowRequestDto cashflowRequest = new() { Type = "EXPENSE", Currency = "USD" };
+    private DateTime cashflowOccurredOnValue = DateTime.Today;
+    private bool isSavingCashflow;
+    private bool isRefunding;
+    private string refundPaymentReference = string.Empty;
+    private string refundReason = string.Empty;
+    private string refundPaymentMethod = string.Empty;
+
+    private IEnumerable<StudentProfileModel.Student> FilteredStudents =>
+        students
+            .OrderBy(s => s.LastName)
+            .ThenBy(s => s.FirstName)
+            .Where(s => string.IsNullOrWhiteSpace(studentSearchTerm) || MatchesStudentSearch(s, studentSearchTerm))
+            .Take(20);
+
+    private bool dataLoadAttempted;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || dataLoadAttempted) return;
+        dataLoadAttempted = true;
+
+        await LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+        loadError = string.Empty;
+
+        try
+        {
+            students = await StudentService.GetStudentsAsync() ?? new();
+
+            if (StudentId.HasValue && StudentId.Value > 0)
+            {
+                selectedStudentId = StudentId.Value;
+                activeTab = "student";
+                await LoadSelectedStudentAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            loadError = $"Could not load finance data: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task SwitchTab(string tab)
+    {
+        activeTab = tab;
+        if (tab == "cashflow" && !cashflowLoaded)
+        {
+            await LoadSchoolCashflowAsync();
+        }
+        else if (tab == "register" && (!cashflowLoaded || !registerRows.Any()))
+        {
+            await LoadSchoolCashflowAsync();
+        }
+    }
+
+    private void NavTo(string uri)
+    {
+        // Handled through navigation
+    }
+
+    private async Task LoadSelectedStudentAsync()
+    {
+        if (selectedStudentId <= 0)
+        {
+            ClearSelectedStudent();
+            return;
+        }
+
+        selectedStudent = students.FirstOrDefault(s => s.Id == selectedStudentId);
+        if (selectedStudent is not null)
+        {
+            studentSearchTerm = BuildStudentDisplayName(selectedStudent);
+        }
+
+        isLoadingStudent = true;
+        try
+        {
+            var statementTask = FinanceService.GetFinancialStatementAsync(selectedStudentId);
+            var historyTask = FinanceService.GetPaymentHistoryAsync(selectedStudentId);
+            await Task.WhenAll(statementTask, historyTask);
+
+            statement = statementTask.Result;
+            paymentHistory = historyTask.Result ?? new();
+            currentBalance = ExtractDecimal(statement?.AccountSummary, "balance");
+
+            studentRows = BuildStudentStatementRows(statement, paymentHistory);
+        }
+        catch (Exception ex)
+        {
+            loadError = $"Could not load student statement: {ex.Message}";
+        }
+        finally
+        {
+            isLoadingStudent = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void ClearSelectedStudent()
+    {
+        selectedStudent = null;
+        selectedStudentId = 0;
+        statement = null;
+        paymentHistory.Clear();
+        studentRows.Clear();
+        currentBalance = 0;
+        studentSearchTerm = string.Empty;
+    }
+
+    private void OpenStudentSearch()
+    {
+        showStudentMatches = true;
+    }
+
+    private async Task SelectStudentAsync(StudentProfileModel.Student student)
+    {
+        selectedStudentId = student.Id;
+        studentSearchTerm = BuildStudentDisplayName(student);
+        showStudentMatches = false;
+        await LoadSelectedStudentAsync();
+    }
+
+    private async Task RefreshPeriodDataAsync()
+    {
+        await LoadSchoolCashflowAsync();
+    }
+
+    private bool IsPresetActive(string preset)
+    {
+        var today = DateTime.Today;
+        return preset switch
+        {
+            "month" => periodStartValue.Date == new DateTime(today.Year, today.Month, 1).Date && periodEndValue.Date == today,
+            "30days" => periodStartValue.Date == today.AddDays(-30).Date && periodEndValue.Date == today,
+            "term" => periodStartValue.Date == today.AddDays(-90).Date && periodEndValue.Date == today,
+            "today" => periodStartValue.Date == today && periodEndValue.Date == today,
+            _ => false
+        };
+    }
+
+    private void ApplyPreset(string preset)
+    {
+        var today = DateTime.Today;
+        switch (preset)
+        {
+            case "month":
+                periodStartValue = new DateTime(today.Year, today.Month, 1);
+                periodEndValue = today;
+                break;
+            case "30days":
+                periodStartValue = today.AddDays(-30);
+                periodEndValue = today;
+                break;
+            case "term":
+                periodStartValue = today.AddDays(-90);
+                periodEndValue = today;
+                break;
+            case "today":
+                periodStartValue = today;
+                periodEndValue = today;
+                break;
+        }
+        _ = LoadSchoolCashflowAsync();
+    }
+
+    private async Task LoadSchoolCashflowAsync()
+    {
+        isLoadingCashflow = true;
+        var startDate = periodStartValue.Date;
+        var endDate = periodEndValue.Date;
+
+        try
+        {
+            schoolCashflow = await FinanceService.GetCashflowSummaryAsync(startDate, endDate);
+            cashflowMovements = await FinanceService.GetCashflowMovementsAsync(startDate, endDate) ?? new();
+            cashflowLoaded = true;
+
+            // Build register rows from school movements
+            var rows = new List<RegisterRow>();
+            rows.AddRange(cashflowMovements.Select(m =>
+            {
+                bool isExpense = m.Type == "EXPENSE";
+                decimal amtUsd = m.AmountUsd;
+                decimal origAmt = m.OriginalAmount > 0 ? m.OriginalAmount : m.AmountUsd;
+                return new RegisterRow
+                {
+                    Source = isExpense ? "Expense" : "Other Income",
+                    Reference = m.TransactionReference ?? string.Empty,
+                    Method = m.PaymentMethod ?? "--",
+                    Description = m.Description ?? string.Empty,
+                    When = m.OccurredOn ?? string.Empty,
+                    Amount = isExpense ? -amtUsd : amtUsd,
+                    OriginalAmount = isExpense ? -origAmt : origAmt,
+                    OriginalCurrency = !string.IsNullOrWhiteSpace(m.OriginalCurrency) ? m.OriginalCurrency : (m.Currency ?? "USD")
+                };
+            }));
+
+            // Include student payments for the active register
+            if (activeTab == "register")
+            {
+                var paymentTasks = students.Select(async student =>
+                {
+                    try
+                    {
+                        var history = await FinanceService.GetPaymentHistoryAsync(student.Id) ?? new();
+                        return history
+                            .Where(p =>
+                            {
+                                if (cashflowMovements.Any(m => string.Equals(m.TransactionReference, p.PaymentReference, StringComparison.OrdinalIgnoreCase)))
+                                {
+                                    return false;
+                                }
+                                var when = ParseDate(p.Date);
+                                return when.HasValue && when.Value.Date >= startDate && when.Value.Date <= endDate;
+                            })
+                            .Select(payment =>
+                            {
+                                decimal amtUsd = payment.AmountUsd > 0 ? payment.AmountUsd : payment.Amount;
+                                decimal origAmt = payment.AmountPaid > 0 ? payment.AmountPaid : payment.Amount;
+                                string origCurr = !string.IsNullOrWhiteSpace(payment.PaidCurrency) ? payment.PaidCurrency : (payment.Currency ?? "USD");
+                                return new RegisterRow
+                                {
+                                    Source = "Student Fees",
+                                    Reference = payment.PaymentReference ?? string.Empty,
+                                    Method = payment.PaymentMethod ?? "--",
+                                    Description = $"{student.FirstName} {student.LastName}: {payment.Description}",
+                                    When = ParseDate(payment.Date)?.ToString("yyyy-MM-dd") ?? string.Empty,
+                                    Amount = amtUsd,
+                                    OriginalAmount = origAmt,
+                                    OriginalCurrency = origCurr
+                                };
+                            })
+                            .ToList();
+                    }
+                    catch
+                    {
+                        return new List<RegisterRow>();
+                    }
+                });
+
+                var paymentRows = await Task.WhenAll(paymentTasks);
+                rows.AddRange(paymentRows.SelectMany(r => r));
+            }
+
+            registerRows = rows;
+        }
+        catch (Exception ex)
+        {
+            loadError = $"Could not load cashflow data: {ex.Message}";
+        }
+        finally
+        {
+            isLoadingCashflow = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void OpenMovementModal(bool isIncome)
+    {
+        cashflowRequest = new CashFlowRequestDto
+        {
+            Type = isIncome ? "INCOME" : "EXPENSE",
+            Currency = "USD",
+            Category = string.Empty,
+            Description = string.Empty,
+            PaymentMethod = "CASH"
+        };
+        cashflowOccurredOnValue = DateTime.Today;
+        showMovementModal = true;
+    }
+
+    private async Task RecordCashflowAsync()
+    {
+        if (cashflowRequest.Amount <= 0)
+        {
+            NotificationService.ShowError("Enter an amount greater than zero.");
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(cashflowRequest.Category))
+        {
+            NotificationService.ShowError("Please select a category.");
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(cashflowRequest.PaymentMethod))
+        {
+            NotificationService.ShowError("Please select a payment method.");
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(cashflowRequest.Description))
+        {
+            NotificationService.ShowError("Please add a description.");
+            return;
+        }
+
+        isSavingCashflow = true;
+        try
+        {
+            cashflowRequest.OccurredOn = cashflowOccurredOnValue.ToString("yyyy-MM-dd");
+            await FinanceService.RecordCashflowMovementAsync(cashflowRequest);
+            showMovementModal = false;
+            NotificationService.ShowSuccess("Movement recorded successfully.");
+            await LoadSchoolCashflowAsync();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.ShowError($"Could not record movement: {ex.Message}");
+        }
+        finally
+        {
+            isSavingCashflow = false;
+        }
+    }
+
+    private async Task IssueRefundAsync()
+    {
+        if (string.IsNullOrWhiteSpace(refundPaymentReference) || string.IsNullOrWhiteSpace(refundReason))
+        {
+            NotificationService.ShowError("Payment reference and refund reason are required.");
+            return;
+        }
+
+        isRefunding = true;
+        try
+        {
+            await FinanceService.RefundPaymentAsync(refundPaymentReference.Trim(), new PaymentRefundRequestDto
+            {
+                Reason = refundReason.Trim(),
+                PaymentMethod = string.IsNullOrWhiteSpace(refundPaymentMethod) ? null : refundPaymentMethod
+            });
+            showRefundModal = false;
+            refundPaymentReference = string.Empty;
+            refundReason = string.Empty;
+            refundPaymentMethod = string.Empty;
+            NotificationService.ShowSuccess("Refund issued and cashbook updated.");
+            await LoadSchoolCashflowAsync();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.ShowError($"Could not issue refund: {ex.Message}");
+        }
+        finally
+        {
+            isRefunding = false;
+        }
+    }
+
+    private static decimal ExtractDecimal(Dictionary<string, object>? source, string key)
+    {
+        if (source is null || !source.TryGetValue(key, out var value) || value is null)
+        {
+            return 0;
+        }
+
+        if (value is JsonElement element)
+        {
+            if (element.ValueKind == JsonValueKind.Number && element.TryGetDecimal(out var decimalValue))
+            {
+                return decimalValue;
+            }
+
+            if (element.ValueKind == JsonValueKind.String && decimal.TryParse(element.GetString(), out var stringValue))
+            {
+                return stringValue;
+            }
+        }
+
+        return decimal.TryParse(value.ToString(), out var parsed) ? parsed : 0;
+    }
+
+    private static DateTime? ParseDate(string? raw)
+    {
+        return DateTime.TryParse(raw, out var parsed) ? parsed : null;
+    }
+
+    private async Task PrintDocument()
+    {
+        await JSRuntime.InvokeVoidAsync("window.print");
+    }
+
+    private static List<StudentStatementRow> BuildStudentStatementRows(FinancialStatementDto? statement, List<PaymentRecord> payments)
+    {
+        var rows = new List<StudentStatementRow>();
+        var runningBalance = 0m;
+        var totalCharged = ExtractDecimal(statement?.AccountSummary, "totalCharged");
+
+        if (totalCharged > 0)
+        {
+            runningBalance += totalCharged;
+            rows.Add(new StudentStatementRow
+            {
+                When = ParseDate(statement?.GeneratedAt) ?? DateTime.Today,
+                Reference = "BILLING",
+                Description = "Total charges posted to account",
+                Charge = totalCharged,
+                Paid = 0,
+                RunningBalance = runningBalance,
+                Status = "Fees billed"
+            });
+        }
+
+        foreach (var payment in payments
+                     .OrderBy(p => ParseDate(p.Date) ?? DateTime.Today)
+                     .ThenBy(p => p.PaymentReference))
+        {
+            var paidAmount = payment.AmountUsd > 0 ? payment.AmountUsd : payment.Amount;
+            runningBalance -= paidAmount;
+
+            rows.Add(new StudentStatementRow
+            {
+                When = ParseDate(payment.Date) ?? DateTime.Today,
+                Reference = payment.PaymentReference ?? string.Empty,
+                Description = payment.Description ?? "Payment",
+                Charge = 0,
+                Paid = paidAmount,
+                RunningBalance = runningBalance,
+                Status = payment.IsConfirmed ? "Payment received" : (payment.Status ?? string.Empty)
+            });
+        }
+
+        return rows;
+    }
+
+    private static string FormatMoneyOrDash(decimal amount)
+    {
+        return amount == 0 ? "--" : amount.ToString("C");
+    }
+
+    private static string FormatBalance(decimal amount)
+    {
+        if (amount > 0) return $"Amount due {amount:C}";
+        if (amount < 0) return $"Advance credit {Math.Abs(amount):C}";
+        return "Settled";
+    }
+
+    private static bool MatchesStudentSearch(StudentProfileModel.Student student, string term)
+    {
+        var query = term.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return true;
+        }
+
+        return BuildStudentDisplayName(student).ToLowerInvariant().Contains(query)
+            || student.Id.ToString().Contains(query)
+            || (student.Classroom?.ToLowerInvariant().Contains(query) ?? false);
+    }
+
+    private static string FormatClassroom(int? form, string? classroom)
+    {
+        if (form.HasValue && !string.IsNullOrWhiteSpace(classroom))
+        {
+            if (classroom.StartsWith("Form", StringComparison.OrdinalIgnoreCase))
+            {
+                return classroom;
+            }
+            return $"Form {form} {classroom}";
+        }
+        if (form.HasValue) return $"Form {form}";
+        return classroom ?? string.Empty;
+    }
+
+    private static string BuildStudentDisplayName(StudentProfileModel.Student student)
+    {
+        return $"{student.LastName}, {student.FirstName} ({FormatClassroom(student.Form, student.Classroom)})";
+    }
+
+    private Dictionary<string, decimal> GetCurrencyTotals()
+    {
+        var rows = registerRows.AsEnumerable();
+        if (registerFilterMode == "noncash")
+        {
+            rows = rows.Where(r => r.Method != "CASH");
+        }
+
+        return rows
+            .GroupBy(r => r.OriginalCurrency)
+            .ToDictionary(g => g.Key, g => g.Sum(r => r.OriginalAmount));
+    }
+
+    private static string FormatCurrencyValue(string currency, decimal val)
+    {
+        if (currency == "USD") return val.ToString("C");
+        if (currency == "ZIG") return $"ZIG {val:N2}";
+        if (currency == "ZAR") return $"R {val:N2}";
+        return $"{currency} {val:N2}";
+    }
+}

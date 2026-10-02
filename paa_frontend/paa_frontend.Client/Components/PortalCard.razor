@@ -1,0 +1,18 @@
+<a href="@Href" class="group rounded-2xl border p-3 transition hover:-translate-y-0.5 hover:shadow-md @(Dark ? "border-white/10 bg-white/5 hover:bg-white/10" : "border-slate-100 bg-slate-50 hover:bg-white")">
+    <div class="flex items-start gap-2.5">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-sm font-black @(Dark ? "bg-white/10 text-" + Tone + "-300" : "bg-" + Tone + "-100 text-" + Tone + "-700")">@Icon</span>
+        <span class="min-w-0">
+            <span class="block truncate text-xs font-black @(Dark ? "text-white" : "text-slate-800")">@Title</span>
+            <span class="mt-0.5 block truncate text-[0.65rem] font-semibold @(Dark ? "text-slate-400" : "text-slate-500")">@Detail</span>
+        </span>
+    </div>
+</a>
+
+@code {
+    [Parameter] public string Href { get; set; } = "#";
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string Detail { get; set; } = string.Empty;
+    [Parameter] public string Icon { get; set; } = "•";
+    [Parameter] public string Tone { get; set; } = "slate";
+    [Parameter] public bool Dark { get; set; }
+}

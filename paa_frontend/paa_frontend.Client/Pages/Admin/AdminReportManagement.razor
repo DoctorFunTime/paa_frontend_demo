@@ -1,0 +1,2008 @@
+@page "/admin/grades/reports"
+@namespace paa_frontend.Client.Pages.Admin
+@layout paa_frontend.Client.Layout.AdminPortalLayout
+@using paa_frontend.Client.Services.Admin
+@using paa_frontend.Client.Services.StaffPortal
+@using paa_frontend.Shared.Models
+@using static paa_frontend.Shared.Models.StudentProfileModel
+@inject AdminGradesServiceClient AdminGradesService
+@inject StudentProfileServiceClient StudentProfileService
+@inject OlevelClassServiceClient OlevelClassService
+@inject AssessmentServiceClient AssessmentService
+@inject NavigationManager Nav
+
+
+<style>
+    .hub-nav-link {
+        padding: 0.75rem 1.25rem;
+        font-weight: 700;
+        font-size: 0.875rem;
+        color: #64748b;
+        border-bottom: 2px solid transparent;
+        transition: all 0.15s ease-in-out;
+        text-decoration: none;
+    }
+    .hub-nav-link.active {
+        color: #059669;
+        border-bottom-color: #059669;
+    }
+    .hub-nav-link:hover {
+        color: #047857;
+    }
+    .hub-nav {
+        min-width: 0;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+    .hub-nav::-webkit-scrollbar { display: none; }
+    
+    .rm-hero {
+        background: linear-gradient(135deg, #064e3b 0%, #065f46 45%, #047857 100%);
+        border-radius: 1.5rem;
+        padding: 1.75rem 2rem;
+        color: #fff;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    .rm-hero::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at 80% 50%, rgba(255,255,255,0.06) 0%, transparent 60%);
+        border-radius: inherit;
+    }
+
+    .metric-chip {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 1rem;
+        padding: 0.75rem 1.25rem;
+        backdrop-filter: blur(12px);
+        min-width: 130px;
+    }
+
+    .card {
+        background: #fff;
+        border-radius: 1.25rem;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        overflow: hidden;
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .btn-approve {
+        padding: 0.5rem 1rem;
+        background: #047857;
+        color: #fff;
+        border: none;
+        border-radius: 0.6rem;
+        font-size: 0.8rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s ease-in-out;
+    }
+    .btn-approve:hover:not(:disabled) {
+        background: #065f46;
+        transform: translateY(-1px);
+    }
+    .btn-approve:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .btn-view {
+        padding: 0.5rem 0.875rem;
+        background: #fff;
+        color: #475569;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.6rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s ease-in-out;
+    }
+    .btn-view:hover:not(:disabled) {
+        background: #f8fafc;
+        color: #1e293b;
+    }
+
+    .btn-regenerate {
+        padding: 0.5rem 1rem;
+        background: #d97706;
+        color: #fff;
+        border: none;
+        border-radius: 0.6rem;
+        font-size: 0.8rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s ease-in-out;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        white-space: nowrap;
+    }
+    .btn-regenerate:hover:not(:disabled) {
+        background: #b45309;
+        transform: translateY(-1px);
+    }
+    .btn-regenerate:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .btn-regenerate-outline {
+        padding: 0.4rem 0.75rem;
+        background: #fff;
+        color: #b45309;
+        border: 1px solid #fde68a;
+        border-radius: 0.6rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s ease-in-out;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        white-space: nowrap;
+    }
+    .btn-regenerate-outline:hover:not(:disabled) {
+        background: #fffbeb;
+        border-color: #f59e0b;
+        color: #92400e;
+    }
+    .btn-regenerate-outline:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .search-input {
+        padding: 0.6rem 1rem;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 0.75rem;
+        font-size: 0.875rem;
+        outline: none;
+        transition: border-color 0.15s;
+        background: #fff;
+    }
+    .search-input:focus {
+        border-color: #047857;
+    }
+
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.68rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .badge-pending { background: #fef9c3; color: #854d0e; }
+    .badge-approved { background: #dcfce7; color: #166534; }
+    .badge-fail { background: #fee2e2; color: #b91c1c; }
+    .badge-warn { background: #fffbeb; color: #d97706; }
+    
+    .status-tab-btn {
+        padding: 1rem 1.25rem;
+        font-weight: 800;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-bottom: 2px solid transparent;
+        transition: all 0.15s ease-in-out;
+        white-space: nowrap;
+        background: transparent;
+        border-top: none;
+        border-left: none;
+        border-right: none;
+        cursor: pointer;
+    }
+
+    .table-wrap {
+        overflow-x: auto;
+        min-width: 0;
+        max-width: 100%;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    thead th {
+        padding: 0.875rem 1.25rem;
+        font-size: 0.75rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        text-align: left;
+    }
+    tbody td {
+        padding: 1rem 1.25rem;
+        font-size: 0.875rem;
+        color: #334155;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+    }
+    tbody tr:hover {
+        background: rgba(16, 185, 129, 0.02);
+    }
+
+    /* Modal Styling */
+    .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+        z-index: 999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+    }
+    .modal {
+        background: #fff;
+        border-radius: 1.5rem;
+        width: 100%;
+        max-width: 780px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        display: flex;
+        flex-direction: column;
+    }
+    .modal-header {
+        padding: 1.5rem 1.75rem;
+        border-bottom: 1px solid #f1f5f9;
+        position: sticky;
+        top: 0;
+        background: #fff;
+        z-index: 10;
+    }
+    .modal-body {
+        padding: 1.5rem 1.75rem;
+        overflow-y: auto;
+        flex: 1;
+    }
+    .modal-footer {
+        padding: 1.25rem 1.75rem;
+        border-top: 1px solid #f1f5f9;
+        display: flex;
+        gap: 0.75rem;
+        justify-content: flex-end;
+        position: sticky;
+        bottom: 0;
+        background: #fff;
+        z-index: 10;
+    }
+
+    .subject-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 1rem;
+        border-radius: 0.75rem;
+        background: #f8fafc;
+        margin-bottom: 0.5rem;
+        border: 1px solid #f1f5f9;
+    }
+    .detail-tab-row {
+        display: flex;
+        border-bottom: 2px solid #e2e8f0;
+        margin-bottom: 1.25rem;
+    }
+    .detail-tab {
+        padding: 0.6rem 1.2rem;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #64748b;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        transition: all 0.15s;
+    }
+    .detail-tab.active {
+        color: #047857;
+        border-bottom-color: #047857;
+    }
+    .detail-tab:hover {
+        color: #1e293b;
+    }
+    .mark-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.6rem;
+        border-radius: 0.5rem;
+        font-size: 0.8rem;
+        font-weight: 700;
+        font-family: monospace;
+        margin: 0.15rem;
+    }
+    .weight-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.2rem 0.55rem;
+        border-radius: 9999px;
+        font-size: 0.65rem;
+        font-weight: 800;
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    @@media (max-width: 640px) {
+        .card, .rm-hero, .flex, .grid > * {
+            min-width: 0;
+            max-width: 100%;
+        }
+        .rm-hero .flex {
+            flex-wrap: wrap;
+        }
+        .hub-nav-link {
+            padding: 0.65rem 0.75rem;
+            font-size: 0.72rem;
+            white-space: nowrap;
+        }
+        .rm-hero {
+            padding: 1.25rem 1rem;
+            border-radius: 1rem;
+            margin-bottom: 1rem;
+        }
+        .rm-hero h1 {
+            font-size: 1.5rem;
+            line-height: 1.2;
+        }
+        .metric-chip {
+            flex: 1 1 calc(50% - 0.5rem);
+            min-width: 0;
+            padding: 0.65rem 0.5rem;
+        }
+        .card {
+            border-radius: 0.85rem;
+        }
+        .search-input {
+            width: 100% !important;
+            min-width: 0 !important;
+        }
+        .table-wrap {
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+        }
+        .table-wrap table {
+            min-width: 940px;
+        }
+        .table-wrap thead th,
+        .table-wrap tbody td {
+            padding: 0.7rem 0.75rem;
+        }
+        .status-tab-btn {
+            padding: 0.8rem 0.75rem;
+            font-size: 0.68rem;
+        }
+        .modal-backdrop {
+            padding: 0.5rem;
+            align-items: flex-end;
+        }
+        .modal {
+            max-height: calc(100vh - 1rem);
+            border-radius: 1rem;
+        }
+        .modal-header,
+        .modal-body,
+        .modal-footer {
+            padding: 1rem;
+        }
+        .modal-footer {
+            flex-direction: column-reverse;
+        }
+        .modal-footer button {
+            width: 100%;
+        }
+        .subject-row {
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+    }
+</style>
+
+<!-- Grades Hub Navigation Header -->
+<div class="hub-nav flex border-b border-slate-200 mb-6 gap-2">
+    <a href="/admin/grades/approval" class="hub-nav-link">
+        1. Marks Review &amp; Generation
+    </a>
+    <a href="/admin/grades/reports" class="hub-nav-link active">
+        2. Report Approval Queue
+    </a>
+</div>
+
+<!-- Hero Section -->
+<div class="rm-hero shadow-lg mb-6">
+    <div class="relative z-10">
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div>
+                <span class="inline-block px-3 py-1 rounded-full bg-white/20 text-white text-[length:0.65rem] font-extrabold uppercase tracking-widest mb-3 border border-white/20">
+                    Admin Portal
+                </span>
+                <h1 class="text-3xl font-black tracking-tight mb-2 text-white">Report Approval Queue</h1>
+                <p class="text-white/80 text-sm font-medium max-w-lg">
+                    Review generated report cards and release them to student accounts. Approved cards are instantly downloadable by students and parents.
+                </p>
+            </div>
+            
+            <div class="flex gap-3 flex-wrap">
+                <div class="metric-chip text-center">
+                    <div class="text-white/70 text-[length:0.6rem] font-bold uppercase tracking-wider mb-1">Ready for Approval</div>
+                    <div class="text-2xl font-black">@allLoadedCards.Count(IsReadyForApproval)</div>
+                    <div class="text-white/60 text-[length:0.55rem] mt-0.5">
+                        @if (allLoadedCards.Any(IsReadyForApproval))
+                        {
+                            @($"avg {allLoadedCards.Where(IsReadyForApproval).Average(CardAverage):F0}% class mark")
+                        }
+                        else { @("none ready") }
+                    </div>
+                </div>
+                <div class="metric-chip text-center">
+                    <div class="text-white/70 text-[length:0.6rem] font-bold uppercase tracking-wider mb-1">Needs Attention</div>
+                    <div class="text-2xl font-black">@allLoadedCards.Count(IsPendingReview)</div>
+                    <div class="text-white/60 text-[length:0.55rem] mt-0.5">Incomplete or not submitted</div>
+                </div>
+                <div class="metric-chip text-center">
+                    <div class="text-white/70 text-[length:0.6rem] font-bold uppercase tracking-wider mb-1">Approved This Session</div>
+                    <div class="text-2xl font-black">@approvedToday</div>
+                    <div class="text-white/60 text-[length:0.55rem] mt-0.5">Released to students</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(statusMsg))
+{
+    <div class="mb-6 p-4 rounded-2xl text-sm font-bold border @(statusError ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-emerald-50 text-emerald-700 border-emerald-200")">
+        <div class="flex items-center gap-2">
+            @if (statusError)
+            {
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            }
+            else
+            {
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            }
+            <span>@statusMsg</span>
+        </div>
+    </div>
+}
+
+<div class="card mb-6">
+    <!-- Filter bar -->
+    <div class="bg-slate-50 border-b border-slate-200 p-4 flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-4">
+        
+        <div class="flex flex-wrap items-center gap-3">
+            <select class="search-input" style="min-width:160px;" @bind="filterLevel" @bind:after="OnFilterChangedAsync">
+                <option value="">All Levels</option>
+                <option value="form1to4">Forms 1–4</option>
+                <option value="olevel">O-Level (Form 3 &amp; 4)</option>
+                <option value="alevel">A-Level (Form 5 &amp; 6)</option>
+            </select>
+
+            <select class="search-input" style="min-width:170px;" @bind="filterClass" @bind:after="OnFilterChangedAsync">
+                <option value="">All Classes</option>
+                @foreach (var className in AvailableClasses)
+                {
+                    <option value="@className">@className</option>
+                }
+            </select>
+            
+            <select class="search-input" style="min-width:140px;" @bind="filterTerm" @bind:after="OnFilterChangedAsync">
+                <option value="">All Terms</option>
+                <option value="Term 1">Term 1</option>
+                <option value="Term 2">Term 2</option>
+                <option value="Term 3">Term 3</option>
+            </select>
+            
+            <input class="search-input" style="width:100px;" type="number" @bind="filterYear" @bind:after="OnFilterChangedAsync" placeholder="Year" />
+
+            <button class="btn-view" @onclick="LoadDataAsync" disabled="@isLoading">
+                @if (isLoading)
+                {
+                    <svg class="inline w-3 h-3 animate-spin mr-1 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>
+                }
+                Refresh Cards
+            </button>
+
+            <button class="btn-regenerate" @onclick="PromptRegenerateAll" disabled="@(isLoading || isRegenerating || !FilteredCards.Any())" title="Delete existing generated reports and regenerate fresh ones to await approval">
+                @if (isRegenerating && regenTargetMode == RegenMode.All)
+                {
+                    <svg class="inline w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>
+                    <span>Regenerating (@regenProgressCurrent/@regenProgressTotal)...</span>
+                }
+                else
+                {
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+                    <span>Regenerate All (@FilteredCards.Count) Reports</span>
+                }
+            </button>
+        </div>
+
+        <div class="flex items-center gap-2 max-w-sm">
+            <svg class="text-slate-400 shrink-0 ml-1" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input class="form-control search-input" type="text" placeholder="Search by student name..."
+                   @bind="searchTerm" @bind:event="oninput" />
+        </div>
+    </div>
+
+    <!-- Mutually exclusive queues: ready, incomplete/pending, and approved -->
+    <div class="flex border-b border-slate-200 overflow-x-auto flex-nowrap bg-white">
+        <button class="status-tab-btn @(activeTab == "ready" ? "border-emerald-600 text-emerald-600" : "border-transparent text-slate-500 hover:text-slate-900")"
+                @onclick='() => { activeTab = "ready"; selectedIds.Clear(); }'>
+            Ready for Approval (@FilteredCards.Count(IsReadyForApproval))
+        </button>
+        <button class="status-tab-btn @(activeTab == "pending" ? "border-emerald-600 text-emerald-600" : "border-transparent text-slate-500 hover:text-slate-900")"
+                @onclick='() => { activeTab = "pending"; selectedIds.Clear(); }'>
+            Pending / Needs Attention (@FilteredCards.Count(IsPendingReview))
+        </button>
+        <button class="status-tab-btn @(activeTab == "approved" ? "border-emerald-600 text-emerald-600" : "border-transparent text-slate-500 hover:text-slate-900")"
+                @onclick="ShowApprovedQueueAsync">
+            Approved &amp; Released (@FilteredCards.Count(c => c.AdminApproved))
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="p-16 text-center">
+            <svg class="mx-auto mb-4 animate-spin text-emerald-600" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>
+            <h4 class="text-base font-extrabold text-slate-900">Loading report cards...</h4>
+            <p class="text-xs text-slate-500 mt-1">Retrieving draft and approved documents from the server.</p>
+        </div>
+    }
+    else
+    {
+        var displayCards = FilteredCards.Where(c => activeTab switch
+        {
+            "ready" => IsReadyForApproval(c),
+            "pending" => IsPendingReview(c),
+            "approved" => c.AdminApproved,
+            _ => false
+        }).ToList();
+        
+        if (!displayCards.Any())
+        {
+            <div class="p-16 text-center text-slate-400">
+                <svg class="mx-auto mb-4" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <h4 class="text-base font-bold text-slate-700">No Report Cards Found</h4>
+                <p class="text-xs text-slate-400 mt-1">
+                    @(activeTab == "ready" ? "No complete, submitted reports are ready for approval." : activeTab == "pending" ? "No incomplete or unsubmitted reports need attention." : "No approved report cards found matching the criteria.")
+                </p>
+            </div>
+        }
+        else
+        {
+            <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="selectAll" class="w-4 h-4 rounded text-emerald-600 border-slate-300 focus:ring-emerald-500"
+                           checked="@(displayCards.Any() && displayCards.All(c => selectedIds.Contains(c.Id ?? 0)))"
+                           @onchange="@(e => ToggleSelectAll((bool)e.Value!, displayCards))" />
+                    <label for="selectAll" class="text-xs font-bold text-slate-700 uppercase tracking-wider cursor-pointer">
+                        Select All @(activeTab == "ready" ? "Ready" : activeTab == "pending" ? "Pending" : "Approved") (@displayCards.Count)
+                    </label>
+                </div>
+                
+                @if (selectedIds.Any())
+                {
+                    <div class="flex items-center gap-2 flex-wrap">
+                        @if (activeTab == "ready")
+                        {
+                            <button class="btn-approve !py-1.5 !px-4 !text-xs shadow-sm flex items-center gap-1.5"
+                                    disabled="@(isBulkApproving || isRegenerating)"
+                                    @onclick="ApproveSelectedAsync">
+                                @if (isBulkApproving)
+                                {
+                                    <svg class="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>
+                                    <span>Approving...</span>
+                                }
+                                else
+                                {
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                    <span>Approve @selectedIds.Count Selected</span>
+                                }
+                            </button>
+                        }
+
+                        <button class="btn-regenerate !py-1.5 !px-4 !text-xs shadow-sm flex items-center gap-1.5"
+                                disabled="@(isBulkApproving || isRegenerating)"
+                                title="Delete selected reports and regenerate anew to await approval"
+                                @onclick="PromptRegenerateSelected">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+                            <span>Regenerate @selectedIds.Count Selected</span>
+                        </button>
+                    </div>
+                }
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;"></th>
+                            <th>Student</th>
+                            <th>Term / Year</th>
+                            <th>Subjects</th>
+                            <th>Average</th>
+                            <th>Failing</th>
+                            <th>Remarks</th>
+                            <th>Subject Comments</th>
+                            <th>Status</th>
+                            <th style="text-align:right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var card in displayCards)
+                        {
+                            var average = CardAverage(card);
+                            var fails = FailedSubjectCount(card);
+                            var isHighRisk = average < 50 || fails > 0;
+                            var missingComments = string.IsNullOrWhiteSpace(card.OverallComments);
+                            var missingSubjectComments = MissingSubjectCommentCount(card);
+
+                            <tr>
+                                <td>
+                                    <input type="checkbox" class="w-4 h-4 rounded text-emerald-600 border-slate-300 focus:ring-emerald-500"
+                                           checked="@(selectedIds.Contains(card.Id ?? 0))"
+                                           @onchange="@(_ => ToggleCardSelect(card.Id ?? 0))" />
+                                </td>
+                                <td>
+                                    <div class="font-bold text-slate-900 leading-tight">@GetStudentName(card.StudentId)</div>
+                                    <div class="text-xs text-slate-400 mt-0.5">Form @card.StudentForm @card.StudentClass &bull; ID #@card.StudentId</div>
+                                </td>
+                                <td>
+                                    <span class="font-semibold text-slate-700">@card.Term @card.TermYear</span>
+                                </td>
+                                <td>
+                                    <span class="badge" style="background:#ede9fe;color:#5b21b6;">@(card.Subjects?.Count ?? 0) subjects</span>
+                                </td>
+                                <td>
+                                    <span class="font-mono font-bold text-sm" style="color:@(average >= 50 ? "#16a34a" : "#dc2626")">
+                                        @average.ToString("F1")%
+                                    </span>
+                                </td>
+                                <td>
+                                    @if (fails > 0)
+                                    {
+                                        <span class="badge badge-fail">@fails Fails</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-approved">0 Fails</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (missingComments)
+                                    {
+                                        <span class="badge badge-warn">No overall comment</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-approved" title="@card.OverallComments">Overall comment present</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (missingSubjectComments == 0 && card.Subjects?.Any() == true)
+                                    {
+                                        <span class="badge badge-approved">Subject comments present</span>
+                                    }
+                                    else if (card.Subjects?.Any() != true)
+                                    {
+                                        <span class="badge badge-warn">No subjects</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-warn">@missingSubjectComments missing</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (card.AdminApproved)
+                                    {
+                                        <span class="badge badge-approved">✓ Approved</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-pending">⏳ Draft</span>
+                                    }
+                                </td>
+                                <td style="text-align:right;">
+                                    <div class="flex gap-2 justify-end items-center">
+                                        <button class="btn-view" @onclick="() => OpenDetail(card)">View Details</button>
+                                        <button class="btn-regenerate-outline"
+                                                disabled="@(regeneratingId == card.Id || isRegenerating)"
+                                                title="Delete this report and regenerate anew to await approval"
+                                                @onclick="() => PromptRegenerateSingle(card)">
+                                            @if (regeneratingId == card.Id)
+                                            {
+                                                <svg class="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>
+                                                <span>...</span>
+                                            }
+                                            else
+                                            {
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+                                                <span>Regenerate</span>
+                                            }
+                                        </button>
+                                        @if (!card.AdminApproved)
+                                        {
+                                            <button class="btn-approve"
+                                                    disabled="@(approvingId == card.Id || !IsReadyForApproval(card) || isRegenerating)"
+                                                    title="@(IsReadyForApproval(card) ? "Approve this report" : GetPendingReason(card))"
+                                                    @onclick="() => ApproveAsync(card)">
+                                                @(approvingId == card.Id ? "⏳" : IsReadyForApproval(card) ? "Approve" : "Pending")
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+</div>
+
+<!-- Detail Modal -->
+@if (selectedCard != null)
+{
+    <div class="modal-backdrop" @onclick="CloseDetail">
+        <div class="modal" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <div class="text-xl font-black text-slate-900">@GetStudentName(selectedCard.StudentId)</div>
+                        @{ var modalCwPct = ((selectedCard.CourseworkWeight ?? 0.3) * 100).ToString("F0"); }
+                        <div class="text-xs text-slate-500 mt-1 font-semibold">
+                            Form @selectedCard.StudentForm @selectedCard.StudentClass &bull; @selectedCard.Term @selectedCard.TermYear &bull; Coursework Weight: @modalCwPct%
+                        </div>
+                    </div>
+                    <button @onclick="CloseDetail" style="padding: 0.5rem; border-radius: 0.5rem; border: none; background: #f1f5f9; cursor: pointer; color: #64748b;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+                
+                <!-- Overall Comments Callout -->
+                <div class="mt-3.5 p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <div class="text-[length:0.65rem] font-bold text-slate-400 uppercase tracking-wider mb-1">Overall Comment</div>
+                    @if (!string.IsNullOrEmpty(selectedCard.OverallComments))
+                    {
+                        <p class="text-sm text-slate-700 italic font-medium">"@selectedCard.OverallComments"</p>
+                    }
+                    else
+                    {
+                        <p class="text-xs text-rose-500 font-bold">⚠️ No overall comments have been written for this report card yet.</p>
+                    }
+                </div>
+
+                <div class="mt-2 p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <div class="text-[length:0.65rem] font-bold text-slate-400 uppercase tracking-wider mb-1">Subject Comments</div>
+                    <p class="text-xs font-bold @(MissingSubjectCommentCount(selectedCard) == 0 && selectedCard.Subjects?.Any() == true ? "text-emerald-700" : "text-rose-500")">
+                        @SubjectCommentStatus(selectedCard)
+                    </p>
+                </div>
+
+                <!-- Tabs -->
+                <div class="detail-tab-row mt-4">
+                    <button class="detail-tab @(detailTab=="summary"?"active":"")" @onclick='()=>detailTab="summary"'>Subject Breakdown</button>
+                    <button class="detail-tab @(detailTab=="detailed"?"active":"")" @onclick="ShowDetailedMarks">Detailed Marks Source</button>
+                </div>
+            </div>
+            
+            <div class="modal-body">
+                @if (detailTab == "summary")
+                {
+                    <div class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Academic Performance</div>
+                    @if (selectedCard.Subjects?.Any() == true)
+                    {
+                        @foreach (var sub in selectedCard.Subjects)
+                        {
+                            var grade = GradeHelper.ToGrade(sub.FinalMark);
+                            var isFailing = sub.FinalMark < 50;
+                            <div class="subject-row">
+                                <div>
+                                    <div class="text-sm font-bold text-slate-900">@sub.SubjectName</div>
+                                    <div class="text-xs text-slate-500 mt-0.5 font-semibold">
+                                        CW mark: <span class="font-mono">@sub.CourseworkMark.ToString("F1")%</span> &bull; Exam mark: <span class="font-mono">@sub.ExamMark.ToString("F1")%</span>
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(sub.Comments))
+                                    {
+                                        <div class="text-xs text-emerald-800 italic mt-1 font-medium bg-emerald-50/50 p-1.5 rounded-lg">"@sub.Comments"</div>
+                                    }
+                                    else
+                                    {
+                                        <div class="text-xs text-rose-500 italic mt-1 font-semibold">No subject comment recorded.</div>
+                                    }
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-base font-black font-mono" style="color:@(isFailing ? "#dc2626" : "#10b981")">@sub.FinalMark.ToString("F1")%</div>
+                                    <div class="text-xs font-extrabold" style="color:@(isFailing ? "#dc2626" : "#10b981")">Grade @grade</div>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-sm text-slate-400 text-center py-6">No subject grades recorded in this draft.</p>
+                    }
+                }
+                else if (detailTab == "detailed")
+                {
+                    @if (isLoadingDetail)
+                    {
+                        <div style="padding:2rem;text-align:center;">
+                            <svg class="mx-auto mb-3 animate-spin text-emerald-600" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>
+                            <div class="text-sm text-slate-500 font-medium">Fetching original student marks...</div>
+                        </div>
+                    }
+                    else if (cwMarks == null && examMarks == null)
+                    {
+                        <div style="padding:2rem;text-align:center;">
+                            <p class="text-sm text-slate-400">Could not retrieve detailed teacher entries.</p>
+                            <button class="btn-approve mt-2" @onclick="LoadDetailedMarksAsync">Retry Fetch</button>
+                        </div>
+                    }
+                    else
+                    {
+                        var cwW = (selectedCard.CourseworkWeight ?? 0.3) * 100;
+                        var exW = (1 - (selectedCard.CourseworkWeight ?? 0.3)) * 100;
+
+                        <div style="display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;border-radius:.75rem;background:#ecfdf5;border:1px solid #a7f3d0;margin-bottom:1.25rem;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                            <span class="text-xs font-bold text-emerald-700">Coursework Weight: @cwW.ToString("F0")% &bull; Exam Weight: @exW.ToString("F0")%</span>
+                        </div>
+
+                        @if (cwMarks?.CourseMarks?.Any() == true)
+                        {
+                            <div class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Coursework Submissions</div>
+                            @foreach (var kv in cwMarks.CourseMarks)
+                            {
+                                <div class="mb-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                    <div class="flex items-center justify-between gap-2 mb-2">
+                                        <span class="text-sm font-extrabold text-slate-900">@kv.Key</span>
+                                        <span class="weight-badge">@kv.Value.Count assignments/tests</span>
+                                    </div>
+                                    <div class="flex flex-wrap gap-1">
+                                        @for (int i = 0; i < kv.Value.Count; i++)
+                                        {
+                                            var entry = kv.Value[i];
+                                            double pct = entry.PercentageScore;
+                                            <span class="mark-chip" style="background:@(pct >= 50 ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)");color:@(pct >= 50 ? "#059669" : "#dc2626")">
+                                                Score @(i + 1): @pct.ToString("F1")% (@entry.ActualMark / @entry.MaxScore pts)
+                                            </span>
+                                        }
+                                    </div>
+                                    <div class="text-xs font-bold text-slate-400 mt-2 font-mono">
+                                        Coursework Average: @kv.Value.Average(e => e.PercentageScore).ToString("F1")%
+                                    </div>
+                                </div>
+                            }
+                        }
+
+                        @if (examMarks?.MarksBySubject?.Any() == true)
+                        {
+                            <div class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3 mt-6">Exam Submissions</div>
+                            @foreach (var kv in examMarks.MarksBySubject)
+                            {
+                                <div class="mb-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                    <div class="text-sm font-extrabold text-slate-900 mb-2">@kv.Key</div>
+                                    @foreach (var em in kv.Value)
+                                    {
+                                        double emPct = em.Score ?? (em.MaxScore > 0 ? em.ActualMark / em.MaxScore * 100.0 : 0);
+                                        <div class="flex justify-between items-center bg-white p-2 rounded-lg border border-slate-100 mb-1">
+                                            <div class="text-xs font-semibold text-slate-700">@(em.ExamTitle ?? "Final Exam")</div>
+                                            <span class="mark-chip font-bold" style="background:@(emPct >= 50 ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)");color:@(emPct >= 50 ? "#059669" : "#dc2626")">
+                                                @emPct.ToString("F1")% (@em.ActualMark / @em.MaxScore)
+                                            </span>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        }
+
+                        @if (cwMarks?.CourseMarks?.Any() != true && examMarks?.MarksBySubject?.Any() != true)
+                        {
+                            <p class="text-sm text-slate-400 text-center py-6">No coursework or exam score details recorded for this term.</p>
+                        }
+                    }
+                }
+            </div>
+            
+            <div class="modal-footer">
+                <button class="btn-view" @onclick="CloseDetail">Close Review</button>
+                <button class="btn-regenerate-outline"
+                        disabled="@(regeneratingId == selectedCard.Id || isRegenerating)"
+                        title="Delete this report and regenerate anew to await approval"
+                        @onclick="() => PromptRegenerateSingle(selectedCard)">
+                    @if (regeneratingId == selectedCard.Id)
+                    {
+                        <svg class="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>
+                        <span>Regenerating...</span>
+                    }
+                    else
+                    {
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+                        <span>Regenerate Report</span>
+                    }
+                </button>
+                @if (!selectedCard.AdminApproved)
+                {
+                    <button class="btn-approve"
+                            disabled="@(approvingId == selectedCard.Id || !IsReadyForApproval(selectedCard) || isRegenerating)"
+                            title="@(IsReadyForApproval(selectedCard) ? "Approve this report" : GetPendingReason(selectedCard))"
+                            @onclick="() => ApproveAsync(selectedCard)">
+                        @(approvingId == selectedCard.Id ? "Approving…" : IsReadyForApproval(selectedCard) ? "Approve Report Card" : "Pending Review")
+                    </button>
+                }
+                else
+                {
+                    <span class="badge badge-approved" style="padding:0.6rem 1rem;font-size:0.8rem;">Approved &amp; Released</span>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Regenerate Confirmation & Progress Modal -->
+@if (showRegenModal)
+{
+    <div class="modal-backdrop" @onclick="() => { if (!isRegenerating) showRegenModal = false; }">
+        <div class="modal" style="max-width: 520px;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <div class="flex items-center gap-3">
+                    <div class="p-2.5 rounded-xl bg-amber-100 text-amber-700">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+                    </div>
+                    <div>
+                        <h4 class="text-lg font-black text-slate-900">
+                            @if (regenTargetMode == RegenMode.All)
+                            {
+                                <span>Regenerate All Reports</span>
+                            }
+                            else if (regenTargetMode == RegenMode.Selected)
+                            {
+                                <span>Regenerate Selected Reports</span>
+                            }
+                            else
+                            {
+                                <span>Regenerate Report Card</span>
+                            }
+                        </h4>
+                        <p class="text-xs text-slate-500 font-medium">Re-pull marks and regenerate reports to await approval</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-body">
+                @if (isRegenerating)
+                {
+                    <div class="py-6 text-center">
+                        <svg class="mx-auto mb-3 animate-spin text-amber-600" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>
+                        <h5 class="text-sm font-black text-slate-800">Regenerating Reports in Progress...</h5>
+                        <p class="text-xs text-slate-500 mt-1">Processing @regenProgressCurrent of @regenProgressTotal report card(s)</p>
+                        
+                        <div class="w-full bg-slate-100 rounded-full h-2.5 mt-4 overflow-hidden border border-slate-200">
+                            @{
+                                var pct = regenProgressTotal > 0 ? (regenProgressCurrent * 100 / regenProgressTotal) : 0;
+                            }
+                            <div class="bg-amber-500 h-2.5 rounded-full transition-all duration-300" style="width: @pct%"></div>
+                        </div>
+                        <p class="text-[length:0.65rem] text-slate-400 font-semibold mt-2">Please do not close or navigate away.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="space-y-3">
+                        @if (regenTargetMode == RegenMode.Single && singleRegenCard != null)
+                        {
+                            <p class="text-sm text-slate-700">
+                                You are about to regenerate the report card for <strong class="text-slate-900">@GetStudentName(singleRegenCard.StudentId)</strong> for <strong class="text-slate-900">@singleRegenCard.Term @singleRegenCard.TermYear</strong>.
+                            </p>
+                        }
+                        else if (regenTargetMode == RegenMode.Selected)
+                        {
+                            <p class="text-sm text-slate-700">
+                                You are about to regenerate <strong class="text-slate-900">@selectedIds.Count</strong> selected report card(s).
+                            </p>
+                        }
+                        else
+                        {
+                            <p class="text-sm text-slate-700">
+                                You are about to regenerate all <strong class="text-slate-900">@FilteredCards.Count</strong> report card(s) matching the current view.
+                            </p>
+                        }
+
+                        <div class="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs leading-relaxed space-y-1.5">
+                            <div class="font-extrabold flex items-center gap-1.5">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                                <span>How regeneration works:</span>
+                            </div>
+                            <ul class="list-disc pl-4 space-y-1 font-medium">
+                                <li>The existing report card will be deleted from the system.</li>
+                                <li>A fresh report card will be generated using the latest student marks and subject comments.</li>
+                                <li>The regenerated report card will await admin approval in the queue.</li>
+                            </ul>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-view" @onclick="() => showRegenModal = false" disabled="@isRegenerating">Cancel</button>
+                <button class="btn-regenerate shadow-sm"
+                        disabled="@isRegenerating"
+                        @onclick="ConfirmExecuteRegenAsync">
+                    @if (isRegenerating)
+                    {
+                        <svg class="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>
+                        <span>Regenerating...</span>
+                    }
+                    else
+                    {
+                        <span>Confirm &amp; Regenerate</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<ReportCardModel> allLoadedCards = new();
+    private List<Student> allStudents = new();
+    private Dictionary<long, string> studentNames = new();
+    private bool isLoading = true;
+    private long approvingId = 0;
+    private string statusMsg = "";
+    private bool statusError;
+    private string searchTerm = "";
+    private string filterLevel = "";
+    private string filterClass = "";
+    private string filterTerm = "";
+    private int? filterYear;
+    private ReportCardModel? selectedCard;
+    private int approvedToday = 0;
+    private string activeTab = "ready";
+    private List<string> AvailableClasses = new();
+
+    // Detail modal state
+    private string detailTab = "summary";
+    private bool isLoadingDetail = false;
+    private CourseworkMarksResponse? cwMarks;
+    private ExamMarksResponse? examMarks;
+
+    // Checkboxes selection
+    private HashSet<long> selectedIds = new();
+
+    // Regeneration state
+    private enum RegenMode { All, Selected, Single }
+    private bool showRegenModal = false;
+    private RegenMode regenTargetMode = RegenMode.All;
+    private ReportCardModel? singleRegenCard;
+    private bool isRegenerating = false;
+    private long regeneratingId = 0;
+    private int regenProgressCurrent = 0;
+    private int regenProgressTotal = 0;
+    private Dictionary<long, string> olevelFieldCache = new();
+
+    private List<ReportCardModel> FilteredCards => allLoadedCards
+        .Where(c =>
+            (string.IsNullOrEmpty(searchTerm) ||
+                GetStudentName(c.StudentId).Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(filterLevel) ||
+                LevelMatchesForm(c, filterLevel)) &&
+            (string.IsNullOrEmpty(filterClass) ||
+                string.Equals(GetStudentClass(c), filterClass, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(filterTerm) ||
+                string.Equals(c.Term, filterTerm, StringComparison.OrdinalIgnoreCase)) &&
+            (!filterYear.HasValue ||
+                c.TermYear == filterYear.Value))
+        .OrderBy(c => c.AdminApproved)
+        .ThenBy(c => string.IsNullOrWhiteSpace(c.OverallComments) ? 0 : 1)
+        .ThenByDescending(c => FailedSubjectCount(c))
+        .ThenBy(CardAverage)
+        .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        filterYear = DateTime.Now.Year;
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        statusMsg = "";
+        selectedIds.Clear();
+        StateHasChanged();
+        try
+        {
+            if (allStudents.Count == 0)
+            {
+                allStudents = await StudentProfileService.GetStudentsAsync() ?? new();
+                studentNames = allStudents.ToDictionary(s => (long)s.Id, s => $"{s.FirstName} {s.LastName}".Trim());
+                AvailableClasses = allStudents
+                    .Select(s => s.Classroom)
+                    .Where(c => !string.IsNullOrWhiteSpace(c))
+                    .Select(c => c!.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(c => c)
+                    .ToList();
+            }
+
+            if (activeTab == "approved" || !string.IsNullOrEmpty(filterLevel) || !string.IsNullOrEmpty(filterClass))
+            {
+                var scopedStudents = allStudents.AsEnumerable();
+                if (!string.IsNullOrEmpty(filterLevel))
+                    scopedStudents = scopedStudents.Where(s => FilterStudentsForLevel(new[] { s }, filterLevel).Any());
+                if (!string.IsNullOrEmpty(filterClass))
+                    scopedStudents = scopedStudents.Where(s => string.Equals(s.Classroom, filterClass, StringComparison.OrdinalIgnoreCase));
+
+                await LoadCardsForStudentsAsync(scopedStudents.ToList());
+            }
+            else
+            {
+                var pending = await AdminGradesService.GetPendingReportCardsAsync() ?? new();
+                allLoadedCards = pending;
+            }
+        }
+        catch
+        {
+            statusMsg = "Could not load report cards. Check API server connection.";
+            statusError = true;
+            allLoadedCards = new();
+        }
+        finally { isLoading = false; StateHasChanged(); }
+    }
+
+    private async Task OnFilterChangedAsync()
+    {
+        selectedIds.Clear();
+        await LoadDataAsync();
+    }
+
+    private async Task ShowApprovedQueueAsync()
+    {
+        activeTab = "approved";
+        selectedIds.Clear();
+        await LoadDataAsync();
+    }
+
+    private async Task LoadCardsForStudentsAsync(List<Student> students)
+    {
+        try
+        {
+            var pending = await AdminGradesService.GetPendingReportCardsAsync() ?? new();
+            var loaded = new List<ReportCardModel>(pending);
+
+            const int BatchSize = 10;
+            for (int i = 0; i < students.Count; i += BatchSize)
+            {
+                var batch = students.Skip(i).Take(BatchSize).ToList();
+                var tasks = batch.Select(async s =>
+                {
+                    try
+                    {
+                        return await AdminGradesService.GetStudentReportCardsAsync(s.Id);
+                    }
+                    catch { return null; }
+                });
+                var results = await Task.WhenAll(tasks);
+                foreach (var result in results)
+                {
+                    if (result != null)
+                    {
+                        foreach (var card in result)
+                        {
+                            if (!loaded.Any(c => c.Id == card.Id))
+                            {
+                                loaded.Add(card);
+                            }
+                        }
+                    }
+                }
+            }
+
+            allLoadedCards = loaded;
+        }
+        catch
+        {
+            allLoadedCards = new();
+        }
+    }
+
+    private async Task LoadDetailedMarksAsync()
+    {
+        if (selectedCard == null) return;
+        isLoadingDetail = true;
+        cwMarks = null;
+        examMarks = null;
+        StateHasChanged();
+
+        try
+        {
+            int termNum = selectedCard.Term?.Replace("Term ", "") switch
+            {
+                "1" => 1, "2" => 2, "3" => 3, _ => 1
+            };
+            int termYear = selectedCard.TermYear;
+            long studentId = selectedCard.StudentId;
+
+            string field = "default";
+            var form = selectedCard.StudentForm ?? 0;
+            if (form is 3 or 4)
+                field = await ResolveOlevelFieldAsync(studentId);
+
+            var cwTask = AdminGradesService.GetCourseworkMarksAsync(studentId, termNum, termYear, field);
+            var exTask = AdminGradesService.GetExamMarksAsync(studentId, termNum, termYear, field);
+            await Task.WhenAll(cwTask, exTask);
+
+            cwMarks = cwTask.Result;
+            examMarks = exTask.Result;
+        }
+        catch { }
+        finally { isLoadingDetail = false; StateHasChanged(); }
+    }
+
+    private async Task<string> ResolveOlevelFieldAsync(long studentId)
+    {
+        try
+        {
+            var field = await OlevelClassService.GetStudentOlevelFieldAsync(studentId);
+            if (!string.IsNullOrWhiteSpace(field))
+                return field.Trim('"');
+        }
+        catch { }
+        return "Sciences";
+    }
+
+    private async Task ApproveAsync(ReportCardModel card)
+    {
+        approvingId = card.Id ?? 0;
+        statusMsg = "";
+        try
+        {
+            var cardId = card.Id ?? 0;
+            bool ok = await AdminGradesService.ApproveReportCardAsync(cardId);
+            if (ok)
+            {
+                card.AdminApproved = true;
+                approvedToday++;
+                statusMsg = $"Report card for {GetStudentName(card.StudentId)} ({card.Term} {card.TermYear}) approved — now visible to student.";
+                statusError = false;
+                if (selectedCard?.Id == card.Id)
+                    selectedCard = card;
+                
+                selectedIds.Remove(cardId);
+            }
+            else
+            {
+                statusMsg = "Approval failed. The report card may not exist or is already approved.";
+                statusError = true;
+            }
+        }
+        catch { statusMsg = "Network error — could not approve report card."; statusError = true; }
+        finally { approvingId = 0; StateHasChanged(); }
+    }
+
+    private void ToggleSelectAll(bool isChecked, IEnumerable<ReportCardModel> visibleCards)
+    {
+        if (isChecked)
+        {
+            foreach (var card in visibleCards)
+            {
+                if (card.Id.HasValue)
+                {
+                    selectedIds.Add(card.Id.Value);
+                }
+            }
+        }
+        else
+        {
+            selectedIds.Clear();
+        }
+    }
+
+    private void ToggleCardSelect(long id)
+    {
+        if (selectedIds.Contains(id))
+        {
+            selectedIds.Remove(id);
+        }
+        else
+        {
+            selectedIds.Add(id);
+        }
+    }
+
+    private bool isBulkApproving = false;
+
+    private async Task ApproveSelectedAsync()
+    {
+        if (!selectedIds.Any()) return;
+        isBulkApproving = true;
+        statusMsg = $"Approving {selectedIds.Count} report cards...";
+        statusError = false;
+        StateHasChanged();
+
+        int succeeded = 0;
+        int failed = 0;
+
+        try
+        {
+            var tasks = selectedIds.Select(async id =>
+            {
+                try
+                {
+                    bool ok = await AdminGradesService.ApproveReportCardAsync(id);
+                    return (Id: id, Success: ok);
+                }
+                catch { return (Id: id, Success: false); }
+            });
+
+            var results = await Task.WhenAll(tasks);
+            foreach (var res in results)
+            {
+                if (res.Success)
+                {
+                    succeeded++;
+                    var card = allLoadedCards.FirstOrDefault(c => c.Id == res.Id);
+                    if (card != null)
+                    {
+                        card.AdminApproved = true;
+                        approvedToday++;
+                    }
+                }
+                else
+                {
+                    failed++;
+                }
+            }
+
+            statusMsg = failed > 0 
+                ? $"Successfully approved {succeeded} report cards. {failed} failed."
+                : $"Successfully approved {succeeded} report cards.";
+            statusError = failed > 0;
+        }
+        catch (Exception ex)
+        {
+            statusMsg = $"Error: {ex.Message}";
+            statusError = true;
+        }
+        finally
+        {
+            selectedIds.Clear();
+            isBulkApproving = false;
+            StateHasChanged();
+        }
+    }
+
+    private void PromptRegenerateAll()
+    {
+        if (!FilteredCards.Any()) return;
+        regenTargetMode = RegenMode.All;
+        singleRegenCard = null;
+        showRegenModal = true;
+    }
+
+    private void PromptRegenerateSelected()
+    {
+        if (!selectedIds.Any()) return;
+        regenTargetMode = RegenMode.Selected;
+        singleRegenCard = null;
+        showRegenModal = true;
+    }
+
+    private void PromptRegenerateSingle(ReportCardModel card)
+    {
+        regenTargetMode = RegenMode.Single;
+        singleRegenCard = card;
+        showRegenModal = true;
+    }
+
+    private async Task ConfirmExecuteRegenAsync()
+    {
+        List<ReportCardModel> cardsToRegenerate = new();
+
+        switch (regenTargetMode)
+        {
+            case RegenMode.All:
+                cardsToRegenerate = FilteredCards.ToList();
+                break;
+            case RegenMode.Selected:
+                cardsToRegenerate = allLoadedCards.Where(c => c.Id.HasValue && selectedIds.Contains(c.Id.Value)).ToList();
+                break;
+            case RegenMode.Single:
+                if (singleRegenCard != null) cardsToRegenerate.Add(singleRegenCard);
+                break;
+        }
+
+        if (!cardsToRegenerate.Any())
+        {
+            showRegenModal = false;
+            return;
+        }
+
+        isRegenerating = true;
+        regenProgressTotal = cardsToRegenerate.Count;
+        regenProgressCurrent = 0;
+        statusMsg = $"Regenerating {regenProgressTotal} report card(s)...";
+        statusError = false;
+        StateHasChanged();
+
+        int succeeded = 0;
+        int failed = 0;
+
+        foreach (var card in cardsToRegenerate)
+        {
+            regeneratingId = card.Id ?? 0;
+            StateHasChanged();
+
+            var (ok, _) = await ExecuteRegenerateCardAsync(card);
+            if (ok)
+            {
+                succeeded++;
+                if (card.Id.HasValue) selectedIds.Remove(card.Id.Value);
+            }
+            else
+            {
+                failed++;
+            }
+
+            regenProgressCurrent++;
+            StateHasChanged();
+        }
+
+        regeneratingId = 0;
+        isRegenerating = false;
+        showRegenModal = false;
+
+        statusMsg = failed > 0
+            ? $"Regeneration complete: {succeeded} report card(s) regenerated to await approval, {failed} failed."
+            : $"Successfully regenerated {succeeded} report card(s). They are now awaiting approval.";
+        statusError = failed > 0;
+
+        if (activeTab == "approved")
+        {
+            activeTab = "ready";
+        }
+
+        await LoadDataAsync();
+    }
+
+    private async Task<(bool success, string? error)> ExecuteRegenerateCardAsync(ReportCardModel card)
+    {
+        try
+        {
+            // 1. Delete existing report card
+            bool deleted = false;
+            if (card.Id.HasValue && card.Id.Value > 0)
+            {
+                deleted = await AdminGradesService.DeleteReportCardAsync(card.Id.Value);
+            }
+
+            if (!deleted)
+            {
+                await AdminGradesService.DeleteReportCardByStudentTermAndYearAsync(card.StudentId, card.Term, card.TermYear);
+            }
+
+            // 2. Resolve student details and field
+            var student = allStudents.FirstOrDefault(s => s.Id == card.StudentId);
+            string field = await ResolveFieldForCardAsync(card);
+
+            // 3. Regenerate subject comments (overwrites stale auto-comments, preserves teacher-written ones)
+            await RegenerateSubjectCommentsForCardAsync(card, student, field);
+
+            // 4. Prepare regeneration request
+            var req = new ReportCardRequest
+            {
+                StudentId = card.StudentId,
+                Term = card.Term,
+                TermMonth = card.TermMonth,
+                TermYear = card.TermYear,
+                CourseworkWeight = card.CourseworkWeight ?? 0.30,
+                OverallComments = card.OverallComments,
+                StudentFirstName = card.StudentFirstName ?? student?.FirstName,
+                StudentLastName = card.StudentLastName ?? student?.LastName,
+                StudentForm = card.StudentForm ?? student?.Form,
+                StudentClass = card.StudentClass ?? student?.Classroom
+            };
+
+            // 5. Generate fresh report card awaiting approval
+            var newCard = await AdminGradesService.GenerateReportCardAsync(req, field);
+            if (newCard != null)
+            {
+                if (card.AdminApproved && newCard.Id.HasValue)
+                {
+                    try
+                    {
+                        await AdminGradesService.ApproveReportCardAsync(newCard.Id.Value);
+                        newCard.AdminApproved = true;
+                        newCard.ReleasedToStudent = true;
+                    }
+                    catch { }
+                }
+
+                if (selectedCard?.Id == card.Id)
+                {
+                    selectedCard = newCard;
+                }
+                return (true, null);
+            }
+            return (false, "Empty report card response");
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message);
+        }
+    }
+
+    private async Task RegenerateSubjectCommentsForCardAsync(ReportCardModel card, Student? student, string field)
+    {
+        try
+        {
+            var studentClass = card.StudentClass ?? student?.Classroom ?? string.Empty;
+            var cwWeight = card.CourseworkWeight ?? 0.30;
+            var termNumber = card.Term switch
+            {
+                "Term 1" => 1,
+                "Term 2" => 2,
+                "Term 3" => 3,
+                _ => 1
+            };
+
+            // Fetch marks from all field variants
+            var fieldCandidates = new[] { "default", "", field }
+                .Where(f => f != null)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var cwTasks = fieldCandidates.Select(async f =>
+            {
+                try { return await AdminGradesService.GetCourseworkMarksAsync(card.StudentId, termNumber, card.TermYear, f); }
+                catch { return null; }
+            });
+            var examTasks = fieldCandidates.Select(async f =>
+            {
+                try { return await AdminGradesService.GetExamMarksAsync(card.StudentId, termNumber, card.TermYear, f); }
+                catch { return null; }
+            });
+
+            var cwResults = await Task.WhenAll(cwTasks);
+            var examResults = await Task.WhenAll(examTasks);
+
+            // Merge all mark results
+            var coursework = new Dictionary<string, List<MarkEntry>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var resp in cwResults)
+            {
+                if (resp?.CourseMarks == null) continue;
+                foreach (var kvp in resp.CourseMarks)
+                {
+                    if (!coursework.ContainsKey(kvp.Key)) coursework[kvp.Key] = kvp.Value ?? new();
+                    else if (kvp.Value != null) coursework[kvp.Key].AddRange(kvp.Value);
+                }
+            }
+
+            var exams = new Dictionary<string, List<ExamMarkDTO>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var resp in examResults)
+            {
+                if (resp?.MarksBySubject == null) continue;
+                foreach (var kvp in resp.MarksBySubject)
+                {
+                    if (!exams.ContainsKey(kvp.Key)) exams[kvp.Key] = kvp.Value ?? new();
+                    else if (kvp.Value != null) exams[kvp.Key].AddRange(kvp.Value);
+                }
+            }
+
+            // Build subject list from marks + card subjects
+            var subjectsFromCard = card.Subjects?.Select(s => s.SubjectName).Where(s => !string.IsNullOrWhiteSpace(s)).ToList() ?? new();
+            var subjectsToProcess = subjectsFromCard.ToList();
+            foreach (var k in coursework.Keys.Concat(exams.Keys))
+            {
+                if (!subjectsToProcess.Any(s => string.Equals(s, k, StringComparison.OrdinalIgnoreCase)))
+                    subjectsToProcess.Add(k);
+            }
+
+            if (subjectsToProcess.Count == 0) return;
+
+            var commentsToSave = new List<SubjectCommentDTO>();
+
+            foreach (var subject in subjectsToProcess.Where(s => !string.IsNullOrWhiteSpace(s)))
+            {
+                List<SubjectCommentDTO>? existing = null;
+                try
+                {
+                    existing = await AssessmentService.GetSubjectCommentsAsync(subject, studentClass, card.Term, card.TermYear);
+                }
+                catch { }
+
+                // Always preserve teacher-written comments (TeacherId != null)
+                if (existing?.Any(c => c.StudentId == card.StudentId && !string.IsNullOrWhiteSpace(c.Comments) && c.TeacherId != null) == true)
+                    continue;
+
+                // Track existing auto-comment for upsert
+                var existingAuto = existing?.FirstOrDefault(c => c.StudentId == card.StudentId && c.TeacherId == null);
+
+                // Compute marks
+                bool hasCw = coursework.Any(kv => string.Equals(kv.Key, subject, StringComparison.OrdinalIgnoreCase) && kv.Value?.Any(e => e != null) == true);
+                bool hasEx = exams.Any(kv => string.Equals(kv.Key, subject, StringComparison.OrdinalIgnoreCase) && kv.Value?.Any(e => e != null) == true);
+
+                var cwEntries = coursework.FirstOrDefault(kv => string.Equals(kv.Key, subject, StringComparison.OrdinalIgnoreCase)).Value;
+                var examEntries = exams.FirstOrDefault(kv => string.Equals(kv.Key, subject, StringComparison.OrdinalIgnoreCase)).Value;
+
+                var courseworkMark = hasCw ? cwEntries!.Where(e => e != null).Select(e => e.PercentageScore).DefaultIfEmpty(0).Average() : 0;
+                var examMark = hasEx ? examEntries!.Where(e => e != null).Select(e => e.Score ?? 0).DefaultIfEmpty(0).Average() : 0;
+
+                double finalMark;
+                if (hasCw && hasEx && courseworkMark > 0 && examMark > 0)
+                    finalMark = (courseworkMark * cwWeight) + (examMark * (1 - cwWeight));
+                else if (hasEx && examMark > 0)
+                    finalMark = examMark;
+                else if (hasCw && courseworkMark > 0)
+                    finalMark = courseworkMark;
+                else
+                    finalMark = Math.Max(courseworkMark, examMark);
+
+                var teacherFeedback = cwEntries?.Select(e => e.Feedback).FirstOrDefault(f => !string.IsNullOrWhiteSpace(f));
+                int regenNonce = Random.Shared.Next(1, 1000000);
+
+                commentsToSave.Add(new SubjectCommentDTO
+                {
+                    Id = existingAuto?.Id,
+                    StudentId = card.StudentId,
+                    SubjectName = subject,
+                    ClassName = studentClass,
+                    Term = card.Term,
+                    TermYear = card.TermYear,
+                    Comments = BuildRegenComment(subject, finalMark, courseworkMark, examMark, card.StudentId, teacherFeedback, regenNonce),
+                    TeacherId = null
+                });
+            }
+
+            if (commentsToSave.Any())
+                await AssessmentService.SaveSubjectCommentsAsync(commentsToSave);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[REGEN] Comment regeneration failed for student {card.StudentId}: {ex.Message}");
+        }
+    }
+
+    private static string BuildRegenComment(string subject, double finalMark, double courseworkMark, double examMark, long studentId, string? teacherFeedback, int regenNonce = 0)
+    {
+        var profile = finalMark switch
+        {
+            >= 90 => new[]
+            {
+                $"{subject} is an outstanding strength, with an exemplary overall performance and deep mastery of the work covered.",
+                $"The student has demonstrated superior command of {subject}, applying complex knowledge accurately and with great independence.",
+                $"Performance in {subject} is first-class, reflecting flawless preparation, sound reasoning, and thorough understanding of the syllabus.",
+                $"This is a remarkably strong result in {subject}, reflecting sustained effort and the ability to use learned ideas with distinction.",
+                $"The student continues to excel brilliantly in {subject}, combining comprehensive knowledge with insightful application across all assessed work.",
+                $"{subject} work is of the highest caliber, showing exceptional precision, analytical depth, and thorough mastery of all evaluated topics.",
+                $"An impressive academic achievement in {subject}; the student consistently exhibits intellectual rigor and sharp critical thinking.",
+                $"Outstanding dedication is evident in {subject}, resulting in sophisticated solutions and consistently high-level responses.",
+                $"The student has shown rare aptitude in {subject}, grasping advanced concepts effortlessly and articulating answers with clarity.",
+                $"Exemplary dedication and scholarly maturity define the student's exceptional progress and distinguished outcomes in {subject}.",
+                $"{subject} represents an area of true academic distinction; the student produces thorough, accurate, and insightful work.",
+                $"Consistently superior performance in {subject}, demonstrating remarkable mastery, discipline, and scholarly curiosity.",
+                $"The student has delivered exceptional quality throughout {subject}, setting a commendable benchmark in analytical precision.",
+                $"A truly stellar outcome in {subject}, underpinned by exhaustive preparation, intellectual curiosity, and fluent reasoning.",
+                $"The student shows comprehensive command of {subject}, confidently addressing the most intricate and challenging questions.",
+                $"Uncompromising accuracy and sophisticated reasoning are consistently demonstrated across all assessments in {subject}.",
+                $"A magnificent result in {subject}, reflecting profound subject appreciation and an exemplary work ethic.",
+                $"{subject} outcomes reflect outstanding academic capability; the student works with admirable initiative and independence.",
+                $"The student's performance in {subject} is outstanding in every regard, consistently exceeding expectations in depth and clarity.",
+                $"Superb academic standard in {subject}; the student synthesizes complex concepts with natural ease and poise."
+            },
+            >= 80 => new[]
+            {
+                $"{subject} is a clear strength, with an excellent overall performance and a confident grasp of the work covered.",
+                $"The student has demonstrated impressive command of {subject}, applying knowledge accurately and with growing independence.",
+                $"Performance in {subject} is highly encouraging, showing strong preparation, sound reasoning, and a reliable understanding of the assessed content.",
+                $"This is a particularly strong result in {subject}, reflecting sustained effort and the ability to use learned ideas effectively.",
+                $"The student continues to excel in {subject}, combining secure knowledge with thoughtful application across the assessed work.",
+                $"Work in {subject} has been consistently commendable, demonstrating sharp comprehension and dependable problem-solving ability.",
+                $"The student exhibits a proactive attitude in {subject}, producing high-quality work and engaging well with complex problems.",
+                $"A thoroughly impressive standard in {subject}, marked by diligent study habits and an articulate command of the syllabus.",
+                $"The student approaches {subject} with confidence and academic rigor, reliably producing thorough and accurate assessments.",
+                $"Very strong progress in {subject}; demonstrates a robust conceptual grasp and consistently delivers quality work.",
+                $"The student has consolidated key knowledge effectively in {subject}, achieving an admirable level of proficiency.",
+                $"Consistent diligence and intellectual engagement have resulted in this very commendable performance in {subject}.",
+                $"{subject} work shows impressive attention to detail, secure conceptual understanding, and fluent written responses.",
+                $"The student exhibits strong analytical ability in {subject}, navigating multi-step problems with clarity and poise.",
+                $"A highly praiseworthy standard in {subject}; continued commitment will comfortably sustain this high attainment.",
+                $"The student demonstrates thorough preparation in {subject}, with well-structured answers and sound academic discipline.",
+                $"Commendable mastery of core and extended concepts in {subject}, accompanied by a positive and determined approach.",
+                $"{subject} performance reflects strong self-motivation, solid subject engagement, and dependable assessment execution.",
+                $"The student has established an excellent foundation in {subject}, demonstrating confidence across all key syllabus areas.",
+                $"A very positive and rewarding term in {subject}; the student's high capability is clearly reflected in this result."
+            },
+            >= 70 => new[]
+            {
+                $"{subject} is progressing well, with a good overall result and a sound understanding of the main concepts assessed.",
+                $"The student is building a dependable understanding of {subject} and is beginning to apply the main ideas with increasing confidence.",
+                $"Work in {subject} is encouraging, with a positive grasp of the syllabus and clear capacity to push towards the highest grades.",
+                $"The result in {subject} reflects steady progress, sensible preparation, and a developing ability to explain and apply the material.",
+                $"The student has made good progress in {subject}; with a bit more precision in advanced questions, top-tier results are well within reach.",
+                $"A positive and constructive term in {subject}; the student demonstrates solid capability and should aim for distinction.",
+                $"The student demonstrates a reliable foundation in {subject} and possesses the potential to achieve even higher marks.",
+                $"Consistent effort in {subject} has yielded a solid performance; fine-tuning examination technique will unlock further gains.",
+                $"Demonstrates good analytical awareness in {subject}, with a clear capability to tackle core syllabus components successfully.",
+                $"Steady development is evident in {subject}; deepening explanations on higher-tariff questions will help bridge into top grades.",
+                $"The student approaches {subject} with a positive attitude, achieving commendable outcomes across the term's work.",
+                $"Sound achievement in {subject}; expanding depth in written analysis will help solidify top-grade potential.",
+                $"The student has demonstrated a secure command of key topics in {subject}; pushing for extra accuracy will lift future results.",
+                $"A very respectable performance in {subject}; continued diligence will ensure the student transitions into the top grade bracket.",
+                $"The student engages meaningfully with {subject}; strengthening confidence in complex problem sets will yield great rewards.",
+                $"Good academic standard in {subject}; the student grasps core principles well and is well positioned for further advancement.",
+                $"A commendable term in {subject}; reviewing finer syllabus details will assist in converting this solid grade into distinction.",
+                $"The student displays good competence across {subject}; sustained revision of challenging topics will elevate future performances.",
+                $"Constructive outcomes in {subject}; with refined examination focus and thorough revision, the student can achieve top honors.",
+                $"The student demonstrates good intellectual curiosity in {subject}; polishing analytical arguments will elevate overall attainment."
+            },
+            >= 60 => new[]
+            {
+                $"{subject} shows a fair and developing understanding, with core principles grasped but greater consistency needed.",
+                $"The student demonstrates competent knowledge in {subject}, though additional practice on complex topics will improve performance.",
+                $"Progress in {subject} is satisfactory; concentrating on thorough revision of challenging units will secure a stronger result.",
+                $"The result in {subject} reflects an acceptable grasp of basic material, but further revision is necessary to tackle demanding questions.",
+                $"The student has achieved a fair standard in {subject}; working on accuracy and detailed explanations will bring significant gains.",
+                $"Basic syllabus ideas in {subject} are understood, but the student should aim for greater precision under assessment conditions.",
+                $"The student shows useful potential in {subject}; eliminating careless slips and revising key formulas will boost future scores.",
+                $"A fair term's work in {subject}; consistent preparation and reviewing test corrections will help elevate this performance.",
+                $"{subject} work shows reasonable comprehension; regular practice on past exam questions will strengthen confidence.",
+                $"The student is working with reasonable commitment in {subject}; giving extra attention to complex problem areas is recommended.",
+                $"Performance in {subject} is competent; structured daily revision will help turn fair understanding into dependable proficiency.",
+                $"The student shows a satisfactory foundation in {subject}, though deeper conceptual review will help bridge gaps.",
+                $"Fair attainment in {subject}; prioritizing independent practice and asking questions when in doubt will support progress.",
+                $"The student demonstrates a workable understanding of {subject}, with opportunities to improve depth and clarity in assessments.",
+                $"Reasonable engagement in {subject}; maintaining focused revision habits will help avoid uneven assessment outcomes.",
+                $"The student exhibits fair capability in {subject}; dedicating more time to mastering complex topics will raise the overall standard.",
+                $"A competent performance in {subject}; refining answer structure and showing detailed steps will yield improved marks.",
+                $"The student has maintained a fair level of effort in {subject}; consistent follow-through on assignments will yield higher returns.",
+                $"Satisfactory engagement with {subject}; addressing areas of uncertainty promptly will help secure a more confident grade.",
+                $"{subject} results indicate a workable base; disciplined practice and targeted revision will foster continued improvement."
+            },
+            >= 50 => new[]
+            {
+                $"{subject} shows that essential concepts are beginning to take shape, though focused attention is required to prevent slipping.",
+                $"The student is passing {subject}, but several key areas require reinforcement and structured review to ensure stability.",
+                $"There is a basic foundation in {subject}; continued commitment and steady revision will help turn partial understanding into secure achievement.",
+                $"The result indicates developing competence in {subject}; regular practice is strongly advised to strengthen accuracy and retention.",
+                $"The student is engaging with {subject}, but more disciplined revision habits and timely homework completion are needed.",
+                $"Shows acceptable familiarity with basic ideas in {subject}, though assessment outcomes suggest the need for more thorough preparation.",
+                $"Fundamental ideas in {subject} are present; more regular practice will build the speed, precision, and confidence required.",
+                $"The student has achieved a passing standard in {subject}; establishing a structured study timetable will produce more dependable results.",
+                $"A modest outcome in {subject}; focusing on reviewing challenging topics before assessments will prevent grades from dropping.",
+                $"Developing competence is visible in {subject}; active class participation and clarifying doubts early will enhance performance.",
+                $"The student demonstrates an adequate grasp of basics in {subject}; consistent follow-through on teacher feedback is necessary.",
+                $"Steady application in {subject} has yielded a pass, but increased depth of revision will build much-needed confidence.",
+                $"{subject} requires closer attention; reviewing fundamental principles regularly will help solidify assessment performance.",
+                $"The student has met the passing threshold in {subject}; targeted practice is recommended to build a more resilient foundation.",
+                $"Basic ideas are understood in {subject}, though inconsistent revision limits the student's ability to tackle multi-step problems.",
+                $"The student should allocate more time to {subject}; regular review of class notes will help prevent misunderstandings from accumulating.",
+                $"A developing standard in {subject}; setting aside dedicated revision slots each week will help improve overall stability.",
+                $"The student demonstrates basic capability in {subject}; greater focus on retaining key concepts will bring firmer results.",
+                $"Adequate understanding in {subject}; the student is encouraged to seek timely clarification on topics that cause difficulty.",
+                $"{subject} reflects emerging understanding; structured homework routines and diligent review will help elevate performance."
+            },
+            _ => new[]
+            {
+                $"{subject} requires focused attention and support to reinforce foundational concepts and improve understanding.",
+                $"The student is encouraged to seek guidance and establish a structured revision routine to build confidence in {subject}.",
+                $"Additional practice and targeted support in {subject} will be essential to master key areas of the syllabus.",
+                $"The current result in {subject} highlights important gaps that should be addressed through regular practice and revision.",
+                $"With targeted intervention and renewed effort, the student can overcome current challenges in {subject} and make meaningful progress.",
+                $"The student should take advantage of teacher consultations and extra tutorials to consolidate essential principles in {subject}.",
+                $"Focusing on core topic mastery and step-by-step revision will be crucial for the student to improve performance in {subject}.",
+                $"A disciplined daily study routine and active review of past exercises will help overcome difficulties in {subject}.",
+                $"The student is capable of better results in {subject}; consistent attendance, prompt homework submission, and revision will help.",
+                $"Dedicated effort and structured practice on foundational concepts will help re-establish momentum in {subject}.",
+                $"The student should focus on strengthening basic terminology and core methods in {subject} over the coming term.",
+                $"Targeted assistance and careful correction of past assessment mistakes will enable the student to rebuild confidence in {subject}.",
+                $"Regular practice sessions with basic syllabus materials will help the student establish a more secure grasp of {subject}.",
+                $"The student will benefit greatly from one-on-one guidance and reviewing fundamental exercises in {subject}.",
+                $"Consistent attendance at support sessions and active review of core topics will be vital to making progress in {subject}.",
+                $"The student is encouraged to break revision into manageable daily segments to overcome current hurdles in {subject}.",
+                $"Rebuilding foundational confidence in {subject} through guided exercises and timely feedback will be key next term.",
+                $"With structured teacher guidance and steady application at home, the student can make positive strides in {subject}.",
+                $"The student should actively address difficult topics in {subject} with the teacher to turn current challenges into progress.",
+                $"A patient, methodical review of foundational syllabus topics will assist the student in raising achievement in {subject}."
+            }
+        };
+
+        var seed = regenNonce != 0
+            ? HashCode.Combine(studentId, subject.GetHashCode(), (int)Math.Round(finalMark * 10), regenNonce)
+            : HashCode.Combine(studentId, subject.GetHashCode(), (int)Math.Round(finalMark * 10), courseworkMark > 0, examMark > 0);
+        var variation = (int)((uint)seed % (uint)profile.Length);
+        var first = profile[variation];
+
+        bool hasCw = courseworkMark > 0;
+        bool hasEx = examMark > 0;
+        var balanceSeed = (uint)(seed ^ (subject.Length * 37 + (int)Math.Round(finalMark) + regenNonce));
+        string balance = string.Empty;
+
+        if (hasCw && hasEx)
+        {
+            if (finalMark >= 80)
+            {
+                var opts = new[] { "Maintains commendable standards across both continuous assessment and examination components.", "Both coursework assignments and examination results reflect excellent preparation and sustained dedication.", "Work across all evaluated areas demonstrates high academic capability and dependable self-discipline.", "Performance is remarkably well rounded across both daily coursework and examination assessments.", "Exhibits exceptional academic consistency, performing with equal distinction in coursework tasks and examinations." };
+                balance = opts[(int)(balanceSeed % (uint)opts.Length)];
+            }
+            else if (courseworkMark >= examMark)
+            {
+                var opts = new[] { "Coursework is currently the stronger indicator; carrying that same preparation into examinations should be the next focus.", "The coursework result is encouraging; more timed examination practice will help strengthen the overall result.", "Strong coursework habits are evident; applying them more consistently under examination conditions should lead to further gains.", "Continued coursework effort, together with focused examination revision, will be especially beneficial.", "The high standard of day-to-day work is pleasing; developing timed exam pacing will help match this in examinations." };
+                balance = opts[(int)(balanceSeed % (uint)opts.Length)];
+            }
+            else
+            {
+                var opts = new[] { "Examination performance shows good potential; applying that understanding more consistently in coursework tasks will yield stronger results.", "The examination result is promising; regular coursework completion will help make overall achievement even more secure.", "Building on this examination result with greater attention to day-to-day coursework and assignments is recommended.", "The examination outcome highlights strong capability; bringing daily coursework to the same level will maximize progress.", "Strong exam insight is evident; ensuring all continuous assessment assignments are submitted punctually will lift results." };
+                balance = opts[(int)(balanceSeed % (uint)opts.Length)];
+            }
+        }
+        else if (hasEx && !hasCw)
+        {
+            if (finalMark >= 80)
+            {
+                var opts = new[] { "Demonstrates commendable examination technique and thorough preparation under assessment conditions.", "Examination responses reflect deep understanding and clear, articulate reasoning throughout.", "The examination outcome confirms sustained effort and a mature grasp of the syllabus.", "Superb examination temperament, showing sharp accuracy and excellent analytical problem solving.", "Flawless composure and academic precision were demonstrated across the examination papers." };
+                balance = opts[(int)(balanceSeed % (uint)opts.Length)];
+            }
+            else if (finalMark >= 60)
+            {
+                var opts = new[] { "Examination performance indicates a dependable foundation with positive scope for further advancement.", "Shows good engagement in assessments; targeted revision of complex topics will help raise marks further.", "A respectable examination result; consistent past paper practice will help consolidate knowledge.", "Demonstrates solid potential under exam conditions with steady progress across key topics.", "Sound test performance; refining answering techniques for higher-tariff questions will yield higher grades." };
+                balance = opts[(int)(balanceSeed % (uint)opts.Length)];
+            }
+            else
+            {
+                var opts = new[] { "Structured examination revision and regular past-paper practice are recommended to improve future assessment outcomes.", "Additional practice with examination-style questions will help develop confidence and exam technique.", "Targeted review of core topics and practicing under timed conditions will support examination readiness.", "Working through model examination answers and past papers will help clarify expectations and improve scores.", "Focusing on exam command words and foundational principles will assist in raising assessment marks." };
+                balance = opts[(int)(balanceSeed % (uint)opts.Length)];
+            }
+        }
+        else if (hasCw && !hasEx)
+        {
+            if (finalMark >= 80)
+            {
+                var opts = new[] { "Coursework assignments have been completed to an exemplary standard, showing great initiative.", "Demonstrates sustained dedication and thoroughness across all continuous assessment tasks.", "Coursework submissions reflect high quality, analytical depth, and consistent academic effort.", "Produces consistently superior coursework, demonstrating thorough research and thoughtful execution.", "Daily engagement and continuous assessment work reflect commendable scholarship and pride in presentation." };
+                balance = opts[(int)(balanceSeed % (uint)opts.Length)];
+            }
+            else if (finalMark >= 60)
+            {
+                var opts = new[] { "Coursework tasks show positive engagement and a steady grasp of core subject material.", "Maintains consistent coursework participation; attention to detail in assignments will bring further gains.", "Steady coursework contributions throughout the term; deepening written explanations will enhance quality.", "Reliable completion of coursework projects; refining analytical detail will lead to even stronger scores.", "A dependable approach to continuous assessments; maintaining this focus will ensure good progress." };
+                balance = opts[(int)(balanceSeed % (uint)opts.Length)];
+            }
+            else
+            {
+                var opts = new[] { "More consistent coursework submission and active participation in class activities are advised.", "Regular completion of assignments and seeking timely help will support subject progress.", "Punctual submission of all coursework tasks and careful attention to guidelines will help lift grades.", "The student is urged to seek feedback on draft assignments to improve coursework quality.", "Dedication to completing every assigned project and task will build a stronger academic foundation." };
+                balance = opts[(int)(balanceSeed % (uint)opts.Length)];
+            }
+        }
+
+        var feedbackSentence = string.IsNullOrWhiteSpace(teacherFeedback)
+            ? string.Empty
+            : $"The recorded Staff Marks feedback is also noted: {teacherFeedback.Trim().TrimEnd('.')}.";
+        return string.Join(" ", new[] { first, balance, feedbackSentence }.Where(s => !string.IsNullOrWhiteSpace(s)));
+    }
+
+    private async Task<string> ResolveFieldForCardAsync(ReportCardModel card)
+    {
+        var form = card.StudentForm;
+        if (!form.HasValue || form == 0)
+        {
+            var student = allStudents.FirstOrDefault(s => s.Id == card.StudentId);
+            form = student?.Form;
+        }
+
+        if (form is 3 or 4)
+        {
+            if (olevelFieldCache.TryGetValue(card.StudentId, out var cached))
+                return cached;
+
+            var resolved = await ResolveOlevelFieldAsync(card.StudentId);
+            olevelFieldCache[card.StudentId] = resolved;
+            return resolved;
+        }
+
+        return "default";
+    }
+
+    private string GetStudentName(long id)
+        => studentNames.TryGetValue(id, out var n) ? n : $"Student #{id}";
+
+    private string GetStudentClass(ReportCardModel card)
+    {
+        if (!string.IsNullOrWhiteSpace(card.StudentClass))
+            return card.StudentClass;
+
+        var student = allStudents.FirstOrDefault(s => s.Id == card.StudentId);
+        return student?.Classroom ?? string.Empty;
+    }
+
+    private static bool IsReadyForApproval(ReportCardModel card)
+        => !card.AdminApproved &&
+           card.TeacherSubmitted &&
+           card.Subjects?.Any() == true &&
+           card.Subjects.All(s => !string.IsNullOrWhiteSpace(s.SubjectName) && !string.IsNullOrWhiteSpace(s.Comments));
+
+    private static bool IsPendingReview(ReportCardModel card)
+        => !card.AdminApproved && !IsReadyForApproval(card);
+
+    private static string GetPendingReason(ReportCardModel card)
+    {
+        if (!card.TeacherSubmitted) return "Waiting for teacher submission";
+        if (card.Subjects?.Any() != true) return "No subject marks are recorded";
+        var missingComments = card.Subjects.Count(s => string.IsNullOrWhiteSpace(s.Comments));
+        return missingComments > 0 ? $"{missingComments} subject comment(s) missing" : "Report is not complete";
+    }
+
+    private void OpenDetail(ReportCardModel card)
+    {
+        selectedCard = card;
+        detailTab = "summary";
+        cwMarks = null;
+        examMarks = null;
+    }
+
+    private async Task ShowDetailedMarks()
+    {
+        detailTab = "detailed";
+        if (cwMarks == null && examMarks == null && !isLoadingDetail)
+            await LoadDetailedMarksAsync();
+    }
+
+    private void CloseDetail()
+    {
+        selectedCard = null;
+        cwMarks = null;
+        examMarks = null;
+    }
+
+    private static bool LevelMatchesForm(ReportCardModel card, string level)
+    {
+        var form = card.StudentForm ?? 0;
+        return level switch
+        {
+            "form1to4" => form is >= 1 and <= 4,
+            "olevel" => form is 3 or 4,
+            "alevel" => form is 5 or 6,
+            _ => true
+        };
+    }
+
+    private static double CardAverage(ReportCardModel card)
+        => card.Subjects?.Any() == true ? card.Subjects.Average(s => s.FinalMark) : 0;
+
+    private static List<Student> FilterStudentsForLevel(IEnumerable<Student> students, string level) => level switch
+    {
+        "form1to4" => students.Where(s => s.Form is >= 1 and <= 4).ToList(),
+        "olevel" => students.Where(s => s.Form is 3 or 4).ToList(),
+        "alevel" => students.Where(s => s.Form is 5 or 6).ToList(),
+        _ => new()
+    };
+
+    private static int FailedSubjectCount(ReportCardModel card)
+        => card.Subjects?.Count(s => s.FinalMark < 50) ?? 0;
+
+    private static int MissingSubjectCommentCount(ReportCardModel card)
+        => card.Subjects?.Count(s => string.IsNullOrWhiteSpace(s.Comments)) ?? 0;
+
+    private static string SubjectCommentStatus(ReportCardModel card)
+    {
+        var subjectCount = card.Subjects?.Count ?? 0;
+        if (subjectCount == 0) return "No subjects available to assess.";
+
+        var missing = MissingSubjectCommentCount(card);
+        return missing == 0
+            ? $"All {subjectCount} subject comments are present."
+            : $"{missing} of {subjectCount} subject comments are missing.";
+    }
+}

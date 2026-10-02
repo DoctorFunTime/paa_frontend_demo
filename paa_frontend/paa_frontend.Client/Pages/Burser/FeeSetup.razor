@@ -1,0 +1,990 @@
+@page "/burser/fees"
+@namespace paa_frontend.Client.Pages.Burser
+@layout paa_frontend.Client.Layout.BurserPortalLayout
+@using paa_frontend.Client.Services.StudentsPortal
+@using paa_frontend.Client.Services.Admin
+@using paa_frontend.Shared.Models
+@using System.Globalization
+@inject FinanceServiceClient FinanceService
+@inject OlevelClassServiceClient OClassService
+@inject paa_frontend.Client.Services.NotificationService NotificationService
+@inject StudentProfileServiceClient StudentService
+
+<style>
+    .fee-setup-page { min-width: 0; overflow-x: hidden; }
+    .fee-setup-page * { min-width: 0; }
+    .fee-setup-page input, .fee-setup-page select { max-width: 100%; }
+    .fee-setup-page .action-row { display: flex; flex-wrap: wrap; gap: .75rem; }
+    .fee-setup-page .structure-card-actions { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: flex-end; }
+    @@media (max-width: 640px) {
+        .fee-setup-page { width: 100%; }
+        .fee-setup-page .panel-padding { padding: 1rem; }
+        .fee-setup-page .structure-card-actions { justify-content: flex-start; width: 100%; }
+        .fee-setup-page .structure-card-actions button { flex: 1 1 auto; }
+        .fee-setup-page .action-row > button { flex: 1 1 10rem; }
+    }
+</style>
+
+<div class="fee-setup-page max-w-7xl mx-auto pb-12">
+    <div class="mb-8 animate-fade-in">
+        <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight mb-2">Fee Setup</h1>
+        <p class="text-sm font-medium text-slate-500">Build the rules that invoices use. Complete the steps from left to right: define fee lines, define who they apply to, then attach amounts.</p>
+    </div>
+
+    <div class="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+            <div class="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-emerald-700"><span class="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white">1</span> Define lines</div>
+            <p class="mt-2 text-xs font-medium text-emerald-900/70">Create reusable items such as tuition, transport or meals and choose their billing frequency.</p>
+        </div>
+        <div class="rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
+            <div class="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-indigo-700"><span class="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-white">2</span> Set scope</div>
+            <p class="mt-2 text-xs font-medium text-indigo-900/70">Choose year, term, O Level/A Level, form and stream for the structure.</p>
+        </div>
+        <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <div class="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-amber-700"><span class="flex h-6 w-6 items-center justify-center rounded-full bg-amber-600 text-white">3</span> Add amounts</div>
+            <p class="mt-2 text-xs font-medium text-amber-900/70">Open a structure and attach each fee line once. Monthly and termly lines remain separate.</p>
+        </div>
+    </div>
+
+
+
+    <div class="mb-6 rounded-2xl border border-slate-200 bg-slate-900 p-4 sm:p-5 text-white shadow-sm">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+                <div class="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-emerald-300"><span class="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 text-white">4</span> Invoice students</div>
+                <h2 class="mt-2 text-lg font-extrabold">Generate invoices</h2>
+                <p class="mt-1 max-w-2xl text-xs font-medium text-slate-300">Choose the academic period first. The system applies active structures, includes matching monthly and termly lines, and will not create duplicate invoices.</p>
+            </div>
+                <button class="w-full lg:w-auto shrink-0 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-black text-white shadow-sm hover:bg-emerald-400 disabled:cursor-wait disabled:opacity-60" @onclick="GenerateAllInvoicesAsync" disabled="@isGeneratingInvoices">
+                    @(isGeneratingInvoices ? "Generating..." : "Generate all applicable invoices")
+                </button>
+        </div>
+        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <label class="text-xs font-bold text-slate-300">Academic year
+                <input class="mt-1 w-full rounded-xl border border-slate-600 bg-slate-800 px-3 py-2.5 text-sm font-bold text-white" @bind="generationAcademicYear" />
+            </label>
+            <label class="text-xs font-bold text-slate-300">Academic term
+                <select class="mt-1 w-full rounded-xl border border-slate-600 bg-slate-800 px-3 py-2.5 text-sm font-bold text-white" @bind="generationAcademicTerm">
+                    @foreach (var term in academicTerms)
+                    {
+                        <option value="@term">@term.Replace("_", " ")</option>
+                    }
+                </select>
+            </label>
+            <label class="text-xs font-bold text-slate-300">Billing month
+                <select class="mt-1 w-full rounded-xl border border-slate-600 bg-slate-800 px-3 py-2.5 text-sm font-bold text-white" @bind="generationBillingMonth">
+                    @foreach (var month in Enumerable.Range(1, 12))
+                    {
+                        <option value="@month">@CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(month)</option>
+                    }
+                </select>
+            </label>
+        </div>
+        <p class="mt-3 text-xs font-medium text-slate-300">Current recommendation: @CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(generationBillingMonth) uses @generationAcademicTerm. If a matching structure is inactive or missing, those students are skipped and reported.</p>
+        @if (!string.IsNullOrWhiteSpace(monthlyGenerationMessage))
+        {
+            <div class="mt-4 rounded-xl border @(monthlyGenerationIsError ? "border-rose-300 bg-rose-500/20 text-rose-100" : "border-emerald-300 bg-emerald-500/20 text-emerald-100") p-3 text-sm font-medium">@monthlyGenerationMessage</div>
+        }
+    </div>
+
+    @if (pageWarnings.Any())
+    {
+        <div class="mb-6 rounded-2xl border border-amber-200 bg-amber-50 text-amber-800 p-4 text-sm font-medium">
+            @string.Join(" ", pageWarnings)
+        </div>
+    }
+
+    <div class="mb-6 rounded-3xl border border-violet-200 bg-violet-50 p-4 sm:p-6">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+                <h2 class="text-lg font-extrabold text-violet-950">Scholarships & discounts</h2>
+                <p class="mt-1 text-xs font-medium text-violet-900/70">Choose whether the waiver applies to one fee line or every fee line. The amount is deducted from each matching line when an invoice is generated.</p>
+            </div>
+            <span class="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-bold text-violet-700">@scholarships.Count assigned</span>
+        </div>
+        <div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+            <select class="w-full rounded-xl border border-violet-200 bg-white px-4 py-3 text-sm font-bold" @bind="selectedScholarshipStudentId">
+                <option value="0">Select student...</option>
+                @foreach (var student in students.OrderBy(s => s.LastName).ThenBy(s => s.FirstName))
+                {
+                    <option value="@student.Id">@student.FirstName @student.LastName · Form @student.Form</option>
+                }
+            </select>
+            <select class="w-full rounded-xl border border-violet-200 bg-white px-4 py-3 text-sm font-bold" @bind="scholarshipScope">
+                <option value="FEE_HEAD">Discount one fee line</option>
+                <option value="ALL">Full scholarship / all fee lines</option>
+            </select>
+            @if (scholarshipScope == "FEE_HEAD")
+            {
+                <select class="w-full rounded-xl border border-violet-200 bg-white px-4 py-3 text-sm font-bold" @bind="selectedScholarshipFeeHeadId">
+                    <option value="0">Select fee line...</option>
+                    @foreach (var head in feeHeads.OrderBy(h => h.Name))
+                    {
+                        <option value="@head.Id">@head.Name</option>
+                    }
+                </select>
+            }
+            <label class="text-xs font-bold text-violet-950">
+                Amount waived from each matching line
+                <input type="number" step="0.01" min="0" class="mt-1 w-full rounded-xl border border-violet-200 bg-white px-4 py-3 text-sm font-medium" @bind="scholarshipAmount" />
+            </label>
+        </div>
+        <div class="mt-3 rounded-xl border border-violet-200 bg-white/70 p-3 text-xs font-medium text-violet-900/80">
+            @if (scholarshipScope == "ALL")
+            {
+                <span>All fee lines will be matched. For a complete waiver, enter an amount at least as large as each fee line.</span>
+            }
+            else
+            {
+                <span>Only the selected fee line will be reduced. This is a fixed amount, not a percentage.</span>
+            }
+        </div>
+        <div class="action-row mt-3">
+            <button class="rounded-xl bg-violet-700 px-5 py-3 text-sm font-bold text-white disabled:opacity-60" @onclick="SaveScholarshipAsync" disabled="@isSavingScholarship">@(isSavingScholarship ? "Saving..." : "Save adjustment")</button>
+            <button class="rounded-xl border border-violet-200 bg-white px-5 py-3 text-sm font-bold text-violet-700" @onclick="ResetScholarshipEditor">Clear</button>
+        </div>
+        @if (scholarships.Any())
+        {
+            <div class="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                @foreach (var adjustment in scholarships.OrderBy(s => s.StudentId))
+                {
+                    var student = students.FirstOrDefault(s => s.Id == adjustment.StudentId);
+                    <div class="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-violet-100 bg-white p-3 text-xs">
+                        <span class="min-w-0 truncate font-bold text-slate-700">@(student is null ? $"Student {adjustment.StudentId}" : $"{student.FirstName} {student.LastName}") · @adjustment.ScholarshipType · @adjustment.ScholarshipAmount.ToString("C")</span>
+                        @if (adjustment.Id is long adjustmentId)
+                        { <button class="shrink-0 font-bold text-rose-600" @onclick="() => DeleteScholarshipAsync(adjustmentId)">Remove</button> }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="bg-white/80 border border-slate-200 rounded-3xl p-10 text-center text-slate-500">
+            Loading fee setup...
+        </div>
+    }
+    else
+    {
+        <div class="grid grid-cols-1 lg:grid-cols-[0.9fr_1.1fr] gap-6">
+            <div class="space-y-6">
+                <div class="bg-white/80 border border-slate-200 rounded-3xl p-6 shadow-sm">
+                    <div class="flex items-start justify-between gap-4 mb-5">
+                        <div>
+                            <div class="flex items-center gap-2"><span class="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-xs font-black text-white">1</span><h2 class="text-xl font-extrabold text-slate-900 tracking-tight">Fee heads</h2></div>
+                            <p class="text-sm font-medium text-slate-500 mt-2">These are the reusable charges that can be attached to many structures.</p>
+                        </div>
+                        <button class="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold shrink-0" @onclick="PrepareNewFeeHead">
+                            New Head
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-3 mb-5">
+                        <label class="text-xs font-black uppercase tracking-widest text-slate-500">Name<input class="mt-1 w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium" placeholder="e.g. Tuition" @bind="editingFeeHead.Name" /></label>
+                        <label class="text-xs font-black uppercase tracking-widest text-slate-500">Description<input class="mt-1 w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium" placeholder="What does this charge cover?" @bind="editingFeeHead.Description" /></label>
+                        <label class="text-xs font-black uppercase tracking-widest text-slate-500">GL code <span class="normal-case font-medium text-slate-400">optional</span><input class="mt-1 w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium" placeholder="e.g. TUITION" @bind="editingFeeHead.GlCode" /></label>
+                        <label class="text-xs font-black uppercase tracking-widest text-slate-500">Billing frequency<select class="mt-1 w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold" @bind="editingFeeHead.DefaultFrequency">
+                            @foreach (var frequency in feeFrequencies)
+                            {
+                                <option value="@frequency">@frequency</option>
+                            }
+                        </select></label>
+                    </div>
+
+                    <div class="action-row mb-6">
+                        <button class="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-800 disabled:opacity-75 text-white text-sm font-bold shadow-sm flex items-center gap-2" @onclick="SaveFeeHeadAsync" disabled="@isSavingFeeHead">
+                            @if (isSavingFeeHead)
+                            {
+                                <svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                <span>Saving...</span>
+                            }
+                            else
+                            {
+                                <span>Save Head</span>
+                            }
+                        </button>
+                        <button class="px-5 py-3 rounded-xl bg-white border border-slate-200 text-slate-600 text-sm font-bold shadow-sm hover:bg-slate-50" @onclick="PrepareNewFeeHead">
+                            Clear
+                        </button>
+                    </div>
+
+                    <div class="space-y-3 max-h-[420px] overflow-auto pr-1">
+                        @foreach (var head in feeHeads.OrderBy(h => h.Name))
+                        {
+                            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div>
+                                        <div class="text-sm font-black text-slate-900">@head.Name</div>
+                                        <div class="text-xs font-bold text-slate-500 mt-1">@(head.DefaultFrequency ?? "TERM_WISE")</div>
+                                        @if (!string.IsNullOrWhiteSpace(head.Description))
+                                        {
+                                            <div class="text-xs text-slate-500 mt-2">@head.Description</div>
+                                        }
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <button class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-600" @onclick="() => EditFeeHead(head)">Edit</button>
+                                        @if (head.Id.HasValue)
+                                        {
+                                            <button class="px-3 py-1.5 rounded-lg bg-rose-50 border border-rose-200 hover:bg-rose-100 disabled:opacity-50 text-xs font-bold text-rose-600 flex items-center gap-1" @onclick="() => DeleteFeeHeadAsync(head.Id.Value)" disabled="@(deletingFeeHeadId == head.Id)">
+                                                @if (deletingFeeHeadId == head.Id)
+                                                {
+                                                    <svg class="animate-spin h-3 w-3 text-rose-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                    <span>Deleting...</span>
+                                                }
+                                                else
+                                                {
+                                                    <span>Delete</span>
+                                                }
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-6">
+                <div class="bg-white/80 border border-slate-200 rounded-3xl p-6 shadow-sm">
+                    <div class="flex items-start justify-between gap-4 mb-5">
+                        <div>
+                            <div class="flex items-center gap-2"><span class="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-xs font-black text-white">2</span><h2 class="text-xl font-extrabold text-slate-900 tracking-tight">Fee structures</h2></div>
+                            <p class="text-sm font-medium text-slate-500 mt-2">A structure answers: “which students receive these charges, and for which term?”</p>
+                        </div>
+                        <button class="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold shrink-0" @onclick="PrepareNewStructure">
+                            New Structure
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                        <input class="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium" placeholder="Structure name" @bind="editingStructure.Name" />
+                        <input class="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium" placeholder="Academic year" @bind="editingStructure.AcademicYear" />
+                        <select class="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold" @bind="editingStructure.AcademicTerm">
+                            @foreach (var term in academicTerms)
+                            {
+                                <option value="@term">@term</option>
+                            }
+                        </select>
+                        <input type="number" min="0" max="6" class="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium" placeholder="Form (0 for level-wide)" @bind="editingStructure.Form" />
+                        <select class="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold" @bind="editingStructure.Level">
+                            <option value="">No level fallback</option>
+                            <option value="O_LEVEL">O Level (Forms 1–4)</option>
+                            <option value="A_LEVEL">A Level (Forms 5–6)</option>
+                        </select>
+                        @if (isLoadingStreams)
+                        {
+                            <select class="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold" disabled>
+                                <option>Loading streams...</option>
+                            </select>
+                        }
+                        else
+                        {
+                            <select class="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold" @bind="editingStructure.Stream">
+                                <option value="default">Default (no specific stream)</option>
+                                @foreach (var stream in programStreams)
+                                {
+                                    <option value="@stream">@stream</option>
+                                }
+                            </select>
+                        }
+                        <input class="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium" placeholder="Currency" @bind="editingStructure.Currency" />
+                    </div>
+                    <p class="text-xs font-medium text-slate-500 -mt-2 mb-4">
+                        Use a form for a form-specific structure. Set Form to 0 and choose O_LEVEL or A_LEVEL for a level-wide fallback.
+                        A stream/field can narrow the structure further.
+                    </p>
+
+                    <div class="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                        <input class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium sm:col-span-2" placeholder="Search structures..." @bind="structureSearch" />
+                        <select class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold" @bind="structureStatusFilter">
+                            <option value="ALL">All statuses</option>
+                            <option value="ACTIVE">Active only</option>
+                            <option value="INACTIVE">Inactive only</option>
+                        </select>
+                    </div>
+
+                    <label class="inline-flex items-center gap-3 text-sm font-bold text-slate-600 mb-5 cursor-pointer select-none">
+                        <input type="checkbox" class="w-4.5 h-4.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 accent-emerald-600" @bind="editingStructure.IsActive" />
+                        <span>Active structure</span>
+                    </label>
+
+                    <div class="action-row mb-6">
+                        <button class="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-800 disabled:opacity-75 text-white text-sm font-bold shadow-sm flex items-center gap-2" @onclick="SaveStructureAsync" disabled="@isSavingStructure">
+                            @if (isSavingStructure)
+                            {
+                                <svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                <span>Saving...</span>
+                            }
+                            else
+                            {
+                                <span>Save Structure</span>
+                            }
+                        </button>
+                        <button class="px-5 py-3 rounded-xl bg-white border border-slate-200 text-slate-600 text-sm font-bold shadow-sm hover:bg-slate-50" @onclick="PrepareNewStructure">
+                            Clear
+                        </button>
+                    </div>
+
+                    <div class="space-y-3 max-h-[260px] overflow-auto pr-1">
+                        @foreach (var structure in GetVisibleStructures())
+                        {
+                            <div class="rounded-2xl border @(selectedStructure?.Id == structure.Id ? "border-slate-900 bg-slate-100" : "border-slate-200 bg-slate-50") p-4 break-words">
+                                <div class="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                    <div class="min-w-0">
+                                        <div class="text-sm font-black text-slate-900">@structure.Name</div>
+                                        <div class="text-xs font-bold text-slate-500 mt-1">@structure.AcademicYear | @structure.AcademicTerm | @FormatScope(structure)</div>
+                                        <div class="text-xs font-bold mt-2 @(structure.IsActive ? "text-emerald-600" : "text-slate-400")">@(structure.IsActive ? "Active" : "Inactive")</div>
+                                    </div>
+                                    <div class="structure-card-actions">
+                                        <button class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-600" @onclick="() => SelectStructure(structure)">Open</button>
+                                        @if (structure.Id.HasValue)
+                                        {
+                                            <button class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-600" @onclick="() => EditStructure(structure)">Edit</button>
+                                            <button class="px-3 py-1.5 rounded-lg @(structure.IsActive ? "bg-amber-50 border border-amber-200 hover:bg-amber-100 text-amber-700" : "bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-700") disabled:opacity-50 text-xs font-bold flex items-center gap-1" @onclick="() => ToggleStructureStatusAsync(structure)" disabled="@(togglingStructureId == structure.Id)">
+                                                @if (togglingStructureId == structure.Id)
+                                                {
+                                                    <svg class="animate-spin h-3 w-3 @(structure.IsActive ? "text-amber-700" : "text-emerald-700")" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                    <span>Updating...</span>
+                                                }
+                                                else
+                                                {
+                                                    <span>@(structure.IsActive ? "Deactivate" : "Activate")</span>
+                                                }
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="bg-white/80 border border-slate-200 rounded-3xl p-6 shadow-sm">
+                    <div class="flex items-start justify-between gap-4 mb-5">
+                        <div>
+                            <div class="flex items-center gap-2"><span class="flex h-7 w-7 items-center justify-center rounded-full bg-amber-600 text-xs font-black text-white">3</span><h2 class="text-xl font-extrabold text-slate-900 tracking-tight">Structure items</h2></div>
+                            <p class="text-sm font-medium text-slate-500 mt-2">Attach fee heads and set their amount. Each line keeps its own monthly or termly cadence.</p>
+                        </div>
+                        @if (selectedStructure is not null)
+                        {
+                            <span class="px-3 py-1.5 rounded-xl bg-slate-100 text-xs font-bold text-slate-700">@selectedStructure.Name</span>
+                        }
+                    </div>
+
+                    @if (selectedStructure is null || !selectedStructure.Id.HasValue)
+                    {
+                        <div class="rounded-2xl border border-dashed border-slate-300 p-10 text-center text-slate-500">
+                            Select a structure to manage its fee items.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+                            <select class="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold md:col-span-2" @bind="selectedFeeHeadId">
+                                <option value="0">Select fee head...</option>
+                                @foreach (var head in feeHeads.OrderBy(h => h.Name))
+                                {
+                                    <option value="@head.Id">@head.Name (@(head.DefaultFrequency ?? "TERM_WISE"))</option>
+                                }
+                            </select>
+                            <input type="number" step="0.01" class="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium" placeholder="Amount" @bind="itemAmount" />
+                            <input type="number" class="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium" placeholder="Priority" @bind="itemPriority" />
+                        </div>
+
+                        <label class="inline-flex items-center gap-3 text-sm font-bold text-slate-600 mb-4 cursor-pointer select-none">
+                            <input type="checkbox" class="w-4.5 h-4.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 accent-emerald-600" @bind="itemIsMandatory" />
+                            <span>Mandatory for all students in this structure</span>
+                        </label>
+
+                        <div class="action-row mb-6">
+                            <button class="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-800 disabled:opacity-75 text-white text-sm font-bold shadow-sm flex items-center gap-2" @onclick="SaveStructureItemAsync" disabled="@isSavingItem">
+                                @if (isSavingItem)
+                                {
+                                    <svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                    <span>@(editingItemId.HasValue ? "Updating..." : "Adding...")</span>
+                                }
+                                else
+                                {
+                                    <span>@(editingItemId.HasValue ? "Update Item" : "Add Item")</span>
+                                }
+                            </button>
+                            <button class="px-5 py-3 rounded-xl bg-white border border-slate-200 text-slate-600 text-sm font-bold shadow-sm hover:bg-slate-50" @onclick="ResetItemEditor">
+                                Clear
+                            </button>
+                        </div>
+
+                        <div class="space-y-3">
+                            @foreach (var item in structureItems.OrderBy(i => i.Priority ?? int.MaxValue).ThenBy(i => i.FeeHead?.Name))
+                            {
+                                <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div>
+                                            <div class="text-sm font-black text-slate-900">@item.FeeHead?.Name</div>
+                                            <div class="text-xs font-bold text-slate-500 mt-1">@item.Amount.ToString("C") | @(item.IsMandatory ? "Mandatory" : "Optional") | Priority @(item.Priority ?? 0)</div>
+                                            <div class="text-xs text-slate-500 mt-2">Frequency: @(item.FeeHead?.DefaultFrequency ?? "TERM_WISE")</div>
+                                        </div>
+                                        <div class="flex gap-2">
+                                            <button class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-600" @onclick="() => EditItem(item)">Edit</button>
+                                            @if (item.Id.HasValue)
+                                            {
+                                            <button class="px-3 py-1.5 rounded-lg bg-rose-50 border border-rose-200 hover:bg-rose-100 disabled:opacity-50 text-xs font-bold text-rose-600 flex items-center gap-1" @onclick="() => DeleteStructureItemAsync(item.Id.Value)" disabled="@(deletingItemIdTracker == item.Id)">
+                                                @if (deletingItemIdTracker == item.Id)
+                                                {
+                                                    <svg class="animate-spin h-3 w-3 text-rose-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                    <span>Deleting...</span>
+                                                }
+                                                else
+                                                {
+                                                    <span>Delete</span>
+                                                }
+                                            </button>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isLoading = true;
+    private bool isGeneratingInvoices;
+    private string monthlyGenerationMessage = string.Empty;
+    private bool monthlyGenerationIsError;
+    private List<string> pageWarnings = new();
+
+    private List<FeesHeadDto> feeHeads = new();
+    private List<FeesStructureDto> feeStructures = new();
+    private List<FeesStructureItemDto> structureItems = new();
+    private List<StudentProfileModel.Student> students = new();
+    private List<ScholarshipStudentDto> scholarships = new();
+
+    private FeesHeadDto editingFeeHead = new() { DefaultFrequency = "TERM_WISE" };
+    private FeesStructureDto editingStructure = new() { AcademicTerm = "TERM_1", Currency = "USD", Stream = "default", IsActive = true };
+    private FeesStructureDto? selectedStructure;
+
+    private long selectedFeeHeadId;
+    private long? editingItemId;
+    private decimal itemAmount;
+    private int? itemPriority;
+    private bool itemIsMandatory = true;
+    private string structureSearch = string.Empty;
+    private string structureStatusFilter = "ALL";
+    private int selectedScholarshipStudentId;
+    private string scholarshipType = string.Empty;
+    private decimal scholarshipAmount;
+    private string scholarshipScope = "FEE_HEAD";
+    private long selectedScholarshipFeeHeadId;
+    private bool isSavingScholarship;
+    private string generationAcademicYear = DateTime.Today.Year.ToString();
+    private string generationAcademicTerm = GetTermForMonth(DateTime.Today.Month);
+    private int generationBillingMonth = DateTime.Today.Month;
+
+    private readonly string[] feeFrequencies = ["TERM_WISE", "MONTHLY", "ONE_TIME", "ANNUAL", "ON_DEMAND"];
+    private readonly string[] academicTerms = ["TERM_1", "TERM_2", "TERM_3"];
+
+    // Loaded live from the enrollment service
+    private List<string> programStreams = new();
+    private bool isLoadingStreams = false;
+
+    private bool dataLoadAttempted;
+
+    protected override Task OnInitializedAsync()
+    {
+        return Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || dataLoadAttempted) return;
+        dataLoadAttempted = true;
+
+        await Task.WhenAll(LoadAsync(), LoadProgramStreamsAsync());
+        StateHasChanged();
+    }
+
+    private async Task LoadProgramStreamsAsync()
+    {
+        isLoadingStreams = true;
+        try
+        {
+            var fields = await OClassService.GetAllOlevelFieldsAsync();
+            programStreams = fields
+                .Select(f => f.Field ?? "")
+                .Where(f => !string.IsNullOrWhiteSpace(f))
+                .OrderBy(f => f)
+                .ToList();
+        }
+        catch
+        {
+            // fallback — bursar can still pick "default"
+            programStreams = new();
+        }
+        finally
+        {
+            isLoadingStreams = false;
+        }
+    }
+
+    private async Task GenerateMonthlyInvoicesAsync()
+    {
+        isGeneratingInvoices = true;
+        monthlyGenerationMessage = string.Empty;
+        monthlyGenerationIsError = false;
+        try
+        {
+            var now = DateTime.Today;
+            var response = await FinanceService.GenerateMonthlyInvoicesAsync(now.Year.ToString(), now.Month);
+            object created = 0;
+            if (response is not null && response.TryGetValue("createdInvoices", out var value))
+            {
+                created = value ?? 0;
+            }
+            monthlyGenerationMessage = $"Invoice generation completed for {now:MMMM yyyy}. Created: {created}.";
+        }
+        catch (Exception ex)
+        {
+            monthlyGenerationIsError = true;
+            monthlyGenerationMessage = "Could not generate invoices. " + ex.Message;
+        }
+        finally
+        {
+            isGeneratingInvoices = false;
+        }
+    }
+
+    private async Task GenerateAllInvoicesAsync()
+    {
+        isGeneratingInvoices = true;
+        monthlyGenerationMessage = string.Empty;
+        monthlyGenerationIsError = false;
+        try
+        {
+            var year = string.IsNullOrWhiteSpace(generationAcademicYear) ? DateTime.Today.Year.ToString() : generationAcademicYear.Trim();
+            var term = generationAcademicTerm;
+            var response = await FinanceService.GenerateAllInvoicesAsync(year, term, generationBillingMonth);
+            object termCreated = response is not null && response.TryGetValue("termInvoicesCreated", out var termValue) ? termValue ?? 0 : 0;
+            object monthlyCreated = response is not null && response.TryGetValue("monthlyInvoicesCreated", out var monthlyValue) ? monthlyValue ?? 0 : 0;
+            monthlyGenerationMessage = $"Invoice generation completed for {year} {term} / {CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(generationBillingMonth)}. Term invoices: {termCreated}; monthly invoices: {monthlyCreated}. Existing invoices were left unchanged.";
+        }
+        catch (Exception ex)
+        {
+            monthlyGenerationIsError = true;
+            monthlyGenerationMessage = "Could not generate term invoices. " + ex.Message;
+        }
+        finally { isGeneratingInvoices = false; }
+    }
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+        pageWarnings = new();
+        try
+        {
+            feeHeads = await LoadFeeHeadsSafeAsync();
+            feeStructures = await LoadFeeStructuresSafeAsync();
+            students = await StudentService.GetStudentsAsync();
+            scholarships = await FinanceService.GetScholarshipsAsync() ?? new();
+
+            if (selectedStructure?.Id is long structureId)
+            {
+                structureItems = await LoadFeeStructureItemsSafeAsync(structureId);
+            }
+        }
+        catch (Exception)
+        {
+            NotificationService.ShowError($"Could not load fee setup");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ResetScholarshipEditor()
+    {
+        selectedScholarshipStudentId = 0;
+        scholarshipType = string.Empty;
+        scholarshipAmount = 0;
+        scholarshipScope = "FEE_HEAD";
+        selectedScholarshipFeeHeadId = 0;
+    }
+
+    private async Task SaveScholarshipAsync()
+    {
+        if (selectedScholarshipStudentId <= 0 || scholarshipAmount < 0 ||
+            (scholarshipScope == "FEE_HEAD" && selectedScholarshipFeeHeadId <= 0))
+        {
+            NotificationService.ShowError("Choose a student, adjustment scope, fee line when applicable, and a non-negative amount.");
+            return;
+        }
+        isSavingScholarship = true;
+        try
+        {
+            await FinanceService.SaveScholarshipAsync(new ScholarshipStudentDto
+            {
+                StudentId = selectedScholarshipStudentId,
+                ScholarshipType = scholarshipScope == "ALL"
+                    ? "ALL"
+                    : feeHeads.First(h => h.Id == selectedScholarshipFeeHeadId).Name,
+                ScholarshipAmount = scholarshipAmount
+            });
+            scholarships = await FinanceService.GetScholarshipsAsync() ?? new();
+            ResetScholarshipEditor();
+            NotificationService.ShowSuccess("Student adjustment saved.");
+        }
+        catch (Exception ex) { NotificationService.ShowError("Could not save adjustment: " + ex.Message); }
+        finally { isSavingScholarship = false; }
+    }
+
+    private static string GetTermForMonth(int month) => month switch
+    {
+        <= 4 => "TERM_1",
+        <= 8 => "TERM_2",
+        _ => "TERM_3"
+    };
+
+    private async Task DeleteScholarshipAsync(long id)
+    {
+        try
+        {
+            await FinanceService.DeleteScholarshipAsync(id);
+            scholarships = await FinanceService.GetScholarshipsAsync() ?? new();
+            NotificationService.ShowSuccess("Student adjustment removed.");
+        }
+        catch (Exception ex) { NotificationService.ShowError("Could not remove adjustment: " + ex.Message); }
+    }
+
+    private async Task<List<FeesHeadDto>> LoadFeeHeadsSafeAsync()
+    {
+        try
+        {
+            return await FinanceService.GetFeeHeadsAsync() ?? new();
+        }
+        catch (Exception ex)
+        {
+            pageWarnings.Add($"Fee heads are unavailable right now: {ex.Message}");
+            return new();
+        }
+    }
+
+    private async Task<List<FeesStructureDto>> LoadFeeStructuresSafeAsync()
+    {
+        try
+        {
+            return await FinanceService.GetFeeStructuresAsync() ?? new();
+        }
+        catch (Exception ex)
+        {
+            pageWarnings.Add($"Fee structures are unavailable right now: {ex.Message}");
+            return new();
+        }
+    }
+
+    private async Task<List<FeesStructureItemDto>> LoadFeeStructureItemsSafeAsync(long structureId)
+    {
+        try
+        {
+            return await FinanceService.GetFeeStructureItemsAsync(structureId) ?? new();
+        }
+        catch (Exception ex)
+        {
+            pageWarnings.Add($"Fee structure items could not be loaded: {ex.Message}");
+            return new();
+        }
+    }
+
+    private void PrepareNewFeeHead()
+    {
+        editingFeeHead = new FeesHeadDto { DefaultFrequency = "TERM_WISE" };
+    }
+
+    private void EditFeeHead(FeesHeadDto head)
+    {
+        editingFeeHead = new FeesHeadDto
+        {
+            Id = head.Id,
+            Name = head.Name,
+            Description = head.Description,
+            GlCode = head.GlCode,
+            DefaultFrequency = head.DefaultFrequency
+        };
+    }
+
+    private async Task SaveFeeHeadAsync()
+    {
+        if (string.IsNullOrWhiteSpace(editingFeeHead.Name))
+        {
+            NotificationService.ShowError("Fee head name is required.");
+            return;
+        }
+        isSavingFeeHead = true;
+        try
+        {
+            await FinanceService.SaveFeeHeadAsync(editingFeeHead);
+            PrepareNewFeeHead();
+            await LoadAsync();
+            NotificationService.ShowSuccess("Fee head saved successfully.");
+        }
+        catch (Exception)
+        {
+            NotificationService.ShowError($"Could not save fee head.");
+        }
+        finally
+        {
+            isSavingFeeHead = false;
+        }
+    }
+
+    private async Task DeleteFeeHeadAsync(long id)
+    {
+        deletingFeeHeadId = id;
+        try
+        {
+            await FinanceService.DeleteFeeHeadAsync(id);
+            await LoadAsync();
+            NotificationService.ShowSuccess("Fee head deleted.");
+        }
+        catch (Exception)
+        {
+            NotificationService.ShowError($"Could not delete fee head");
+        }
+        finally
+        {
+            deletingFeeHeadId = null;
+        }
+    }
+
+    private void PrepareNewStructure()
+    {
+        editingStructure = new FeesStructureDto
+        {
+            AcademicTerm = "TERM_1",
+            Currency = "USD",
+            Stream = "default",
+            IsActive = true
+        };
+    }
+
+    private void EditStructure(FeesStructureDto structure)
+    {
+        editingStructure = new FeesStructureDto
+        {
+            Id = structure.Id,
+            Name = structure.Name,
+            AcademicYear = structure.AcademicYear,
+            AcademicTerm = structure.AcademicTerm,
+            Form = structure.Form,
+            Level = structure.Level,
+            Stream = structure.Stream,
+            Currency = structure.Currency,
+            IsActive = structure.IsActive
+        };
+    }
+
+    private async Task SaveStructureAsync()
+    {
+        if (string.IsNullOrWhiteSpace(editingStructure.Name))
+        {
+            NotificationService.ShowError("Structure name is required.");
+            return;
+        }
+        if (editingStructure.Form < 0 || editingStructure.Form > 6)
+        {
+            NotificationService.ShowError("Form must be between 0 and 6.");
+            return;
+        }
+        if (editingStructure.Form == 0 && string.IsNullOrWhiteSpace(editingStructure.Level))
+        {
+            NotificationService.ShowError("Choose O_LEVEL or A_LEVEL when Form is 0.");
+            return;
+        }
+        if (editingStructure.Form > 0 && string.IsNullOrWhiteSpace(editingStructure.Level))
+        {
+            editingStructure.Level = ResolveLevel(editingStructure.Form);
+        }
+        editingStructure.Stream = string.IsNullOrWhiteSpace(editingStructure.Stream) ? "default" : editingStructure.Stream.Trim();
+        isSavingStructure = true;
+        try
+        {
+            var saved = await FinanceService.SaveFeeStructureAsync(editingStructure);
+            PrepareNewStructure();
+            await LoadAsync();
+
+            if (saved?.Id is long id)
+            {
+                selectedStructure = feeStructures.FirstOrDefault(s => s.Id == id) ?? saved;
+                structureItems = await LoadFeeStructureItemsSafeAsync(id);
+            }
+
+            NotificationService.ShowSuccess("Fee structure saved.");
+        }
+        catch (Exception)
+        {
+            NotificationService.ShowError($"Could not save fee structure");
+        }
+        finally
+        {
+            isSavingStructure = false;
+        }
+    }
+
+    private static string ResolveLevel(int form) => form is >= 1 and <= 4 ? "O_LEVEL" : form is 5 or 6 ? "A_LEVEL" : "";
+
+    private static string FormatScope(FeesStructureDto structure)
+    {
+        var target = structure.Form > 0 ? $"Form {structure.Form}" : (string.IsNullOrWhiteSpace(structure.Level) ? "Unassigned level" : structure.Level);
+        var stream = string.IsNullOrWhiteSpace(structure.Stream) || structure.Stream.Equals("default", StringComparison.OrdinalIgnoreCase)
+            ? "all fields/streams"
+            : structure.Stream;
+        return $"{target} | {stream}";
+    }
+
+    private IEnumerable<FeesStructureDto> GetVisibleStructures()
+    {
+        var query = feeStructures.AsEnumerable();
+        if (!string.IsNullOrWhiteSpace(structureSearch))
+        {
+            var search = structureSearch.Trim();
+            query = query.Where(s => $"{s.Name} {s.AcademicYear} {s.AcademicTerm} {FormatScope(s)}".Contains(search, StringComparison.OrdinalIgnoreCase));
+        }
+        if (structureStatusFilter == "ACTIVE") query = query.Where(s => s.IsActive);
+        if (structureStatusFilter == "INACTIVE") query = query.Where(s => !s.IsActive);
+        return query
+            .OrderByDescending(s => int.TryParse(s.AcademicYear, out var year) ? year : 0)
+            .ThenByDescending(s => Array.IndexOf(academicTerms, s.AcademicTerm ?? string.Empty))
+            .ThenBy(s => s.Level)
+            .ThenBy(s => s.Form)
+            .ThenBy(s => s.Name);
+    }
+
+    private async Task ToggleStructureStatusAsync(FeesStructureDto structure)
+    {
+        if (!structure.Id.HasValue) return;
+
+        bool newStatus = !structure.IsActive;
+        togglingStructureId = structure.Id;
+        try
+        {
+            await FinanceService.SetFeeStructureStatusAsync(structure.Id.Value, newStatus);
+            await LoadAsync();
+            StateHasChanged();
+            NotificationService.ShowSuccess($"Fee structure status updated to {(newStatus ? "Active" : "Inactive")}.");
+        }
+        catch (Exception)
+        {
+            NotificationService.ShowError($"Could not update fee structure status");
+        }
+        finally
+        {
+            togglingStructureId = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SelectStructure(FeesStructureDto structure)
+    {
+        selectedStructure = structure;
+        structureItems = structure.Id.HasValue
+            ? await LoadFeeStructureItemsSafeAsync(structure.Id.Value)
+            : new();
+        ResetItemEditor();
+    }
+
+    private async Task SaveStructureItemAsync()
+    {
+        if (selectedStructure?.Id is not long structureId)
+        {
+            NotificationService.ShowError("Select a fee structure first.");
+            return;
+        }
+
+        isSavingItem = true;
+        try
+        {
+            if (editingItemId.HasValue)
+            {
+                await FinanceService.UpdateFeeStructureItemAsync(editingItemId.Value, itemAmount, itemIsMandatory, itemPriority);
+                structureItems = await LoadFeeStructureItemsSafeAsync(structureId);
+                ResetItemEditor();
+                NotificationService.ShowSuccess("Fee item updated.");
+            }
+            else
+            {
+                if (selectedFeeHeadId <= 0)
+                {
+                    NotificationService.ShowError("Choose a fee head for the structure item.");
+                    isSavingItem = false;
+                    return;
+                }
+                await FinanceService.AddFeeStructureItemAsync(structureId, selectedFeeHeadId, itemAmount, itemIsMandatory, itemPriority);
+                structureItems = await LoadFeeStructureItemsSafeAsync(structureId);
+                ResetItemEditor();
+                NotificationService.ShowSuccess("Fee item added.");
+            }
+        }
+        catch (Exception)
+        {
+            NotificationService.ShowError($"Could not save fee item");
+        }
+        finally
+        {
+            isSavingItem = false;
+        }
+    }
+
+    private void EditItem(FeesStructureItemDto item)
+    {
+        editingItemId = item.Id;
+        selectedFeeHeadId = item.FeeHead?.Id ?? 0;
+        itemAmount = item.Amount;
+        itemPriority = item.Priority;
+        itemIsMandatory = item.IsMandatory;
+    }
+
+    private async Task DeleteStructureItemAsync(long itemId)
+    {
+        deletingItemIdTracker = itemId;
+        try
+        {
+            await FinanceService.DeleteFeeStructureItemAsync(itemId);
+            if (selectedStructure?.Id is long structureId)
+            {
+                structureItems = await LoadFeeStructureItemsSafeAsync(structureId);
+            }
+            NotificationService.ShowSuccess("Fee item deleted.");
+        }
+        catch (Exception )
+        {
+            NotificationService.ShowError($"Could not delete fee item");
+        }
+        finally
+        {
+            deletingItemIdTracker = null;
+        }
+    }
+
+    private void ResetItemEditor()
+    {
+        editingItemId = null;
+        selectedFeeHeadId = 0;
+        itemAmount = 0;
+        itemPriority = null;
+        itemIsMandatory = true;
+    }
+
+    // State trackers for responsive buttons
+    private bool isSavingFeeHead = false;
+    private long? deletingFeeHeadId;
+    private bool isSavingStructure = false;
+    private long? togglingStructureId;
+    private bool isSavingItem = false;
+    private long? deletingItemIdTracker;
+}

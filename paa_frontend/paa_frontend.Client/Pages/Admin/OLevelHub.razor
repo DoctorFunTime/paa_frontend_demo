@@ -1,0 +1,36 @@
+@page "/admin/academics/olevel"
+@namespace paa_frontend.Client.Pages.Admin
+@layout paa_frontend.Client.Layout.AdminPortalLayout
+@using paa_frontend.Client.Services.Admin
+@using paa_frontend.Shared.Models.Admin
+@using static paa_frontend.Shared.Models.StudentProfileModel
+@inject OlevelClassServiceClient ClassService
+@inject StudentSubjectServiceClient SubjectService
+@inject StudentProfileServiceClient StudentService
+
+<div class="mb-6 flex items-center gap-2 text-sm font-medium text-slate-500"><a href="/admin" class="hover:text-blue-600">Dashboard</a><span>&rsaquo;</span><a href="/admin/academics" class="hover:text-blue-600">Academics</a><span>&rsaquo;</span><span class="font-bold text-slate-800">Forms 1–4</span></div>
+<div class="mb-8 rounded-3xl bg-gradient-to-br from-blue-700 via-blue-800 to-indigo-900 p-6 text-white shadow-lg md:p-8">
+    <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div><span class="mb-3 inline-block rounded-full border border-white/20 bg-white/15 px-3 py-1 text-xs font-black uppercase tracking-widest">Forms 1–4</span><h1 class="text-3xl font-black tracking-tight md:text-4xl">Class &amp; Subject Management</h1><p class="mt-2 max-w-2xl text-sm font-medium text-blue-100">Classes and subjects use one class-scoped source. Set the subjects offered by each class, then manage student opt-outs where necessary.</p></div><div class="grid grid-cols-2 gap-3 sm:grid-cols-3"><div class="rounded-2xl border border-white/15 bg-white/10 p-4"><div class="text-xs font-bold uppercase tracking-wider text-blue-100">Classes</div><div class="mt-1 text-2xl font-black">@classNames.Count</div></div><div class="rounded-2xl border border-white/15 bg-white/10 p-4"><div class="text-xs font-bold uppercase tracking-wider text-blue-100">Students</div><div class="mt-1 text-2xl font-black">@students.Count</div></div><div class="col-span-2 rounded-2xl border border-white/15 bg-white/10 p-4 sm:col-span-1"><div class="text-xs font-bold uppercase tracking-wider text-blue-100">Offerings</div><div class="mt-1 text-2xl font-black">@classSubjects.Count</div></div></div></div>
+</div>
+<div class="mb-7 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2 md:grid-cols-4">
+    @foreach (var tab in new[] { ("Overview", "Overview"), ("Classes", "Class presets"), ("Setup", "Class subjects"), ("Assessments", "Assessments") }) { <button class="rounded-xl px-3 py-3 text-sm font-black transition @(activeTab == tab.Item1 ? "bg-blue-700 text-white shadow" : "text-slate-600 hover:bg-white")" @onclick="() => activeTab = tab.Item1">@tab.Item2</button> }
+</div>
+@if (activeTab == "Classes") { <OLevelClasses /> }
+else if (activeTab == "Setup") { <Form1to4SubjectSetup InitialForm="@(SetupFormParam ?? 0)" InitialClass="@SetupClassParam" /> }
+else if (activeTab == "Assessments") { <AdminAssessmentsBrowser Level="form1to4" AccentColor="#1d4ed8" /> }
+else
+{
+    <div class="grid grid-cols-1 gap-5 lg:grid-cols-2"><section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"><h2 class="text-lg font-black text-slate-900">Current class offerings</h2><p class="mt-1 text-sm font-medium text-slate-500">The active subject list comes only from Forms 1–4 class setup.</p><div class="mt-5 space-y-3">@foreach (var row in classSubjects.OrderBy(x => x.Form).ThenBy(x => x.ClassName).Take(12)) { <div class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4"><div><div class="text-sm font-black text-slate-900">Form @row.Form · @row.ClassName</div><div class="mt-1 text-xs font-medium text-slate-500">@row.Subjects.Count subject(s)</div></div><button class="rounded-xl bg-blue-50 px-3 py-2 text-xs font-black text-blue-700" @onclick="() => OpenSetup(row.Form, row.ClassName)">Edit</button></div> } @if (!classSubjects.Any()) { <div class="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm font-bold text-slate-500">No class subject offerings have been configured yet.</div> }</div></section><section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"><h2 class="text-lg font-black text-slate-900">Single source of truth</h2><p class="mt-1 text-sm font-medium text-slate-500">Use the setup tab to create or update class offerings. Students inherit the class list automatically, with opt-outs stored separately.</p><button class="mt-6 w-full rounded-xl bg-blue-700 px-4 py-3 text-sm font-black text-white hover:bg-blue-800" @onclick='() => activeTab = "Setup"'>Open class subject setup</button></section></div>
+}
+@code {
+    [SupplyParameterFromQuery(Name = "tab")] public string? TabParam { get; set; }
+    [SupplyParameterFromQuery(Name = "form")] public int? SetupFormParam { get; set; }
+    [SupplyParameterFromQuery(Name = "className")] public string? SetupClassParam { get; set; }
+    private string activeTab = "Overview";
+    private List<OlevelClassesModel.OlevelClassName> classNames = new();
+    private List<Student> students = new();
+    private List<SubjectsModel.Form1to4ClassSubjects> classSubjects = new();
+    protected override Task OnParametersSetAsync() { activeTab = TabParam?.ToLowerInvariant() switch { "classes" => "Classes", "setup" => "Setup", "assessments" => "Assessments", _ => "Overview" }; return Task.CompletedTask; }
+    protected override async Task OnInitializedAsync() { var classesTask = ClassService.GetAllOlevelClassNamesAsync(); var studentsTask = StudentService.GetStudentsAsync(); var subjectsTask = SubjectService.GetAllForm1to4ClassSubjectsAsync(); await Task.WhenAll(classesTask, studentsTask, subjectsTask); classNames = classesTask.Result ?? new(); students = (studentsTask.Result ?? new()).Where(s => s.Form is >= 1 and <= 4).ToList(); classSubjects = subjectsTask.Result ?? new(); }
+    private void OpenSetup(int form, string? className) { activeTab = "Setup"; SetupFormParam = form; SetupClassParam = className; }
+}

@@ -1,0 +1,218 @@
+@inherits LayoutComponentBase
+@namespace paa_frontend.Client.Layout
+@using paa_frontend.Shared.Models
+@using paa_frontend.Client.Services
+@using paa_frontend.Client.Services.Admin
+@using Microsoft.JSInterop
+@inject AdminProfileServiceClient AdminService
+@inject BurserProfileServiceClient BurserService
+@inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
+@inject paa_frontend.Client.Services.Auth.AuthService AuthService
+@inject paa_frontend.Client.Services.UiActivityState UiActivity
+@implements IDisposable
+
+<div class="min-h-screen bg-[#F8FAFC] flex flex-col font-sans text-slate-800 relative">
+    <div class="layout-spray-bg" aria-hidden="true"></div>
+
+    <!-- ── Top Navigation ──────────────────────────────────────── -->
+    <header class="bg-white/80 backdrop-blur-md sticky border-b border-slate-100 top-0 z-50 flex items-center justify-between px-3 sm:px-5 xl:px-8 h-[68px] sm:h-[72px] gap-3">
+
+        <!-- Brand -->
+        <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+            <img src="/images/demo-logo.svg" alt="PrimeApp Demo logo"
+                 class="w-9 h-9 sm:w-10 sm:h-10 object-contain drop-shadow-sm shrink-0" />
+            <div class="flex flex-col min-w-0">
+                <span class="font-bold text-slate-900 text-[length:1.1rem] tracking-tight leading-tight hidden sm:block">PrimeApp Demo</span>
+                <span class="font-bold text-slate-900 text-base tracking-tight sm:hidden truncate">PrimeApp Demo</span>
+                <span class="text-[length:0.65rem] font-semibold text-slate-400 uppercase tracking-wider hidden sm:block">@PortalLabel</span>
+            </div>
+        </div>
+
+        <!-- Centre: Back button (desktop) -->
+        <div class="hidden sm:flex items-center">
+            <button class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                    @onclick="GoBack">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
+                Back to @PortalName
+            </button>
+        </div>
+
+        <!-- Right Side -->
+        <div class="flex items-center justify-end gap-2 sm:gap-3 shrink-0">
+
+            <!-- Profile chip -->
+            <div class="flex items-center gap-2 pl-1.5 sm:pr-3 py-1.5 rounded-full border border-slate-200 bg-white shrink-0 min-w-0">
+                <div class="w-7 h-7 rounded-full bg-gradient-to-br from-slate-800 to-slate-600 flex items-center justify-center text-white text-[length:0.6875rem] font-bold shadow-sm shrink-0">
+                    @UserInitials
+                </div>
+                <div class="hidden sm:block text-left mr-1 min-w-0">
+                    <div class="text-[length:0.75rem] font-bold text-slate-800 leading-none truncate max-w-[120px]">@UserName</div>
+                    <div class="text-[length:0.6rem] font-semibold text-slate-400 uppercase tracking-wider leading-none mt-0.5">@PortalName</div>
+                </div>
+            </div>
+
+            <!-- Logout -->
+            <button class="hidden md:flex w-10 h-10 rounded-full bg-slate-50 border border-slate-200 items-center justify-center text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0"
+                    @onclick="Logout" title="Sign out">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+            </button>
+
+            <!-- Mobile: back button -->
+            <button class="sm:hidden w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center shrink-0 hover:bg-slate-50 text-slate-600"
+                    @onclick="GoBack" title="Go back">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- ── Toast Notification ─────────────────────────────────────── -->
+    <ToastNotification />
+
+    @if (UiActivity.IsLoading && !UiActivity.IsSaving)
+    {
+        <div class="fixed left-1/2 top-[78px] z-[90] -translate-x-1/2 rounded-full border border-indigo-100 bg-white/95 px-4 py-2 text-xs font-bold text-indigo-700 shadow-lg shadow-indigo-900/10" role="status" aria-live="polite">
+            <span class="mr-2 inline-block h-2 w-2 animate-pulse rounded-full bg-indigo-500"></span>@UiActivity.StatusMessage
+        </div>
+    }
+    <PortalOperationBlocker Visible="@(UiActivity.IsSaving || UiActivity.IsSaveComplete)" Completed="@UiActivity.IsSaveComplete" Message="@UiActivity.StatusMessage" />
+
+    <!-- ── Main Content ─────────────────────────────────────────── -->
+    <main class="flex-1 w-full max-w-[1500px] mx-auto px-3 py-4 sm:px-5 sm:py-6 md:p-8 animate-fade-in pb-20 relative z-10">
+        <!-- Cascade the return portal so child pages can build their own breadcrumbs -->
+        <CascadingValue Name="ReturnPortal" Value="@ReturnPortal">
+            <CascadingValue Name="PageTitle" Value="@pageTitle">
+                @Body
+            </CascadingValue>
+        </CascadingValue>
+    </main>
+
+</div>
+
+@code {
+    // ── Query parameter ───────────────────────────────────────────
+    // Caller sets ?returnPortal=burser or ?returnPortal=admin
+    [SupplyParameterFromQuery(Name = "returnPortal")]
+    public string? ReturnPortal { get; set; }
+
+    [CascadingParameter(Name = "PageTitle")]
+    private string? pageTitle { get; set; }
+
+    // ── Profile state ─────────────────────────────────────────────
+    private string UserName     = string.Empty;
+    private string UserInitials = "••";
+    private bool profileLoadAttempted;
+
+    // ── Computed portal labels ────────────────────────────────────
+    private string PortalName => ReturnPortal?.ToLowerInvariant() switch
+    {
+        "burser" => "Burser Portal",
+        "admin"  => "Admin Portal",
+        _        => "Portal"
+    };
+
+    private string PortalLabel => ReturnPortal?.ToLowerInvariant() switch
+    {
+        "burser" => "Burser Portal",
+        "admin"  => "Management Portal",
+        _        => "Shared"
+    };
+
+    private string ReturnUrl => ReturnPortal?.ToLowerInvariant() switch
+    {
+        "burser" => "/burser",
+        "admin"  => "/admin",
+        _        => "/"
+    };
+
+    // ── Lifecycle ─────────────────────────────────────────────────
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            UiActivity.Changed += HandleActivityChanged;
+        }
+        if (!firstRender || profileLoadAttempted) return;
+        profileLoadAttempted = true;
+        await LoadProfileAsync();
+        StateHasChanged();
+    }
+
+    private void HandleActivityChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        UiActivity.Changed -= HandleActivityChanged;
+    }
+
+    // ── Tries to load admin profile; add burser service here later ─
+    private async Task LoadProfileAsync()
+    {
+        try
+        {
+            var userIdValue = await JSRuntime.InvokeAsync<string?>("sessionStorage.getItem", "primeappDemo.userId");
+            if (!long.TryParse(userIdValue, out var userId) || userId <= 0) return;
+
+            // Admin profile path — extend with a burser service when needed
+            if (ReturnPortal?.ToLowerInvariant() == "admin")
+            {
+                var profile = await AdminService.GetAdminAsync(userId);
+                if (profile is null) return;
+
+                var full = string.Join(" ",
+                    new[] { profile.FirstName, profile.LastName }
+                    .Where(v => !string.IsNullOrWhiteSpace(v)));
+
+                if (!string.IsNullOrWhiteSpace(full))
+                    UserName = full;
+
+                UserInitials = GetInitials(profile.FirstName, profile.LastName);
+            }
+            // Add else-if branch for burser profile service when available
+            else if (ReturnPortal?.ToLowerInvariant() == "burser")
+            {
+                var profile = await BurserService.GetBurserAsync(userId);
+                if (profile is null) return;
+
+                var full = string.Join(" ",
+                    new[] { profile.FirstName, profile.LastName }
+                    .Where(v => !string.IsNullOrWhiteSpace(v)));
+
+                if (!string.IsNullOrWhiteSpace(full))
+                    UserName = full;
+
+                UserInitials = GetInitials(profile.FirstName, profile.LastName);
+            }
+        }
+        catch (Exception)
+        {
+            Console.WriteLine($"Profile load error");
+        }
+    }
+
+    // ── Navigation ─────────────────────────────────────────────────
+    private void GoBack() => Nav.NavigateTo(ReturnUrl);
+
+    private async Task Logout()
+    {
+        await AuthService.LogoutAsync();
+        Nav.NavigateTo("/login", true);
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────
+    private static string GetInitials(string? first, string? last)
+    {
+        var a = string.IsNullOrWhiteSpace(first) ? "" : first.Trim()[0].ToString().ToUpperInvariant();
+        var b = string.IsNullOrWhiteSpace(last)  ? "" : last.Trim()[0].ToString().ToUpperInvariant();
+        var init = a + b;
+        return string.IsNullOrWhiteSpace(init) ? "••" : init;
+    }
+}

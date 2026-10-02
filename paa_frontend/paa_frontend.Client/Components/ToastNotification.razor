@@ -1,0 +1,192 @@
+@inject paa_frontend.Client.Services.NotificationService NotificationService
+@implements IDisposable
+
+<div style="display:none;">ToastNotification Component Loaded</div>
+
+@if (currentNotification != null)
+{
+    Console.WriteLine($"[ToastNotification] Rendering notification");
+    <div class="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] animate-slide-down">
+        <div class="@GetNotificationClass() px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 min-w-[320px] max-w-[500px] backdrop-blur-md border">
+            <div class="@GetIconClass()">
+                @GetIcon()
+            </div>
+            <div class="flex-1">
+                <p class="text-sm font-bold @GetTextClass()">@currentNotification.Message</p>
+            </div>
+            <button @onclick="CloseNotification" class="@GetCloseButtonClass() hover:opacity-80 transition-opacity">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+}
+
+<style>
+    @@keyframes slide-down {
+        from {
+            opacity: 0;
+            transform: translate(-50%, -20px);
+        }
+        to {
+            opacity: 1;
+            transform: translate(-50%, 0);
+        }
+    }
+    
+    .animate-slide-down {
+        animation: slide-down 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+</style>
+
+@code {
+    private Notification? currentNotification;
+    private CancellationTokenSource? _autoCloseCts;
+
+    protected override void OnInitialized()
+    {
+        Console.WriteLine("[ToastNotification] OnInitialized - subscribing to NotificationService");
+        NotificationService.OnNotification += HandleNotification;
+    }
+
+    private void HandleNotification(Notification notification)
+    {
+        Console.WriteLine($"[ToastNotification] HandleNotification received: (Type: {notification.Type})");
+        // Cancel any existing auto-close timer
+        _autoCloseCts?.Cancel();
+        _autoCloseCts = new CancellationTokenSource();
+
+        currentNotification = notification;
+        StateHasChanged();
+
+        // Auto-close after 5 seconds
+        _ = AutoCloseAsync(_autoCloseCts.Token);
+    }
+
+    private async Task AutoCloseAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(5000, cancellationToken);
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                await InvokeAsync(() =>
+                {
+                    currentNotification = null;
+                    StateHasChanged();
+                });
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            // Expected if cancelled
+        }
+    }
+
+    private void CloseNotification()
+    {
+        _autoCloseCts?.Cancel();
+        currentNotification = null;
+    }
+
+    private string GetNotificationClass()
+    {
+        return currentNotification?.Type switch
+        {
+            NotificationType.Success => "bg-emerald-500/90 border border-emerald-400/50",
+            NotificationType.Error => "bg-rose-500/90 border border-rose-400/50",
+            NotificationType.Warning => "bg-amber-500/90 border border-amber-400/50",
+            NotificationType.Info => "bg-blue-500/90 border border-blue-400/50",
+            _ => "bg-slate-500/90 border border-slate-400/50"
+        };
+    }
+
+    private string GetIconClass()
+    {
+        return "flex-shrink-0";
+    }
+
+    private string GetTextClass()
+    {
+        return "text-white";
+    }
+
+    private string GetCloseButtonClass()
+    {
+        return "flex-shrink-0 text-white/80";
+    }
+
+    private RenderFragment GetIcon()
+    {
+        return currentNotification?.Type switch
+        {
+            NotificationType.Success => (builder) =>
+            {
+                builder.OpenElement(0, "svg");
+                builder.AddAttribute(1, "width", "20");
+                builder.AddAttribute(2, "height", "20");
+                builder.AddAttribute(3, "viewBox", "0 0 24 24");
+                builder.AddAttribute(4, "fill", "none");
+                builder.AddAttribute(5, "stroke", "currentColor");
+                builder.AddAttribute(6, "stroke-width", "2.5");
+                builder.AddMarkupContent(7, "<path d=\"M22 11.08V12a10 10 0 1 1-5.93-9.14\"/><polyline points=\"22 4 12 14.01 9 11.01\"/>");
+                builder.CloseElement();
+            },
+            NotificationType.Error => (builder) =>
+            {
+                builder.OpenElement(0, "svg");
+                builder.AddAttribute(1, "width", "20");
+                builder.AddAttribute(2, "height", "20");
+                builder.AddAttribute(3, "viewBox", "0 0 24 24");
+                builder.AddAttribute(4, "fill", "none");
+                builder.AddAttribute(5, "stroke", "currentColor");
+                builder.AddAttribute(6, "stroke-width", "2.5");
+                builder.AddMarkupContent(7, "<circle cx=\"12\" cy=\"12\" r=\"10\"/><line x1=\"12\" y1=\"8\" x2=\"12\" y2=\"12\"/><line x1=\"12\" y1=\"16\" x2=\"12.01\" y2=\"16\"/>");
+                builder.CloseElement();
+            },
+            NotificationType.Warning => (builder) =>
+            {
+                builder.OpenElement(0, "svg");
+                builder.AddAttribute(1, "width", "20");
+                builder.AddAttribute(2, "height", "20");
+                builder.AddAttribute(3, "viewBox", "0 0 24 24");
+                builder.AddAttribute(4, "fill", "none");
+                builder.AddAttribute(5, "stroke", "currentColor");
+                builder.AddAttribute(6, "stroke-width", "2.5");
+                builder.AddMarkupContent(7, "<path d=\"M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z\"/><line x1=\"12\" y1=\"9\" x2=\"12\" y2=\"13\"/><line x1=\"12\" y1=\"17\" x2=\"12.01\" y2=\"17\"/>");
+                builder.CloseElement();
+            },
+            NotificationType.Info => (builder) =>
+            {
+                builder.OpenElement(0, "svg");
+                builder.AddAttribute(1, "width", "20");
+                builder.AddAttribute(2, "height", "20");
+                builder.AddAttribute(3, "viewBox", "0 0 24 24");
+                builder.AddAttribute(4, "fill", "none");
+                builder.AddAttribute(5, "stroke", "currentColor");
+                builder.AddAttribute(6, "stroke-width", "2.5");
+                builder.AddMarkupContent(7, "<circle cx=\"12\" cy=\"12\" r=\"10\"/><line x1=\"12\" y1=\"16\" x2=\"12\" y2=\"12\"/><line x1=\"12\" y1=\"8\" x2=\"12.01\" y2=\"8\"/>");
+                builder.CloseElement();
+            },
+            _ => (builder) =>
+            {
+                builder.OpenElement(0, "svg");
+                builder.AddAttribute(1, "width", "20");
+                builder.AddAttribute(2, "height", "20");
+                builder.AddAttribute(3, "viewBox", "0 0 24 24");
+                builder.AddAttribute(4, "fill", "none");
+                builder.AddAttribute(5, "stroke", "currentColor");
+                builder.AddAttribute(6, "stroke-width", "2.5");
+                builder.AddMarkupContent(7, "<circle cx=\"12\" cy=\"12\" r=\"10\"/><line x1=\"12\" y1=\"16\" x2=\"12\" y2=\"12\"/><line x1=\"12\" y1=\"8\" x2=\"12.01\" y2=\"8\"/>");
+                builder.CloseElement();
+            }
+        };
+    }
+
+    public void Dispose()
+    {
+        NotificationService.OnNotification -= HandleNotification;
+    }
+}

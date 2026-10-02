@@ -1,0 +1,116 @@
+@page "/staff/payroll"
+@namespace paa_frontend.Client.Pages.Staff
+@layout paa_frontend.Client.Layout.StaffPortalLayout
+
+<style>
+    .page-wrap { padding: 32px; max-width: 1400px; margin: 0 auto; }
+    .page-header { margin-bottom: 32px; }
+    .page-title { font-size: 24px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+    .page-sub { font-size: 13px; color: var(--ink3); }
+
+    .fin-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 32px; }
+    .fin-card { background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); border-radius: 20px; border: 1px solid var(--border); padding: 24px; box-shadow: var(--shadow); position: relative; overflow: hidden; }
+    
+    .fc-title { font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--ink3); margin-bottom: 8px; }
+    .fc-val { font-size: 32px; font-weight: 800; color: var(--ink); font-family: 'DM Mono', monospace; }
+    .fc-meta { font-size: 13px; color: var(--ink2); margin-top: 8px; font-weight: 500; }
+
+    .pr-table-card { background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; }
+    .pr-header { padding: 20px 24px; border-bottom: 1px solid var(--border); font-size: 16px; font-weight: 700; color: var(--ink); }
+    
+    table { width: 100%; border-collapse: collapse; }
+    th { padding: 14px 24px; text-align: left; font-size: 11px; font-weight: 700; color: var(--ink3); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.01); }
+    td { padding: 16px 24px; font-size: 14px; color: var(--ink2); border-bottom: 1px solid rgba(0,0,0,0.04); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover { background: rgba(26, 79, 255, 0.02); }
+
+    .btn-download { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 12px; font-weight: 600; color: var(--theme); background: white; cursor: pointer; transition: all 0.2s; }
+    .btn-download:hover { border-color: var(--theme); background: var(--theme-dim); }
+
+    .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+    @@media (max-width: 768px) {
+        .page-wrap { padding: 16px; }
+        .fin-grid { grid-template-columns: 1fr; gap: 16px; }
+    }
+</style>
+
+<div class="page-wrap">
+    <div class="page-header">
+        <div class="page-title">Payroll Details</div>
+        <div class="page-sub">Access your latest payslips, tax certificates, and earnings history.</div>
+    </div>
+
+    <div class="fin-grid">
+        <div class="fin-card">
+            <div class="fc-title">Latest Net Pay</div>
+            <div class="fc-val">$2,450.00</div>
+            <div class="fc-meta">Paid on 25 March 2026</div>
+        </div>
+        <div class="fin-card">
+            <div class="fc-title">Upcoming Pay Date</div>
+            <div class="fc-val">25 Apr</div>
+            <div class="fc-meta">Expected Net: $2,450.00</div>
+        </div>
+        <div class="fin-card" style="background: var(--theme); color: white; border: none;">
+            <div class="fc-title" style="color: rgba(255,255,255,0.7);">YTD Earnings</div>
+            <div class="fc-val" style="color: white;">$7,350.00</div>
+            <div class="fc-meta" style="color: rgba(255,255,255,0.9);">Tax Year 2026</div>
+        </div>
+    </div>
+
+    <div class="pr-table-card">
+        <div class="pr-header">Payslip History</div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Period</th>
+                        <th>Basic Pay</th>
+                        <th>Deductions</th>
+                        <th>Net Pay</th>
+                        <th>Document</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="font-weight:600; color:var(--ink);">March 2026</td>
+                        <td style="font-family:'DM Mono',monospace;">$3,000.00</td>
+                        <td style="font-family:'DM Mono',monospace; color:#ef4444;">-$550.00</td>
+                        <td style="font-family:'DM Mono',monospace; font-weight:800; color:var(--ink);">$2,450.00</td>
+                        <td>
+                            <button class="btn-download">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                PDF
+                            </button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600; color:var(--ink);">February 2026</td>
+                        <td style="font-family:'DM Mono',monospace;">$3,000.00</td>
+                        <td style="font-family:'DM Mono',monospace; color:#ef4444;">-$550.00</td>
+                        <td style="font-family:'DM Mono',monospace; font-weight:800; color:var(--ink);">$2,450.00</td>
+                        <td>
+                            <button class="btn-download">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                PDF
+                            </button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600; color:var(--ink);">January 2026</td>
+                        <td style="font-family:'DM Mono',monospace;">$3,000.00</td>
+                        <td style="font-family:'DM Mono',monospace; color:#ef4444;">-$550.00</td>
+                        <td style="font-family:'DM Mono',monospace; font-weight:800; color:var(--ink);">$2,450.00</td>
+                        <td>
+                            <button class="btn-download">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                PDF
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

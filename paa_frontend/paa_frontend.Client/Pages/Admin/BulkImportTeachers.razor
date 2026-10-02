@@ -1,0 +1,74 @@
+@page "/admin/teachers/bulk-import"
+@namespace paa_frontend.Client.Pages.Admin
+@layout paa_frontend.Client.Layout.AdminPortalLayout
+@using System.Globalization
+@using System.Text
+@using Microsoft.AspNetCore.Components.Forms
+@using paa_frontend.Client.Services
+@using paa_frontend.Shared.Models
+@using static paa_frontend.Shared.Models.TeacherProfileModel
+@inject TeacherProfileServiceClient TeacherService
+@inject NotificationService NotificationService
+
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+    <div>
+        <div class="text-sm text-slate-500 font-medium mb-1"><a href="/admin/teachers" class="hover:text-blue-600">Staff Directory</a> › Bulk Import</div>
+        <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Bulk Staff Import</h1>
+        <p class="text-sm font-medium text-slate-500 mt-1">Paste Excel rows or upload CSV, review them, then create staff profiles and accounts.</p>
+    </div>
+    <a href="/admin/teachers" class="px-4 py-2 rounded-full border border-slate-200 bg-white text-xs font-bold text-slate-600">Back to staff</a>
+</div>
+
+<div class="grid grid-cols-1 xl:grid-cols-[1.4fr_0.6fr] gap-5">
+    <div class="space-y-5">
+        <section class="rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-sm">
+            <div class="flex items-center justify-between gap-3 mb-4">
+                <div><h2 class="text-base font-extrabold text-slate-900">Import input</h2><p class="text-xs text-slate-500 mt-1">Required: firstName, lastName, gender, phone, nationalId, dateOfBirth, status. Email is optional.</p></div>
+                <button class="px-3 py-2 rounded-full bg-slate-900 text-white text-xs font-bold" @onclick="LoadSample">Use sample</button>
+            </div>
+            <textarea class="w-full min-h-[16rem] rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-mono outline-none focus:border-blue-500" value="@rawInput" @oninput="OnInput" placeholder="Paste CSV or tab-separated Excel rows here..."></textarea>
+            <div class="mt-3 flex flex-wrap items-center gap-3">
+                <InputFile OnChange="ReadFile" accept=".csv,text/csv" />
+                <button class="px-3 py-2 rounded-full border border-slate-200 text-xs font-bold" @onclick="Parse">Preview rows</button>
+                <button class="px-3 py-2 rounded-full border border-slate-200 text-xs font-bold" @onclick="Clear">Clear</button>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(message)) { <p class="mt-3 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs font-bold text-amber-800">@message</p> }
+        </section>
+
+        <section class="rounded-3xl border border-slate-200 bg-white/80 shadow-sm overflow-hidden">
+            <div class="p-5 border-b border-slate-100 flex items-center justify-between gap-3"><div><h2 class="text-base font-extrabold text-slate-900">Preview</h2><p class="text-xs text-slate-500">@rows.Count rows · @rows.Count(IsValid) valid · @rows.Count(r => !IsValid(r)) invalid</p></div><button class="px-4 py-2 rounded-full bg-emerald-600 text-white text-xs font-bold disabled:opacity-50" disabled="@(submitting || !rows.Any(IsValid))" @onclick="Import">@(submitting ? "Importing…" : "Import valid rows")</button></div>
+            @if (!rows.Any()) { <div class="p-10 text-center text-sm text-slate-400">Paste or upload data to preview it here.</div> }
+            else { <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs uppercase tracking-widest text-slate-500"><tr><th class="p-3">Row</th><th class="p-3">Staff</th><th class="p-3">Contact</th><th class="p-3">Status</th></tr></thead><tbody>@foreach (var row in rows) { <tr class="border-t border-slate-100 @(IsValid(row) ? "" : "bg-rose-50")"><td class="p-3 font-mono text-xs">@row.Line</td><td class="p-3 font-bold">@row.Teacher.FirstName @row.Teacher.LastName<div class="text-xs text-slate-500 font-normal">@row.Teacher.NationalId · @row.Teacher.Gender</div></td><td class="p-3 text-xs">@row.Teacher.Email<br />@row.Teacher.Phone</td><td class="p-3 text-xs">@row.Teacher.Status<br /><span class="text-rose-600">@string.Join("; ", row.Errors)</span></td></tr> }</tbody></table></div> }
+        </section>
+    </div>
+
+    <aside class="space-y-5">
+        <section class="rounded-3xl border border-blue-100 bg-blue-50/70 p-5"><h2 class="text-sm font-extrabold text-blue-900">Template</h2><p class="mt-2 text-xs leading-6 text-blue-900/75">Use ISO dates such as <b>1990-04-25</b>. Status is normally <b>Active</b>.</p><code class="mt-3 block rounded-xl bg-white p-3 text-[0.65rem] leading-5 text-slate-700">firstName,lastName,email,phone,gender,nationalId,dateOfBirth,status</code></section>
+        @if (result != null) { <section class="rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-sm"><h2 class="text-sm font-extrabold text-slate-900">Import result</h2><div class="mt-3 grid grid-cols-3 gap-2 text-center"><div class="rounded-xl bg-emerald-50 p-3"><b class="block text-xl text-emerald-700">@result.SuccessCount</b><span class="text-[0.6rem] uppercase">Success</span></div><div class="rounded-xl bg-rose-50 p-3"><b class="block text-xl text-rose-700">@result.FailureCount</b><span class="text-[0.6rem] uppercase">Failed</span></div><div class="rounded-xl bg-slate-50 p-3"><b class="block text-xl">@result.TotalRequested</b><span class="text-[0.6rem] uppercase">Total</span></div></div><div class="mt-4 space-y-2 max-h-72 overflow-auto">@foreach (var teacher in result.SuccessfulTeachers) { <div class="rounded-xl bg-emerald-50 p-3 text-xs"><b>@teacher.FirstName @teacher.LastName</b><div class="font-mono mt-1">@teacher.Username / @teacher.Password</div></div>} @foreach (var failure in result.FailedTeachers) { <div class="rounded-xl bg-rose-50 p-3 text-xs"><b>Row @(failure.Index + 1): @failure.FirstName @failure.LastName</b><div class="text-rose-700 mt-1">@failure.Reason</div></div>}</div></section> }
+    </aside>
+</div>
+
+@code {
+    private string rawInput = string.Empty, message = string.Empty;
+    private bool submitting;
+    private readonly List<Row> rows = new();
+    private BulkTeacherCreationResponseDto? result;
+    private sealed class Row { public int Line { get; init; } public Teacher Teacher { get; init; } = new(); public List<string> Errors { get; init; } = new(); }
+    private static bool IsValid(Row row) => row.Errors.Count == 0;
+    private const string Sample = "firstName,lastName,email,phone,gender,nationalId,dateOfBirth,status\nTinashe,Moyo,tinashe@example.com,0712345678,Male,12-3456789A12,1990-04-25,Active";
+    private void LoadSample() { rawInput = Sample; Parse(); }
+    private void OnInput(ChangeEventArgs e) { rawInput = e.Value?.ToString() ?? ""; Parse(); }
+    private void Clear() { rawInput = ""; rows.Clear(); result = null; message = ""; }
+    private async Task ReadFile(InputFileChangeEventArgs e) { using var stream = e.File.OpenReadStream(10 * 1024 * 1024); using var reader = new StreamReader(stream); rawInput = await reader.ReadToEndAsync(); Parse(); }
+    private void Parse()
+    {
+        rows.Clear(); result = null; message = "";
+        var lines = rawInput.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (lines.Length < 2) { if (!string.IsNullOrWhiteSpace(rawInput)) message = "Include a header row and at least one data row."; return; }
+        var delimiter = lines[0].Contains('\t') ? '\t' : ','; var headers = lines[0].Split(delimiter).Select(Normalize).ToList();
+        for (var i = 1; i < lines.Length; i++) { var cells = lines[i].Split(delimiter); var map = headers.Select((h, n) => (h, v: n < cells.Length ? cells[n].Trim() : "")).ToDictionary(x => x.h, x => x.v); var teacher = new Teacher { FirstName = Get(map, "firstname"), LastName = Get(map, "lastname"), Email = Get(map, "email"), Phone = Get(map, "phone"), Gender = Get(map, "gender"), NationalId = Get(map, "nationalid"), Status = Get(map, "status") }; if (DateTime.TryParse(Get(map, "dateofbirth"), CultureInfo.InvariantCulture, DateTimeStyles.None, out var dob)) teacher.DateOfBirth = dob; var errors = new List<string>(); foreach (var required in new[] { "firstname", "lastname", "gender", "phone", "nationalid", "status" }) if (string.IsNullOrWhiteSpace(Get(map, required))) errors.Add($"{required} required"); if (teacher.DateOfBirth == null) errors.Add("dateOfBirth required/invalid"); rows.Add(new Row { Line = i + 1, Teacher = teacher, Errors = errors }); }
+    }
+    private async Task Import() { submitting = true; try { var response = await TeacherService.BulkCreateTeachersAsync(new BulkTeacherCreationDto { Teachers = rows.Where(IsValid).Select(r => r.Teacher).ToList() }); if (response.IsSuccessStatusCode) { result = await response.Content.ReadFromJsonAsync<BulkTeacherCreationResponseDto>(); NotificationService.ShowSuccess($"Imported {result?.SuccessCount ?? 0} staff members."); } else NotificationService.ShowError(await response.Content.ReadAsStringAsync()); } catch (Exception ex) { NotificationService.ShowError($"Bulk staff import failed: {ex.Message}"); } finally { submitting = false; } }
+    private static string Normalize(string value) => value.Trim().ToLowerInvariant().Replace("_", "").Replace(" ", "");
+    private static string Get(Dictionary<string, string> map, string key) => map.TryGetValue(key, out var value) ? value : string.Empty;
+}

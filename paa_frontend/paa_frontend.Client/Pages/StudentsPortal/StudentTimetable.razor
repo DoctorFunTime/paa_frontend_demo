@@ -1,0 +1,135 @@
+@page "/students/timetable"
+@layout paa_frontend.Client.Layout.StudentPortalLayout
+@using paa_frontend.Shared.Models
+@using paa_frontend.Client.Services
+@using paa_frontend.Client.Services.Admin
+@using static paa_frontend.Shared.Models.Admin.SubjectsModel
+@inject TimetableServiceClient Timetable
+@inject StudentProfileServiceClient StudentService
+@inject StudentSubjectServiceClient SubjectService
+@inject Microsoft.JSInterop.IJSRuntime JS
+
+<div class="mx-auto max-w-5xl space-y-5">
+    <header><p class="text-xs font-bold uppercase tracking-widest text-blue-700">Student portal</p><h1 class="mt-2 text-2xl font-extrabold text-slate-900 sm:text-3xl">My daily timetable</h1><p class="mt-2 text-sm text-slate-600">View your enrolled subjects for a specific day. The weekly timetable repeats unless the school publishes a changed version.</p></header>
+    @if(loading){<div class="flex items-center gap-3 rounded-lg border border-sky-200 bg-sky-50 p-4 text-sm font-semibold text-sky-900" role="status"><span class="h-4 w-4 animate-spin rounded-full border-2 border-sky-700 border-t-transparent"></span>Loading your class and published timetable…</div>}
+    @if(!string.IsNullOrWhiteSpace(error)){<div class="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm font-semibold text-amber-950" role="alert">@error</div>}
+    @if(!loading && published is not null){
+        <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+            <div class="flex flex-col gap-4 border-b border-slate-200 pb-4 lg:flex-row lg:items-center lg:justify-between">
+                <div class="min-w-0"><p class="text-xs font-bold uppercase tracking-wider text-slate-500">@classLabel</p><h2 class="mt-1 text-lg font-extrabold leading-tight text-slate-900 sm:text-xl">@selectedDate.ToString("dddd, dd MMMM yyyy")</h2><p class="mt-1 text-sm text-slate-600">@published.Term</p></div>
+                <div class="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center lg:w-auto">
+                    <button class="rounded-md border border-slate-300 px-2 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 sm:px-3 sm:text-sm" @onclick="()=>selectedDate=selectedDate.AddDays(-1)" aria-label="Previous day">← Previous day</button>
+                    <button class="rounded-md border border-slate-300 px-2 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 sm:order-3 sm:px-3 sm:text-sm" @onclick="()=>selectedDate=selectedDate.AddDays(1)" aria-label="Next day">Next day →</button>
+                    <label class="col-span-2 flex min-w-0 items-center gap-2 text-xs font-semibold text-slate-700 sm:order-2 sm:col-span-1 sm:text-sm">Go to date<input type="date" @bind="selectedDate" class="min-w-0 flex-1 rounded-md border border-slate-300 px-2 py-2 sm:ml-1 sm:flex-none sm:px-3" /></label>
+                    <button class="rounded-md bg-slate-900 px-3 py-2 text-xs font-bold text-white sm:order-4 sm:text-sm" @onclick="()=>selectedDate=DateTime.Today">Today</button>
+                </div>
+            </div>
+            @if(DailySlots.Count==0){<div class="mt-4 rounded-lg bg-slate-50 p-5 text-sm text-slate-600">No periods are configured for @selectedDate.ToString("dddd").</div>}
+            else{
+                <div class="mt-4 space-y-2 sm:hidden">
+                    @foreach(var slot in DailySlots){var lesson=assignments.FirstOrDefault(a=>a.SlotId==slot.Id);<article class="grid grid-cols-[3.5rem_minmax(0,1fr)] gap-3 rounded-lg border border-slate-200 bg-white p-3"><div class="flex items-center justify-center rounded-md bg-slate-50 text-sm font-extrabold text-slate-800">P@(slot.PeriodNumber)</div><div class="min-w-0"><div class="text-xs font-semibold text-slate-500">@SlotTime(slot)</div><div class="mt-1 break-words text-sm">@if(slot.Type!="LESSON"){<span class="font-semibold text-slate-600">@SlotLabel(slot.Type)</span>}else if(lesson is not null){<span class="font-bold text-slate-900">@lesson.SubjectId</span>}else{<span class="text-slate-500">Free / study period</span>}</div></div></article>}
+                </div>
+                <div class="mt-4 hidden overflow-x-auto sm:block"><table class="w-full min-w-[560px] text-left text-sm"><thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-3">Period</th><th class="px-4 py-3">Time</th><th class="px-4 py-3">Your schedule</th></tr></thead><tbody class="divide-y divide-slate-100">
+                    @foreach(var slot in DailySlots){var lesson=assignments.FirstOrDefault(a=>a.SlotId==slot.Id);<tr><td class="px-4 py-4 font-bold">P@(slot.PeriodNumber)</td><td class="whitespace-nowrap px-4 py-4">@SlotTime(slot)</td><td class="px-4 py-4">@if(slot.Type!="LESSON"){<span class="font-semibold text-slate-500">@SlotLabel(slot.Type)</span>}else if(lesson is not null){<span class="font-bold text-slate-900">@lesson.SubjectId</span>}else{<span class="text-slate-500">Free / study period</span>}</td></tr>}
+                </tbody></table></div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private bool loading=true;
+    private string? error;
+    private string classLabel="";
+    private TimetableVersionInfo? published;
+    private DateTime selectedDate=DateTime.Today;
+    private List<TimetableSlot> slots=new();
+    private List<TimetableAssignment> assignments=new();
+    private int SelectedDay=>selectedDate.DayOfWeek==DayOfWeek.Sunday?7:(int)selectedDate.DayOfWeek;
+    private List<TimetableSlot> DailySlots=>slots.Where(slot=>slot.DayOfWeek==SelectedDay).OrderBy(slot=>slot.PeriodNumber).ToList();
+    private static string SlotTime(TimetableSlot slot)=>$"{slot.StartTime?.ToString("HH:mm")??"--:--"}–{slot.EndTime?.ToString("HH:mm")??"--:--"}";
+    private static string SlotLabel(string? type)=>type?.ToUpperInvariant() switch{"BREAK"=>"Break","LUNCH"=>"Lunch","SPORT"=>"Sports","BLOCKED"=>"Unavailable",_=>type??""};
+
+    private static bool MatchesClass(string? classroom,int form,string? name,string? code)
+    {
+        if(string.IsNullOrWhiteSpace(classroom)||string.IsNullOrWhiteSpace(name))return false;
+        var value=classroom.Trim();
+        if(value.StartsWith("Form",StringComparison.OrdinalIgnoreCase))value=value[4..].Trim();
+        return new[]{name.Trim(),code?.Trim(),$"{form}{name.Trim()}",$"{form}-{name.Trim()}",$"{form}_{name.Trim()}",$"{form} {name.Trim()}"}
+            .Any(candidate=>string.Equals(value,candidate,StringComparison.OrdinalIgnoreCase));
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var idText=await JS.InvokeAsync<string?>("sessionStorage.getItem", "primeappDemo.userId");
+            if(!int.TryParse(idText,out var studentId)||studentId<=0){error="We could not identify your student account. Please sign in again.";return;}
+            var profile=await StudentService.GetStudentAsync(studentId);
+            List<string> classIdCandidates;
+            if(profile.Form is >=1 and <=4)
+            {
+                var choices=await SubjectService.GetForm1to4StudentSubjectsAsync(studentId);
+                if(choices is null||string.IsNullOrWhiteSpace(choices.ClassName))
+                {
+                    var matching=(await SubjectService.GetAllForm1to4ClassSubjectsAsync()).Where(c=>c.Form==profile.Form &&
+                        MatchesClass(profile.Classroom,c.Form,c.ClassName,c.ClassCode)).ToList();
+                    if(string.IsNullOrWhiteSpace(profile.Classroom)||matching.Count!=1){error="Your enrolled class could not be matched to a timetable. Please contact the school office.";return;}
+                    var enrolled=matching[0];
+                    choices=new Form1to4StudentSubjectChoices{Form=enrolled.Form,ClassName=enrolled.ClassName,ClassCode=enrolled.ClassCode,Subjects=enrolled.Subjects};
+                }
+                var offered=await SubjectService.GetForm1to4ClassSubjectsAsync(choices.Form,choices.ClassName);
+                var classCode=(offered?.ClassCode??choices.ClassCode)?.Trim();
+                var className=(offered?.ClassName??choices.ClassName)?.Trim();
+                var classId=$"F{choices.Form}|{classCode}|{className}";
+                classIdCandidates=DistinctClassIds(classId,$"F{choices.Form}|{className}|{classCode}",$"F{choices.Form}||{className}",$"F{choices.Form}|{className}",$"{classCode}|{className}",$"{choices.Form} {className}",className,classCode);
+                classLabel=$"Form {choices.Form} · {choices.ClassName}"+(string.IsNullOrWhiteSpace(choices.ClassCode)?"":$" ({choices.ClassCode})");
+            }
+            else
+            {
+                var choices=await SubjectService.GetStudentALevelSubjectChoicesAsync(studentId);
+                if(choices is null||string.IsNullOrWhiteSpace(choices.ClassName))
+                {
+                    if(profile.Form is not (5 or 6)||string.IsNullOrWhiteSpace(profile.Classroom)){error="Your class placement is not available yet. Please contact the school office.";return;}
+                    choices=new GetStudentALevelSubjectChoices{Form=profile.Form.Value,ClassName=profile.Classroom,Subjects=(await SubjectService.GetALevelSubjectsAsync()).Select(s=>s.SubjectName??"").ToList()};
+                }
+                classIdCandidates=DistinctClassIds($"F{choices.Form}||{choices.ClassName}",$"F{choices.Form}|{choices.ClassName}|{choices.ClassName}",$"F{choices.Form}|{choices.ClassName}",choices.ClassName);
+                classLabel=$"Form {choices.Form} · {choices.ClassName}";
+            }
+
+            published=await Timetable.GetActivePublishedAsync();
+            if(published is null){error="The school has not published an active timetable yet.";return;}
+            slots=await Timetable.GetSlotsAsync();
+            assignments=await LoadClassAssignments(classIdCandidates,slots);
+            if(assignments.Count==0)error="No periods were found for your class in the active published timetable. Please confirm your class placement with the school office.";
+        }
+        catch(HttpRequestException ex) when(ex.StatusCode==System.Net.HttpStatusCode.Forbidden){error="The timetable service denied access to this account. Please contact the school office so they can check your student portal access.";}
+        catch(Exception ex){error=$"Your timetable could not be loaded: {ex.Message}";}
+        finally{loading=false;}
+    }
+
+    private static List<string> DistinctClassIds(params string?[] values) => values
+        .Where(value=>!string.IsNullOrWhiteSpace(value))
+        .Select(value=>value!.Trim())
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    private async Task<List<TimetableAssignment>> LoadClassAssignments(IEnumerable<string> classIds,List<TimetableSlot> configuredSlots)
+    {
+        var configuredSlotIds=configuredSlots.Select(slot=>slot.Id).ToHashSet();
+        List<TimetableAssignment> bestMatch=new();
+        var bestSlotMatches=0;
+        foreach(var classId in classIds)
+        {
+            var results=await Timetable.GetByClassAsync(published!.Id,classId);
+            var slotMatches=results.Count(assignment=>configuredSlotIds.Contains(assignment.SlotId));
+            if(slotMatches>bestSlotMatches)
+            {
+                bestMatch=results;
+                bestSlotMatches=slotMatches;
+            }
+            if(slotMatches==configuredSlots.Count(slot=>slot.Type=="LESSON"))return results;
+        }
+        return bestMatch;
+    }
+}

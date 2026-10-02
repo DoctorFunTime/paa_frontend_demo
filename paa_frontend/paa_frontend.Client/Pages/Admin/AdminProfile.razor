@@ -1,0 +1,278 @@
+@page "/admin/profile"
+@namespace paa_frontend.Client.Pages.Admin
+@layout paa_frontend.Client.Layout.AdminPortalLayout
+@using Microsoft.JSInterop
+@using paa_frontend.Client.Services
+@using paa_frontend.Client.Services.Admin
+@using AdminProfileRecord = paa_frontend.Shared.Models.AdminProfileModel.Admin
+@inject AdminProfileServiceClient AdminService
+@inject NotificationService NotificationService
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Nav
+
+@if (isLoading)
+{
+    <div class="max-w-4xl mx-auto w-full animate-pulse">
+        <div class="h-40 bg-slate-200 rounded-3xl mb-8"></div>
+        <div class="h-[32rem] bg-white/60 rounded-3xl border border-slate-200/50"></div>
+    </div>
+}
+else if (adminProfile == null)
+{
+    <div class="flex flex-col items-center justify-center py-20 text-center">
+        <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 mb-4">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <h2 class="text-xl font-bold text-slate-900 mb-2">Admin profile unavailable</h2>
+        <p class="text-slate-500 mb-6">We could not load the logged-in administrator's personal details.</p>
+        <button class="px-5 py-2 bg-slate-900 text-white rounded-full font-bold shadow hover:bg-slate-800" @onclick='() => Nav.NavigateTo("/admin")'>Return to Dashboard</button>
+    </div>
+}
+else
+{
+    <div class="max-w-4xl mx-auto w-full pb-16">
+        <div class="flex items-center gap-2 text-sm text-slate-500 font-medium mb-1">
+            <a href="/admin" class="hover:text-blue-600 transition-colors">Dashboard</a>
+            <span class="text-slate-300">&rsaquo;</span>
+            <span class="text-slate-800 font-bold">My Profile</span>
+        </div>
+
+        <div class="relative w-full min-h-[12rem] bg-gradient-to-r from-slate-900 via-blue-900 to-sky-700 rounded-[2rem] overflow-hidden mb-8 shadow-lg">
+            <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.22),_transparent_38%),radial-gradient(circle_at_bottom_left,_rgba(56,189,248,0.18),_transparent_32%)]"></div>
+            <div class="relative z-10 p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                <div class="flex items-center gap-4">
+                    <div class="w-20 h-20 rounded-3xl bg-white/10 border border-white/20 backdrop-blur flex items-center justify-center text-white text-2xl font-black tracking-widest shadow-lg">
+                        @Initials
+                    </div>
+                    <div>
+                        <div class="text-[length:0.7rem] uppercase tracking-[0.24em] font-bold text-sky-100/80 mb-2">Administrator Profile</div>
+                        <h1 class="text-2xl md:text-3xl font-black tracking-tight text-white">@adminProfile.FirstName @adminProfile.LastName</h1>
+                        <p class="text-sm md:text-base font-medium text-sky-100/85 mt-2 max-w-2xl">Update the personal details used across the admin portal.</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="rounded-2xl border border-white/15 bg-white/10 backdrop-blur px-4 py-3">
+                        <div class="text-[length:0.65rem] uppercase tracking-widest font-bold text-sky-100/70">Status</div>
+                        <div class="text-sm font-extrabold mt-1">@DisplayOrFallback(adminProfile.Status)</div>
+                    </div>
+                    <div class="rounded-2xl border border-white/15 bg-white/10 backdrop-blur px-4 py-3">
+                        <div class="text-[length:0.65rem] uppercase tracking-widest font-bold text-sky-100/70">Admin ID</div>
+                        <div class="text-sm font-extrabold mt-1">@adminProfile.Id</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <EditForm Model="@adminProfile" OnValidSubmit="HandleValidSubmit" class="bg-white/60 backdrop-blur-sm border border-slate-200/50 rounded-3xl p-6 md:p-10 shadow-sm relative overflow-hidden">
+            <DataAnnotationsValidator />
+
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-slate-900 via-blue-700 to-sky-500"></div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <div class="col-span-1 md:col-span-2">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Personal Details</h3>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[length:0.8rem] font-bold text-slate-700">First Name <span class="text-rose-500">*</span></label>
+                    <InputText @bind-Value="adminProfile.FirstName" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none" />
+                    <ValidationMessage For="@(() => adminProfile.FirstName)" class="text-xs text-rose-500" />
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[length:0.8rem] font-bold text-slate-700">Last Name <span class="text-rose-500">*</span></label>
+                    <InputText @bind-Value="adminProfile.LastName" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none" />
+                    <ValidationMessage For="@(() => adminProfile.LastName)" class="text-xs text-rose-500" />
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[length:0.8rem] font-bold text-slate-700">Email Address</label>
+                    <InputText @bind-Value="adminProfile.Email" type="email" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none" />
+                    <ValidationMessage For="@(() => adminProfile.Email)" class="text-xs text-rose-500" />
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[length:0.8rem] font-bold text-slate-700">Phone</label>
+                    <InputText @bind-Value="adminProfile.Phone" type="tel" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none" />
+                    <ValidationMessage For="@(() => adminProfile.Phone)" class="text-xs text-rose-500" />
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[length:0.8rem] font-bold text-slate-700">Date of Birth</label>
+                    <InputDate @bind-Value="adminProfile.DateOfBirth" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none" />
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[length:0.8rem] font-bold text-slate-700">Gender</label>
+                    <div class="relative">
+                        <InputSelect @bind-Value="adminProfile.Gender" class="w-full bg-white border border-slate-200 rounded-xl pl-4 pr-10 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none appearance-none">
+                            <option value="">Select gender...</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </InputSelect>
+                        <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[length:0.8rem] font-bold text-slate-700">National ID</label>
+                    <InputText @bind-Value="adminProfile.NationalId" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none font-mono" />
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[length:0.8rem] font-bold text-slate-700">Status</label>
+                    <div class="relative">
+                        <InputSelect @bind-Value="adminProfile.Status" class="w-full bg-white border border-slate-200 rounded-xl pl-4 pr-10 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none appearance-none">
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                            <option value="Suspended">Suspended</option>
+                        </InputSelect>
+                        <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-10 pt-6 border-t border-slate-100 flex items-center justify-end gap-3">
+                <button type="button" class="px-6 py-2.5 rounded-xl border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 text-sm font-bold transition-colors shadow-sm flex items-center gap-2 mr-auto" @onclick="OpenPasswordModal">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                    <span>Change Password</span>
+                </button>
+                <button type="button" class="px-6 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm" @onclick='() => Nav.NavigateTo("/admin")'>Cancel</button>
+                <button type="submit" class="px-8 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-all shadow-md flex items-center gap-2" disabled="@isSubmitting">
+                    @if (isSubmitting)
+                    {
+                        <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                        <span>Saving...</span>
+                    }
+                    else
+                    {
+                        <span>Save Changes</span>
+                    }
+                </button>
+            </div>
+        </EditForm>
+        <ChangePasswordModal @bind-IsOpen="showPasswordModal" Username="@authUsername" />
+    </div>
+}
+
+@code {
+    private AdminProfileRecord? adminProfile;
+    private long userId;
+    private bool isLoading = true;
+    private bool isSubmitting;
+    private bool profileLoadAttempted;
+    private bool showPasswordModal;
+    private string authUsername = string.Empty;
+
+    private async Task OpenPasswordModal()
+    {
+        authUsername = await JSRuntime.InvokeAsync<string>("sessionStorage.getItem", "primeappDemo.authUsername") ?? string.Empty;
+        showPasswordModal = true;
+    }
+
+    private string Initials => GetInitials(adminProfile?.FirstName, adminProfile?.LastName);
+
+    protected override Task OnInitializedAsync()
+    {
+        isLoading = true;
+        return Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || profileLoadAttempted)
+        {
+            return;
+        }
+
+        profileLoadAttempted = true;
+        await LoadAdminProfileAsync();
+        StateHasChanged();
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (adminProfile == null || userId <= 0)
+        {
+            NotificationService.ShowError("No admin profile is loaded.");
+            return;
+        }
+
+        isSubmitting = true;
+
+        try
+        {
+            var response = await AdminService.UpdateAdminAsync(userId, adminProfile);
+            if (response.IsSuccessStatusCode)
+            {
+                NotificationService.ShowSuccess("Admin profile updated successfully.");
+                Nav.NavigateTo("/admin", true);
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                NotificationService.ShowError(string.IsNullOrWhiteSpace("")
+                    ? "Failed to update admin profile."
+                    : "");
+            }
+        }
+        catch (Exception)
+        {
+            NotificationService.ShowError($"Failed to update admin profile");
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private static string GetInitials(string? firstName, string? lastName)
+    {
+        var firstInitial = string.IsNullOrWhiteSpace(firstName) ? string.Empty : firstName.Trim()[0].ToString().ToUpperInvariant();
+        var lastInitial = string.IsNullOrWhiteSpace(lastName) ? string.Empty : lastName.Trim()[0].ToString().ToUpperInvariant();
+
+        var initials = $"{firstInitial}{lastInitial}";
+        return string.IsNullOrWhiteSpace(initials) ? "AD" : initials;
+    }
+
+    private static string DisplayOrFallback(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "Unknown" : value;
+    }
+
+    private async Task LoadAdminProfileAsync()
+    {
+        isLoading = true;
+
+        try
+        {
+            var userIdValue = await JSRuntime.InvokeAsync<string?>("sessionStorage.getItem", "primeappDemo.userId");
+
+            if (!long.TryParse(userIdValue, out userId) || userId <= 0)
+            {
+                NotificationService.ShowError("No admin user id was found in local storage.");
+                return;
+            }
+
+            adminProfile = await AdminService.GetAdminAsync(userId);
+
+            if (adminProfile == null)
+            {
+                NotificationService.ShowError($"No admin profile was returned for this user.");
+            }
+        }
+        catch (Exception)
+        {
+            Console.WriteLine($"ADMIN PROFILE ERROR");
+            NotificationService.ShowError($"Failed to load admin profile");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

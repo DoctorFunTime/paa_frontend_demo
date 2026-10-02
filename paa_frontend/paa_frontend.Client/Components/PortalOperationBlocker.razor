@@ -1,0 +1,29 @@
+@if (Visible)
+{
+    <div class="fixed inset-0 z-[100] flex items-center justify-center @(Completed ? "bg-emerald-950/20" : "bg-slate-950/35") p-4 backdrop-blur-[2px]" role="status" aria-live="polite" aria-busy="@(!Completed)">
+        <div class="w-full max-w-sm rounded-3xl border border-white/60 bg-white/95 p-6 text-center shadow-2xl shadow-slate-900/20">
+            @if (Completed)
+            {
+                <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                    <svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                </div>
+                <h2 class="mt-4 text-base font-black text-emerald-700">Saved successfully</h2>
+                <p class="mt-1 text-sm font-medium text-slate-500">Your changes have been completed.</p>
+            }
+            else
+            {
+                <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                    <svg class="h-7 w-7 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle class="opacity-20" cx="12" cy="12" r="9" /><path d="M21 12a9 9 0 0 1-9 9" /></svg>
+                </div>
+                <h2 class="mt-4 text-base font-black text-slate-900">@Message</h2>
+                <p class="mt-1 text-sm font-medium text-slate-500">Please keep this page open while the operation completes.</p>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public bool Completed { get; set; }
+    [Parameter] public string Message { get; set; } = "Saving changes… Please wait";
+}

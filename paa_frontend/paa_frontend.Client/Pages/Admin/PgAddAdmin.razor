@@ -1,0 +1,425 @@
+@page "/admin/admins/add"
+@page "/admin/admins/edit/{AdminId:long}"
+@namespace paa_frontend.Client.Pages.Admin
+@layout paa_frontend.Client.Layout.AdminPortalLayout
+@using System.Net.Http.Json
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+@using paa_frontend.Client.Services
+@using paa_frontend.Client.Services.Admin
+@using AdminProfileRecord = paa_frontend.Shared.Models.AdminProfileModel.Admin
+@inject AdminProfileServiceClient AdminService
+@inject NotificationService NotificationService
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Nav
+
+<div class="max-w-4xl mx-auto w-full pb-16">
+    <div class="flex items-center gap-2 text-sm text-slate-500 font-medium mb-1">
+        <a href="/admin" class="hover:text-indigo-600 transition-colors">Dashboard</a>
+        <span class="text-slate-300">&rsaquo;</span>
+        <a href="/admin/admins" class="hover:text-indigo-600 transition-colors">Administrators</a>
+        <span class="text-slate-300">&rsaquo;</span>
+        <span class="text-slate-800 font-bold">@(isEditMode ? "Edit Admin" : "New Admin")</span>
+    </div>
+
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+        <div>
+            <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight mb-2">@(isEditMode ? "Update Administrator" : "Register New Administrator")</h1>
+            <p class="text-sm font-medium text-slate-500">@(isEditMode ? "Adjust the account details and save the changes." : "Create a new administrator account with portal access.")</p>
+        </div>
+        <a href="/admin/admins" class="px-4 py-2 bg-white/70 hover:bg-white backdrop-blur-sm border border-slate-200/70 rounded-full text-xs font-semibold text-slate-600 transition-colors shadow-sm flex items-center justify-center gap-2">
+            Back to Directory
+        </a>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="animate-pulse rounded-3xl border border-slate-200/60 bg-white/60 p-8">
+            <div class="h-6 w-44 bg-slate-200 rounded mb-6"></div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                @for (var i = 0; i < 8; i++)
+                {
+                    <div class="h-12 bg-slate-200 rounded-xl"></div>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <EditForm EditContext="@editContext" id="admin-registration-form" OnValidSubmit="HandleValidSubmit" OnInvalidSubmit="HandleInvalidSubmit" class="bg-white/60 backdrop-blur-sm border border-slate-200/50 rounded-3xl p-6 md:p-10 shadow-sm animate-fade-in relative overflow-hidden">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-600 via-slate-800 to-sky-500"></div>
+
+            @if (!string.IsNullOrWhiteSpace(formFeedbackMessage) || !string.IsNullOrWhiteSpace(submissionErrorMessage))
+            {
+                <div id="admin-submit-feedback" @ref="feedbackSectionRef" tabindex="-1" class="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700 shadow-sm" aria-live="assertive">
+                    @if (!string.IsNullOrWhiteSpace(formFeedbackMessage))
+                    {
+                        <p class="font-bold">@formFeedbackMessage</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(submissionErrorMessage))
+                    {
+                        <p class="font-bold">@submissionErrorMessage</p>
+                    }
+                </div>
+            }
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <div class="col-span-1 md:col-span-2">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Identity</h3>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[length:0.8rem] font-bold text-slate-700">First Name <span class="text-rose-500">*</span></label>
+                    <InputText @bind-Value="adminModel.FirstName" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none" />
+                    <ValidationMessage For="@(() => adminModel.FirstName)" class="text-[length:0.65rem] text-rose-500 font-bold" />
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[length:0.8rem] font-bold text-slate-700">Last Name <span class="text-rose-500">*</span></label>
+                    <InputText @bind-Value="adminModel.LastName" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none" />
+                    <ValidationMessage For="@(() => adminModel.LastName)" class="text-[length:0.65rem] text-rose-500 font-bold" />
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[length:0.8rem] font-bold text-slate-700">Date of Birth</label>
+                    <InputDate @bind-Value="adminModel.DateOfBirth" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none" />
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[length:0.8rem] font-bold text-slate-700">Gender</label>
+                    <div class="relative">
+                        <InputSelect @bind-Value="adminModel.Gender" class="w-full bg-white border border-slate-200 rounded-xl pl-4 pr-10 py-2.5 text-sm font-medium focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none appearance-none">
+                            <option value="">Select gender...</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </InputSelect>
+                        <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9" /></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[length:0.8rem] font-bold text-slate-700">National ID</label>
+                    <InputText @bind-Value="adminModel.NationalId" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none font-mono" />
+                    <ValidationMessage For="@(() => adminModel.NationalId)" class="text-[length:0.65rem] text-rose-500 font-bold" />
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[length:0.8rem] font-bold text-slate-700">Status</label>
+                    <div class="relative">
+                        <InputSelect @bind-Value="adminModel.Status" class="w-full bg-white border border-slate-200 rounded-xl pl-4 pr-10 py-2.5 text-sm font-medium focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none appearance-none">
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                            <option value="Suspended">Suspended</option>
+                        </InputSelect>
+                        <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9" /></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-span-1 md:col-span-2 mt-4">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest border-t border-slate-200/60 pt-6 mb-4">Contact Information</h3>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[length:0.8rem] font-bold text-slate-700">Email Address</label>
+                    <InputText @bind-Value="adminModel.Email" type="email" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none" />
+                    <ValidationMessage For="@(() => adminModel.Email)" class="text-[length:0.65rem] text-rose-500 font-bold" />
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[length:0.8rem] font-bold text-slate-700">Phone</label>
+                    <InputText @bind-Value="adminModel.Phone" type="tel" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none" />
+                    <ValidationMessage For="@(() => adminModel.Phone)" class="text-[length:0.65rem] text-rose-500 font-bold" />
+                </div>
+            </div>
+
+            <div class="mt-10 pt-6 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-stretch sm:items-center sm:justify-end gap-3">
+                <button type="button" class="w-full sm:w-auto px-6 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm" @onclick='() => Nav.NavigateTo("/admin/admins")'>Cancel</button>
+                <button type="submit" class="w-full sm:w-auto px-8 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold transition-all shadow-md flex items-center justify-center gap-2" disabled="@isSubmitting">
+                    @if (isSubmitting)
+                    {
+                        <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                        <span>Saving...</span>
+                    }
+                    else
+                    {
+                        <span>@(isEditMode ? "Update Administrator" : "Create Administrator")</span>
+                    }
+                </button>
+            </div>
+        </EditForm>
+
+        @if (createdSummary.Count > 0)
+        {
+            <div id="admin-created-response" @ref="responseSectionRef" tabindex="-1" class="mt-8 bg-white/60 backdrop-blur-sm border border-emerald-200/50 rounded-3xl p-6 md:p-10 shadow-sm animate-fade-in relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-teal-500"></div>
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-extrabold text-slate-900">Administrator Saved</h2>
+                        <p class="text-sm text-slate-500">The account response is shown below for quick handoff.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    @foreach (var item in createdSummary)
+                    {
+                        <div class="bg-slate-50 rounded-xl p-4">
+                            <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">@item.Label</div>
+                            <div class="text-sm font-mono font-bold text-slate-900 break-all">@item.Value</div>
+                        </div>
+                    }
+                </div>
+
+                <div class="mt-6 pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-3">
+                    <button class="w-full sm:w-auto px-6 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm" @onclick='() => Nav.NavigateTo("/admin/admins")'>View Directory</button>
+                    <button class="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold transition-all shadow-md" @onclick="ResetForm">Add Another</button>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public long? AdminId { get; set; }
+
+    private AdminProfileRecord adminModel = new();
+    private EditContext editContext = default!;
+    private bool isSubmitting;
+    private bool isLoading = true;
+    private string? formFeedbackMessage;
+    private string? submissionErrorMessage;
+    private ElementReference feedbackSectionRef;
+    private ElementReference responseSectionRef;
+    private readonly List<ResponseField> createdSummary = new();
+
+    private bool isEditMode => AdminId.HasValue && AdminId.Value > 0;
+
+    private record ResponseField(string Label, string Value);
+
+    protected override async Task OnInitializedAsync()
+    {
+        ResetFormModel();
+
+        if (isEditMode)
+        {
+            await LoadAdminAsync(AdminId!.Value);
+        }
+
+        isLoading = false;
+    }
+
+    private async Task LoadAdminAsync(long id)
+    {
+        try
+        {
+            var admin = await AdminService.GetAdminAsync(id);
+            if (admin == null)
+            {
+                NotificationService.ShowError("Administrator record could not be loaded.");
+                return;
+            }
+
+            adminModel = admin;
+            editContext = new EditContext(adminModel);
+        }
+        catch (Exception)
+        {
+            NotificationService.ShowError($"Failed to load administrator record");
+        }
+    }
+
+    private async Task HandleInvalidSubmit(EditContext _)
+    {
+        createdSummary.Clear();
+        submissionErrorMessage = null;
+        formFeedbackMessage = "Please correct the highlighted fields and try again.";
+        NotificationService.ShowError(formFeedbackMessage);
+        await InvokeAsync(StateHasChanged);
+        await FocusElementAsync(feedbackSectionRef);
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        isSubmitting = true;
+        try
+        {
+            formFeedbackMessage = null;
+            submissionErrorMessage = null;
+            createdSummary.Clear();
+
+            HttpResponseMessage response = isEditMode
+                ? await AdminService.UpdateAdminAsync(AdminId!.Value, adminModel)
+                : await AdminService.CreateAdminAsync(adminModel);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var summary = await BuildSummaryAsync(response, isEditMode ? "Administrator updated successfully." : "Administrator created successfully.");
+                if (summary.Count > 0)
+                {
+                    createdSummary.AddRange(summary);
+                    NotificationService.ShowSuccess(isEditMode ? "Administrator updated successfully." : "Administrator created successfully!");
+                    await InvokeAsync(StateHasChanged);
+                    if (isEditMode)
+                    {
+                        Nav.NavigateTo("/admin/admins", true);
+                    }
+                    else
+                    {
+                        await FocusElementAsync(responseSectionRef);
+                    }
+                }
+                else
+                {
+                    submissionErrorMessage = isEditMode
+                        ? "Administrator updated, but the response details could not be displayed."
+                        : "Administrator was created, but the response details could not be displayed.";
+                    NotificationService.ShowError(submissionErrorMessage);
+                    await InvokeAsync(StateHasChanged);
+                    await FocusElementAsync(feedbackSectionRef);
+                }
+            }
+            else
+            {
+                submissionErrorMessage = await ExtractErrorMessageAsync(response, isEditMode ? "Failed to update administrator. Please review the form and try again." : "Failed to create administrator. Please review the form and try again.");
+                NotificationService.ShowError(submissionErrorMessage);
+                await InvokeAsync(StateHasChanged);
+                await FocusElementAsync(feedbackSectionRef);
+            }
+        }
+        catch (Exception)
+
+        {
+            submissionErrorMessage = "Error: Failed to submit administrator details.";
+            NotificationService.ShowError(submissionErrorMessage);
+            await InvokeAsync(StateHasChanged);
+            await FocusElementAsync(feedbackSectionRef);
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void ResetForm()
+    {
+        createdSummary.Clear();
+        formFeedbackMessage = null;
+        submissionErrorMessage = null;
+        if (isEditMode)
+        {
+            Nav.NavigateTo("/admin/admins");
+            return;
+        }
+
+        ResetFormModel();
+    }
+
+    private void ResetFormModel()
+    {
+        adminModel = new AdminProfileRecord
+        {
+            Status = "Active"
+        };
+        editContext = new EditContext(adminModel);
+    }
+
+    private static async Task FocusElementAsync(ElementReference element)
+    {
+        try
+        {
+            await element.FocusAsync();
+        }
+        catch
+        {
+        }
+    }
+
+    private static async Task<string> ExtractErrorMessageAsync(HttpResponseMessage response, string fallbackMessage)
+    {
+        var raw = await response.Content.ReadAsStringAsync();
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return fallbackMessage;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(raw);
+            var root = document.RootElement;
+
+            foreach (var propertyName in new[] { "message", "error", "title", "detail" })
+            {
+                if (root.TryGetProperty(propertyName, out var property) && property.ValueKind == JsonValueKind.String)
+                {
+                    var value = property.GetString();
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        return value!;
+                    }
+                }
+            }
+        }
+        catch (JsonException)
+        {
+        }
+
+        return raw.Trim();
+    }
+
+    private static async Task<List<ResponseField>> BuildSummaryAsync(HttpResponseMessage response, string fallbackMessage)
+    {
+        var fields = new List<ResponseField>();
+        var raw = await response.Content.ReadAsStringAsync();
+
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            fields.Add(new ResponseField("Message", fallbackMessage));
+            return fields;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(raw);
+            var root = document.RootElement;
+
+            foreach (var propertyName in new[] { "message", "error", "id", "username", "password", "status" })
+            {
+                if (root.TryGetProperty(propertyName, out var property))
+                {
+                    fields.Add(new ResponseField(ToTitle(propertyName), property.ToString()));
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            fields.Add(new ResponseField("Response", raw.Trim()));
+        }
+
+        if (fields.Count == 0)
+        {
+            fields.Add(new ResponseField("Message", fallbackMessage));
+        }
+
+        return fields;
+    }
+
+    private static string ToTitle(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return value;
+        }
+
+        return char.ToUpperInvariant(value[0]) + value[1..];
+    }
+}

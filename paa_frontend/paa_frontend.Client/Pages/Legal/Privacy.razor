@@ -1,0 +1,27 @@
+@page "/privacy"
+@attribute [AllowAnonymous]
+@layout paa_frontend.Client.Layout.MainLayout
+
+<PageTitle>Privacy Notice | PrimeApp Demo</PageTitle>
+
+<div class="min-h-screen bg-slate-50 px-4 py-10 sm:px-6 lg:px-8">
+    <article class="mx-auto max-w-4xl rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
+        <div class="mb-8 flex items-start gap-4 border-b border-slate-100 pb-7">
+            <img src="/images/demo-logo.svg" alt="PrimeApp Demo" class="h-14 w-14 object-contain" />
+            <div>
+                <p class="text-xs font-extrabold uppercase tracking-[0.18em] text-indigo-600">PrimeApp Demo</p>
+                <h1 class="mt-1 text-3xl font-black tracking-tight text-slate-900">Privacy Notice</h1>
+                <p class="mt-2 text-sm text-slate-500">Last updated: 10 September 2026</p>
+            </div>
+        </div>
+
+        <div class="space-y-8 text-sm leading-7 text-slate-600">
+            <section><h2 class="text-lg font-extrabold text-slate-900">Frontend demonstration</h2><p>This demo is not attached to a school. People, grades, attendance and financial records are fictional. Use sample information only.</p></section>
+            <section><h2 class="text-lg font-extrabold text-slate-900">Local changes</h2><p>Demo edits live in browser memory and reset when you refresh or select Reset demo. The selected demo role is kept in this tab’s session storage. Demo credentials do not provide access to a school account.</p></section>
+            <section><h2 class="text-lg font-extrabold text-slate-900">Payments and documents</h2><p>Payment actions simulate transactions; no money is transferred. Printed reports, receipts and passes are samples with no official validity. Some service-dependent operations are unavailable.</p></section>
+            <section><h2 class="text-lg font-extrabold text-slate-900">Presentation resources</h2><p>The original interface loads fonts and styling from external content providers. School records and demo API requests are handled locally.</p></section>
+        </div>
+
+        <a href="/login" class="mt-8 inline-flex rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800">Back to sign in</a>
+    </article>
+</div>

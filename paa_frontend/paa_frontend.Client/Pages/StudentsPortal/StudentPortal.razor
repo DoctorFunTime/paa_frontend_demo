@@ -1,0 +1,947 @@
+@page "/portal"
+@namespace paa_frontend.Client.Pages
+@layout paa_frontend.Client.Layout.StudentPortalLayout
+@using paa_frontend.Shared.Models
+@using static paa_frontend.Shared.Models.StudentProfileModel
+@inject IJSRuntime JS
+@inject StudentProfileServiceClient StudentService
+@inject FinanceServiceClient FinanceService
+@inject GradesServiceClient GradesService
+@inject AttendanceServiceClient AttendanceService
+@inject NavigationManager Nav
+
+<style>
+    /* ΓöÇΓöÇ BANNER ΓöÇΓöÇ */
+    .banner-outer {
+        background: rgba(0,0,0,0.15);
+        backdrop-filter: blur(24px) saturate(180%);
+        -webkit-backdrop-filter: blur(24px) saturate(180%);
+        border: 1px solid rgba(255,255,255,0.25);
+        border-top: 1px solid rgba(255,255,255,0.5);
+        border-left: 1px solid rgba(255,255,255,0.35);
+        box-shadow: 0 0 0 1px rgba(255,255,255,0.1) inset, 0 12px 40px rgba(0,0,0,0.15);
+        border-radius: 24px;
+        color: var(--ink);
+        padding: 24px 28px 28px;
+        position: relative;
+        overflow: hidden;
+        margin: 16px 16px 0;
+    }
+
+        .banner-outer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 420px;
+            height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg width='32' height='55' viewBox='0 0 32 55' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cpath d='M16 9.613L32 18.846v18.468l-16 9.233-16-9.233V18.846zm0 1.155l-15 8.658v17.316l15 8.658 15-8.658V19.426zM15 48.24l-14-8.08V23.84l14-8.08v32.48zm2-32.48l14 8.08v16.32l-14 8.08V15.76z' fill='%23ffffff' fill-opacity='0.05'/%3E%3C/g%3E%3C/svg%3E");
+            -webkit-mask-image: linear-gradient(to left, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%);
+            mask-image: linear-gradient(to left, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%);
+            pointer-events: none;
+        }
+
+    .banner-inner {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .banner-avatar {
+        width: 60px;
+        height: 60px;
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.25);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        font-weight: 800;
+        color: var(--ink);
+        flex-shrink: 0;
+    }
+
+    .banner-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .banner-name {
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: -0.4px;
+        margin-bottom: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .banner-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 10px;
+    }
+
+    .banner-meta-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 12px;
+        color: var(--ink2);
+        font-weight: 500;
+    }
+
+    .banner-badges {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .banner-badge {
+        padding: 3px 9px;
+        border-radius: 6px;
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .banner-stats {
+        margin-left: auto;
+        display: flex;
+        gap: 28px;
+        align-items: center;
+        flex-shrink: 0;
+    }
+
+    .banner-stat {
+        text-align: right;
+    }
+
+    .banner-stat-label {
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--ink3);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 3px;
+    }
+
+    .banner-stat-val {
+        font-size: 26px;
+        font-weight: 800;
+        font-family: 'DM Mono', monospace;
+        line-height: 1;
+    }
+
+    /* ΓöÇΓöÇ QUICK ACTIONS ΓöÇΓöÇ */
+    .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px;
+        margin: 16px 16px 0;
+    }
+
+    .action-card {
+        background: rgba(255,255,255,0.22);
+        backdrop-filter: blur(20px) saturate(160%);
+        -webkit-backdrop-filter: blur(20px) saturate(160%);
+        border-radius: 20px;
+        border: 1px solid rgba(255,255,255,0.45);
+        border-top: 1px solid rgba(255,255,255,0.8);
+        padding: 18px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.07);
+        transition: transform 0.18s, box-shadow 0.18s;
+    }
+
+    /* Admin-style student dashboard: solid surfaces, clear hierarchy. */
+    .banner-outer {
+        background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #4338ca 100%);
+        border: 0;
+        box-shadow: 0 12px 28px rgba(15,23,42,0.16);
+    }
+    .banner-name, .banner-stat-val { color: #fff; }
+    .banner-meta-item, .banner-stat-label { color: rgba(255,255,255,0.72); }
+    .banner-badge { color: #fff !important; background: rgba(255,255,255,0.14) !important; border-color: rgba(255,255,255,0.22) !important; }
+    .action-card { background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(15,23,42,0.06); }
+    .action-card:hover { box-shadow: 0 10px 24px rgba(15,23,42,0.10); }
+    .stat-tile { background: #f8fafc; border-color: #e2e8f0; }
+    .bar-track { height: 8px; background: #e2e8f0; }
+    .bar-fill { min-width: 4px; }
+
+        .action-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 32px rgba(0,0,0,0.11);
+        }
+
+    .action-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+        .action-icon.pay {
+            background: rgba(0,0,0,0.06);
+        }
+
+        .action-icon.results {
+            background: rgba(200,16,46,0.08);
+            color: #c8102e;
+        }
+
+    /* ΓöÇΓöÇ MAIN GRID ΓöÇΓöÇ */
+    .portal-grid {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        gap: 20px;
+        padding: 20px 16px 60px;
+    }
+
+    .col-8 {
+        grid-column: span 8;
+    }
+
+    .col-4 {
+        grid-column: span 4;
+    }
+
+    /* ΓöÇΓöÇ SECTION LABEL ΓöÇΓöÇ */
+    .section-label {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: var(--ink3);
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+        .section-label svg {
+            opacity: 0.5;
+        }
+
+    .section-divider {
+        height: 1px;
+        background: rgba(0,0,0,0.07);
+        margin: 28px 0;
+        border: none;
+    }
+
+    /* ΓöÇΓöÇ DATA GRID ΓöÇΓöÇ */
+    .data-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+    }
+
+    .data-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .data-header {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        color: var(--ink3);
+    }
+
+    .data-label {
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .data-val {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--ink);
+    }
+
+    /* ΓöÇΓöÇ ATTENDANCE RING ΓöÇΓöÇ */
+    .attendance-layout {
+        display: flex;
+        align-items: center;
+        gap: 28px;
+    }
+
+    .progress-ring {
+        position: relative;
+        width: 84px;
+        height: 84px;
+        flex-shrink: 0;
+    }
+
+    .ring-circle {
+        fill: transparent;
+        stroke-width: 8;
+        stroke-linecap: round;
+    }
+
+    .ring-bg {
+        stroke: rgba(0,0,0,0.08);
+    }
+
+    .ring-fill {
+        stroke: #10b981;
+        transform: rotate(-90deg);
+        transform-origin: 50% 50%;
+        transition: stroke-dashoffset 1s ease-in-out;
+    }
+
+    .ring-text {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 18px;
+        font-weight: 800;
+        color: var(--ink);
+    }
+
+    .indicator {
+        padding: 3px 9px;
+        border-radius: 4px;
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+        .indicator.success {
+            background: rgba(16,185,129,0.1);
+            color: #10b981;
+        }
+
+        .indicator.warning {
+            background: rgba(245,158,11,0.1);
+            color: #f59e0b;
+        }
+
+        .indicator.error {
+            background: rgba(239,68,68,0.1);
+            color: #ef4444;
+        }
+
+    /* ΓöÇΓöÇ BAR CHART ΓöÇΓöÇ */
+    .bar-chart {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .bar-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+
+    .bar-subject {
+        width: 120px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #444;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .bar-track {
+        flex: 1;
+        height: 5px;
+        background: rgba(0,0,0,0.08);
+        border-radius: 3px;
+        overflow: hidden;
+    }
+
+    .bar-fill {
+        height: 100%;
+        border-radius: 3px;
+    }
+
+    .bar-val {
+        width: 38px;
+        text-align: right;
+        font-size: 12px;
+        font-weight: 800;
+    }
+
+    /* ΓöÇΓöÇ STAT TILES ΓöÇΓöÇ */
+    .stat-tile {
+        padding: 16px;
+        border-radius: 16px;
+        background: rgba(255,255,255,0.88);
+        border: 1px solid rgba(0,0,0,0.06);
+    }
+
+    .stat-tile-label {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: var(--ink3);
+        margin-bottom: 8px;
+        letter-spacing: 0.8px;
+    }
+
+    .stat-tile-val {
+        font-size: 22px;
+        font-weight: 800;
+        color: var(--ink);
+        line-height: 1;
+        margin-bottom: 4px;
+    }
+
+    .stat-tile-sub {
+        font-size: 11px;
+        color: var(--ink3);
+    }
+
+    /* ΓöÇΓöÇ LOADING SKELETON ΓöÇΓöÇ */
+    .skeleton {
+        background: linear-gradient(90deg, rgba(255,255,255,0.3) 25%, rgba(255,255,255,0.5) 50%, rgba(255,255,255,0.3) 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite;
+        border-radius: 8px;
+        height: 14px;
+    }
+
+    @@keyframes shimmer {
+        0% {
+            background-position: 200% 0;
+        }
+
+        100% {
+            background-position: -200% 0;
+        }
+    }
+
+    /* ΓöÇΓöÇ MOBILE ΓöÇΓöÇ */
+    @@media (max-width: 768px) {
+        .banner-outer {
+            padding: 18px 16px 22px;
+            border-radius: 18px;
+            margin: 12px 12px 0;
+        }
+
+        .banner-inner {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 14px;
+        }
+
+        .banner-stats {
+            margin-left: 0;
+            justify-content: flex-start;
+            gap: 20px;
+        }
+
+        .quick-actions {
+            grid-template-columns: 1fr;
+            margin: 12px 12px 0;
+            gap: 10px;
+        }
+
+        .portal-grid {
+            grid-template-columns: 1fr;
+            padding: 14px 12px 48px;
+            gap: 16px;
+        }
+
+        .col-8, .col-4 {
+            grid-column: span 1;
+        }
+
+        .data-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .attendance-layout {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 16px;
+        }
+
+        .glass-card {
+            padding: 22px 18px;
+            border-radius: 20px;
+        }
+
+        .banner-name {
+            font-size: 20px;
+        }
+
+        .banner-stat-val {
+            font-size: 22px;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .data-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .banner-name {
+            font-size: 18px;
+        }
+    }
+</style>
+
+@{
+    var pageTitle = "Student Portal";
+}
+<CascadingValue Name="PageTitle" Value="@pageTitle">
+
+    @if (isLoading)
+    {
+        <div style="padding:24px 16px;">
+            <div class="banner-outer" style="min-height:120px;">
+                <div class="banner-inner">
+                    <div style="width:60px;height:60px;border-radius:16px;background:rgba(255,255,255,0.15);flex-shrink:0;"></div>
+                    <div style="flex:1;display:flex;flex-direction:column;gap:10px;">
+                        <div class="skeleton" style="width:60%;"></div>
+                        <div class="skeleton" style="width:40%;"></div>
+                        <div class="skeleton" style="width:30%;height:10px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(loadError))
+    {
+        <div style="margin:16px;padding:16px 20px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:16px;color:#7f1126;font-size:14px;font-weight:600;">
+            Unable to load your dashboard: @loadError
+        </div>
+    }
+    else
+    {
+        <!-- ΓöÇΓöÇ BANNER ΓöÇΓöÇ -->
+        <div class="banner-outer">
+            <div class="banner-inner">
+                <div class="banner-avatar">@StudentInitials</div>
+                <div class="banner-info">
+                    <div class="banner-name">@Me.FirstName @Me.LastName</div>
+                    <div class="banner-meta">
+                        @if (!string.IsNullOrWhiteSpace(FormatClassroom(Me.Form, Me.Classroom)))
+                        {
+                            <span class="banner-meta-item">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z" /><path d="M6 12v5c3 3 9 3 12 0v-5" /></svg>
+                                @FormatClassroom(Me.Form, Me.Classroom)
+                            </span>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(Me.Email))
+                        {
+                            <span class="banner-meta-item">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
+                                @Me.Email
+                            </span>
+                        }
+                    </div>
+                    <div class="banner-badges">
+                        @if (!string.IsNullOrWhiteSpace(Me.Status))
+                        {
+                            <span class="banner-badge" style="background:rgba(0,0,0,0.06);color:var(--ink2);">@Me.Status</span>
+                        }
+                        @if (Me.Id > 0)
+                        {
+                            <span class="banner-badge" style="background:transparent;border:1px solid rgba(0,0,0,0.18);color:var(--ink3);">ID @Me.Id</span>
+                        }
+                    </div>
+                </div>
+
+                <div class="banner-stats">
+                    @if (TotalSubjects > 0)
+                    {
+                        <div class="banner-stat">
+                            <div class="banner-stat-label">Term Avg</div>
+                            <div class="banner-stat-val">@AvgMark<span style="font-size:14px;opacity:0.45;margin-left:2px;">%</span></div>
+                        </div>
+                    }
+                    <div class="banner-stat">
+                        <div class="banner-stat-label">Balance</div>
+                        <div class="banner-stat-val" style="@(BalanceOwing > 0 ? "color:#ff6b7a;" : "color:#10b981;")">
+                            @(BalanceOwing > 0 ? $"${BalanceOwing:N0}" : "CLEAR")
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ΓöÇΓöÇ QUICK ACTIONS ΓöÇΓöÇ -->
+        <div class="quick-actions">
+            <div class="action-card" @onclick='() => Nav.NavigateTo("/portal/personal-finance")'>
+                <div style="display:flex;align-items:center;gap:14px;">
+                    <div class="action-icon pay">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>
+                    </div>
+                    <div>
+                        <div style="font-size:14px;font-weight:800;color:var(--ink);">School Fees</div>
+                        <div style="font-size:11px;color:var(--ink2);margin-top:2px;">
+                            @(BalanceOwing > 0 ? $"${BalanceOwing:N2} outstanding" : "Account fully paid")
+                        </div>
+                    </div>
+                </div>
+                @if (BalanceOwing > 0)
+                {
+                    <span style="padding:3px 9px;border-radius:6px;font-size:9px;font-weight:800;text-transform:uppercase;background:rgba(239,68,68,0.2);color:#ef4444;">Due</span>
+                }
+                else
+                {
+                    <span style="padding:3px 9px;border-radius:6px;font-size:9px;font-weight:800;text-transform:uppercase;background:rgba(16,185,129,0.15);color:#10b981;">Clear</span>
+                }
+            </div>
+
+            <div class="action-card" @onclick='() => Nav.NavigateTo("/portal/results")'>
+                <div style="display:flex;align-items:center;gap:14px;">
+                    <div class="action-icon results">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>
+                    </div>
+                    <div>
+                        <div style="font-size:14px;font-weight:800;color:var(--ink);">Academic Results</div>
+                        <div style="font-size:11px;color:var(--ink3);margin-top:2px;">@SelectedTermLabel &middot; @DateTime.Now.Year</div>
+                    </div>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="opacity:0.25;color:var(--ink);flex-shrink:0;"><polyline points="9 18 15 12 9 6" /></svg>
+            </div>
+        </div>
+
+        <!-- ΓöÇΓöÇ MAIN GRID ΓöÇΓöÇ -->
+        <div class="portal-grid">
+
+            <!-- Left: Personal details + Attendance + Performance -->
+            <div class="col-8 glass-card">
+
+                <!-- Personal Details -->
+                <div class="section-label">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                    Personal Details
+                </div>
+                <div class="data-grid">
+                    @{
+                        var items = new List<(string Lab, string? Val, string Icon)>();
+                        if (!string.IsNullOrWhiteSpace($"{Me.FirstName} {Me.LastName}".Trim()))
+                            items.Add(("Full Name", $"{Me.FirstName} {Me.LastName}", "user"));
+                        if (!string.IsNullOrWhiteSpace(Me.NationalId))
+                            items.Add(("National ID", Me.NationalId, "id"));
+                        if (Me.DateOfBirth.HasValue)
+                            items.Add(("Date of Birth", Me.DateOfBirth.Value.ToString("dd MMM yyyy"), "calendar"));
+                        if (!string.IsNullOrWhiteSpace(Me.Gender))
+                            items.Add(("Gender", Me.Gender, "smile"));
+                        if (!string.IsNullOrWhiteSpace(Me.Email))
+                            items.Add(("Email", Me.Email, "mail"));
+                        if (!string.IsNullOrWhiteSpace(Me.Phone))
+                            items.Add(("Phone", Me.Phone, "phone"));
+                    }
+                    @foreach (var item in items)
+                    {
+                        <div class="data-item">
+                            <div class="data-header">
+                                @if (item.Icon == "user")
+                                {
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                                }
+                                else if (item.Icon == "id")
+                                {
+
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2" /><line x1="7" y1="8" x2="17" y2="8" /><line x1="7" y1="12" x2="17" y2="12" /><line x1="7" y1="16" x2="12" y2="16" /></svg>
+                                }
+                                else if (item.Icon == "calendar")
+                                {
+
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                                }
+                                else if (item.Icon == "mail")
+                                {
+
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
+                                }
+                                else if (item.Icon == "phone")
+                                {
+
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
+                                }
+                                else
+                                {
+
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /></svg>
+                                }
+                                <span class="data-label">@item.Lab</span>
+                            </div>
+                            <div class="data-val">@(item.Val ?? "—")</div>
+                        </div>
+                    }
+                    @if (!items.Any())
+                    {
+                        <div style="grid-column:span 3;font-size:13px;color:var(--ink3);font-weight:500;">No personal details available.</div>
+                    }
+                </div>
+
+                <hr class="section-divider" />
+
+                <!-- Attendance -->
+                <div class="section-label">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                    Attendance · This Month
+                </div>
+                @if (!AttendanceDays.Any())
+                {
+                    <div style="font-size:13px;color:var(--ink3);font-weight:500;">No attendance records for this month yet.</div>
+                }
+                else
+                {
+                    <div class="attendance-layout">
+                        <div class="progress-ring">
+                            <svg width="84" height="84">
+                                <circle class="ring-circle ring-bg" cx="42" cy="42" r="35" />
+                                <circle class="ring-circle ring-fill" cx="42" cy="42" r="35"
+                                        style="stroke-dasharray:220;stroke-dashoffset:@(220 - (220 * attPct / 100));" />
+                            </svg>
+                            <div class="ring-text">@attPct%</div>
+                        </div>
+                        <div style="flex:1;">
+                            <div style="font-size:14px;font-weight:800;color:var(--ink);margin-bottom:5px;">@pCount of @AttendanceDays.Count days present</div>
+                            <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
+                                <span class="indicator success">Present: @pCount</span>
+                                <span class="indicator warning">Late: @lCount</span>
+                                <span class="indicator error">Absent: @aCount</span>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @if (CurrentResults != null && CurrentResults.Any())
+                {
+                    <hr class="section-divider" />
+
+                    <div class="section-label">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20v-6M6 20V10M18 20V4" /></svg>
+                        Academic Performance · @SelectedTermLabel
+                    </div>
+                    <div class="bar-chart">
+                        @foreach (var r in CurrentResults.Take(7))
+                        {
+                            var gc = GradeHelper.ToColor(r.FinalMark);
+                            <div class="bar-row">
+                                <div class="bar-subject" title="@r.SubjectName">@r.SubjectName</div>
+                                <div class="bar-track">
+                                    <div class="bar-fill" style="width:@r.FinalMark%;background:@gc;"></div>
+                                </div>
+                                <div class="bar-val" style="color:@gc;">@r.FinalMark.ToString("F0")%</div>
+                            </div>
+                        }
+                    </div>
+                }
+
+            </div>
+
+            <!-- Right: stats overview -->
+            <div class="col-4 glass-card">
+                <div class="section-label">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20v-6M6 20V10M18 20V4" /></svg>
+                    Quick Overview
+                </div>
+                <div style="display:flex;flex-direction:column;gap:12px;">
+
+                    <!-- Account Balance -->
+                    <div class="stat-tile">
+                        <div class="stat-tile-label">Account Balance</div>
+                        <div class="stat-tile-val" style="@(BalanceOwing > 0 ? "color:#ef4444;" : "color:#16a34a;")">
+                            @(BalanceOwing > 0 ? $"${BalanceOwing:N2}" : "Settled")
+                        </div>
+                        <div class="stat-tile-sub">@(BalanceOwing > 0 ? "Please settle fees promptly." : "All fees are cleared.")</div>
+                    </div>
+
+                    @if (TotalSubjects > 0)
+                    {
+                        <!-- Subjects + Pass rate -->
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                            <div class="stat-tile">
+                                <div class="stat-tile-label">Subjects</div>
+                                <div class="stat-tile-val">@TotalSubjects</div>
+                                <div class="stat-tile-sub">this term</div>
+                            </div>
+                            <div class="stat-tile">
+                                <div class="stat-tile-label">Pass Rate</div>
+                                <div class="stat-tile-val" style="@(PassRate >= 50 ? "color:var(--green);" : "color:var(--red);")">@PassRate%</div>
+                                <div class="stat-tile-sub">@PassCount/@TotalSubjects passed</div>
+                            </div>
+                        </div>
+
+                        <!-- Best subject -->
+                        <div class="stat-tile">
+                            <div class="stat-tile-label">Top Subject</div>
+                            <div style="font-size:15px;font-weight:800;color:var(--ink);margin-bottom:4px;">@BestSubject</div>
+                            <div class="stat-tile-sub">Best: @HighestMark% &middot; Lowest: @LowestMark%</div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div style="padding:16px;border-radius:16px;background:rgba(255,255,255,0.7);border:1px solid rgba(0,0,0,0.06);font-size:13px;color:var(--ink3);font-weight:500;">
+                            No academic results for the current term yet.
+                        </div>
+                    }
+
+                    @if (AttendanceDays.Any())
+                    {
+                        <div class="stat-tile">
+                            <div class="stat-tile-label">Attendance</div>
+                            <div class="stat-tile-val">@attPct%</div>
+                            <div class="stat-tile-sub">@pCount present, @aCount absent this month</div>
+                        </div>
+                    }
+
+                    <button style="width:100%;padding:12px;border-radius:14px;background:#0F172A;color:white;font-size:13px;font-weight:700;border:none;cursor:pointer;transition:background 0.2s;"
+                            @onclick='() => Nav.NavigateTo("/portal/personal-finance")'>
+                        View Full Statement →
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    }
+
+</CascadingValue>
+
+@code {
+    private string loadError = string.Empty;
+    private readonly string pageTitle = "Student Portal";
+    private Student Me = new();
+    private bool isLoading = true;
+
+    private bool dataLoadAttempted;
+
+    protected override Task OnInitializedAsync()
+    {
+        return Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || dataLoadAttempted) return;
+        dataLoadAttempted = true;
+
+        await LoadStudentDataAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadStudentDataAsync()
+    {
+        try
+        {
+            isLoading = true;
+
+            var userIdStr = await JS.InvokeAsync<string>("sessionStorage.getItem", "primeappDemo.userId");
+            if (long.TryParse(userIdStr, out long realUserId))
+                Me.Id = (int)realUserId;
+
+            var student = await StudentService.GetStudentAsync(Me.Id);
+            if (student != null)
+            {
+                Me = student;
+                StateHasChanged();
+            }
+
+            var summaryTask = FinanceService.GetAccountSummaryAsync(Me.Id);
+            var reportCardTask = GradesService.GetReportCardsAsync(Me.Id);
+            var attendanceTask = LoadAttendanceAsync();
+            await Task.WhenAll(summaryTask, reportCardTask, attendanceTask);
+
+            if (summaryTask.IsCompletedSuccessfully) AccountSummary = summaryTask.Result;
+            if (reportCardTask.IsCompletedSuccessfully) allReportCards = reportCardTask.Result ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Portal load error");
+            loadError = "Could not load dashboard data. Please refresh.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private string StudentInitials =>
+        $"{(Me.FirstName?.Length > 0 ? Me.FirstName[0] : '?')}{(Me.LastName?.Length > 0 ? Me.LastName[0] : '?')}";
+
+    private AccountSummary? AccountSummary { get; set; }
+    private List<ReportCardModel> allReportCards = new();
+
+    private decimal BalanceOwing => AccountSummary?.Balance ?? 0;
+    private int AvgMark => (int)(CurrentResults?.Any() == true ? CurrentResults.Average(r => r.FinalMark) : 0);
+    private int TotalSubjects => CurrentResults?.Count ?? 0;
+    private int PassCount => CurrentResults?.Count(s => s.FinalMark >= 50) ?? 0;
+    private int PassRate => TotalSubjects == 0 ? 0 : (PassCount * 100 / TotalSubjects);
+    private int HighestMark => CurrentResults?.Any() == true ? (int)CurrentResults.Max(s => s.FinalMark) : 0;
+    private int LowestMark => CurrentResults?.Any() == true ? (int)CurrentResults.Min(s => s.FinalMark) : 0;
+    private string BestSubject => CurrentResults?.OrderByDescending(s => s.FinalMark).FirstOrDefault()?.SubjectName ?? "—";
+
+    private string SelectedTermLabel =>
+        allReportCards
+            .OrderByDescending(rc => rc.TermYear)
+            .ThenByDescending(rc => rc.Term)
+            .FirstOrDefault()?.Term ?? "Current Term";
+
+    private List<ReportCardSubjectModel>? CurrentResults =>
+        allReportCards
+            .OrderByDescending(rc => rc.TermYear)
+            .ThenByDescending(rc => rc.Term)
+            .FirstOrDefault()
+            ?.Subjects;
+
+    private List<AttendanceDayRecord> AttendanceDays = new();
+    private int pCount => AttendanceDays.Count(d => string.Equals(d.Status, "Present", StringComparison.OrdinalIgnoreCase));
+    private int lCount => AttendanceDays.Count(d => string.Equals(d.Status, "Late", StringComparison.OrdinalIgnoreCase));
+    private int aCount => AttendanceDays.Count(d => string.Equals(d.Status, "Absent", StringComparison.OrdinalIgnoreCase));
+    private int attPct => AttendanceDays.Count > 0 ? (pCount * 100 / AttendanceDays.Count) : 0;
+
+    private class AttendanceDayRecord
+    {
+        public DateOnly SessionDate { get; set; }
+        public string Status { get; set; } = string.Empty;
+    }
+
+    private async Task LoadAttendanceAsync()
+    {
+        AttendanceDays = new();
+        var now = DateTime.Now;
+        var startDate = new DateOnly(now.Year, now.Month, 1);
+        var endDate = startDate.AddMonths(1).AddDays(-1);
+        try
+        {
+            var apiRecords = await AttendanceService.GetRecordsByPersonAndDateRangeAsync(Me.Id, startDate, endDate);
+            var sessions = await AttendanceService.GetSessionsByDateRangeAsync(startDate, endDate);
+            if (apiRecords == null || sessions == null) return;
+            var sessionDateMap = sessions.ToDictionary(s => s.Id, s => s.Date);
+            AttendanceDays = apiRecords
+                .Where(r => sessionDateMap.ContainsKey(r.SessionId))
+                .GroupBy(r => sessionDateMap[r.SessionId])
+                .Select(g => new AttendanceDayRecord { SessionDate = g.Key, Status = g.First().Status })
+                .OrderBy(x => x.SessionDate)
+                .ToList();
+        }
+        catch { AttendanceDays = new(); }
+    }
+
+    private static string FormatClassroom(int? form, string? classroom)
+    {
+        if (form.HasValue && !string.IsNullOrWhiteSpace(classroom))
+            return classroom.StartsWith("Form", StringComparison.OrdinalIgnoreCase) ? classroom : $"Form {form} {classroom}";
+        if (form.HasValue) return $"Form {form}";
+        return classroom ?? string.Empty;
+    }
+}

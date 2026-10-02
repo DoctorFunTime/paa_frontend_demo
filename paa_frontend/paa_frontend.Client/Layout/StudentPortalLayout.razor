@@ -1,0 +1,527 @@
+@inherits LayoutComponentBase
+@namespace paa_frontend.Client.Layout
+@using paa_frontend.Shared.Models
+@using paa_frontend.Client.Services.StudentsPortal
+@using static paa_frontend.Shared.Models.StudentProfileModel
+@inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
+@inject StudentProfileServiceClient StudentService
+@inject FinanceServiceClient FinanceService
+@inject paa_frontend.Client.Services.Auth.AuthService AuthService
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500;600&display=swap');
+
+    *, *::before, *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    a {
+        text-decoration: none;
+        color: inherit;
+    }
+
+    input, select, button {
+        font-family: 'DM Sans', sans-serif;
+    }
+
+    :root {
+        --red: #C8102E;
+        --red-dim: #fdf0f2;
+        --red-mid: rgba(200,16,46,0.12);
+        --ink: #0f172a;
+        --ink2: #475569;
+        --ink3: #64748b;
+        --bg: #f8fafc;
+        --card: #ffffff;
+        --green: #1a7f52;
+        --green-dim: #e8f5ee;
+        --amber: #b45309;
+        --amber-dim: #fef3c7;
+        --purple: #7c3aed;
+        --purple-dim: #ede9fe;
+        --border: rgba(0,0,0,0.08);
+        --border-strong: rgba(0,0,0,0.14);
+        --shadow-sm: 0 1px 3px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.04);
+        --shadow: 0 2px 8px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.05);
+        --shadow-lg: 0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06);
+        --radius: 16px;
+        --radius-sm: 10px;
+        font-family: 'DM Sans', sans-serif;
+    }
+
+    html, body {
+        min-height: 100vh;
+        overflow-x: hidden;
+        scroll-behavior: smooth;
+        background: #f8fafc;
+    }
+
+    /* ── SHARED CARD / PILL / TABLE ── */
+    .card {
+        background: rgba(255,255,255,0.95);
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        padding: 22px;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .glass-card {
+        background: #fff;
+        border-radius: 20px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 6px -1px rgba(15,23,42,0.06), 0 10px 24px -8px rgba(15,23,42,0.10);
+        padding: 28px;
+    }
+
+    .student-page-heading {
+        max-width: 1500px;
+        margin: 22px 16px 0;
+        color: #0f172a;
+    }
+    .student-page-heading h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em; }
+    .student-page-heading p { margin-top: 4px; color: #64748b; font-size: 0.875rem; }
+
+    .card-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--ink);
+        margin-bottom: 3px;
+    }
+
+    .card-sub {
+        font-size: 12.5px;
+        color: var(--ink3);
+        margin-bottom: 16px;
+    }
+
+    .card-header-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+    }
+
+    .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 9px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .pill-green {
+        background: var(--green-dim);
+        color: var(--green);
+    }
+
+    .pill-gray {
+        background: rgba(0,0,0,0.06);
+        color: var(--ink3);
+    }
+
+    .pill-red {
+        background: var(--red-dim);
+        color: var(--red);
+    }
+
+    .pill-amber {
+        background: var(--amber-dim);
+        color: var(--amber);
+    }
+
+    .status-banner {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 11px 14px;
+        border-radius: 10px;
+        margin-bottom: 14px;
+    }
+
+        .status-banner.error {
+            background: var(--red-dim);
+            border-left: 4px solid var(--red);
+            color: #7f1126;
+        }
+
+        .status-banner.success {
+            background: var(--green-dim);
+            border-left: 4px solid var(--green);
+            color: #0f4a30;
+        }
+
+    .status-banner-text {
+        font-size: 13px;
+        font-weight: 500;
+        flex: 1;
+    }
+
+    .status-banner-close {
+        background: none;
+        border: none;
+        padding: 5px;
+        cursor: pointer;
+        opacity: 0.5;
+        border-radius: 6px;
+        display: flex;
+    }
+
+        .status-banner-close:hover {
+            opacity: 1;
+        }
+
+    .error-box {
+        background: var(--red-dim);
+        border: 1px solid rgba(200,16,46,0.2);
+        border-radius: 10px;
+        padding: 13px 15px;
+        font-size: 13px;
+        color: var(--red);
+        margin-bottom: 14px;
+    }
+
+    .results-table-wrap, .fee-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 0 -22px;
+        padding: 0 22px;
+    }
+
+    @@media(max-width:900px) {
+        .sp-page-wrap {
+            padding: 0;
+        }
+
+        .fee-table-wrap {
+            margin: 0 -16px;
+            padding: 0 16px;
+        }
+    }
+</style>
+
+<div class="layout-spray-bg" aria-hidden="true"></div>
+
+<div class="min-h-screen flex flex-col font-sans text-slate-800 relative">
+
+    <!-- ── Top Navigation (admin-style) ───────────────────────────────── -->
+    <header class="bg-white/80 backdrop-blur-md sticky border-b border-slate-100 top-0 z-50 flex items-center justify-between px-3 sm:px-5 xl:px-8 h-[68px] sm:h-[72px] gap-3">
+
+        <!-- Brand -->
+        <div class="flex items-center gap-2 sm:gap-3 cursor-pointer min-w-0" @onclick='() => Nav.NavigateTo("/portal")'>
+            <img src="/images/demo-logo.svg" alt="PrimeApp Demo logo" class="w-9 h-9 sm:w-10 sm:h-10 object-contain drop-shadow-sm shrink-0" />
+            <div class="flex flex-col min-w-0">
+                <span class="font-bold text-slate-900 text-[length:1.1rem] tracking-tight leading-tight hidden sm:block">PrimeApp Demo</span>
+                <span class="font-bold text-slate-900 text-base tracking-tight sm:hidden truncate">PrimeApp Demo</span>
+                <span class="text-[length:0.65rem] font-semibold text-slate-400 uppercase tracking-wider hidden sm:block">Student Portal</span>
+            </div>
+        </div>
+
+        <!-- Centered Nav Links (desktop) -->
+        <nav class="hidden lg:flex items-center gap-1 bg-transparent p-1.5 rounded-full">
+            <button class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium transition-colors @(CurrentPage == "overview" ? "bg-[#0F172A] text-white shadow-md" : "text-slate-500 hover:text-slate-900 hover:bg-slate-50")"
+                    @onclick='() => NavigateTo("/portal")'>
+                Overview
+            </button>
+            <button class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium transition-colors @(CurrentPage == "results" ? "bg-[#0F172A] text-white shadow-md" : "text-slate-500 hover:text-slate-900 hover:bg-slate-50")"
+                    @onclick='() => NavigateTo("/portal/results")'>
+                Results
+            </button>
+            <button class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium transition-colors @(CurrentPage == "finance" ? "bg-[#0F172A] text-white shadow-md" : "text-slate-500 hover:text-slate-900 hover:bg-slate-50")"
+                    @onclick='() => NavigateTo("/portal/personal-finance")'>
+                Finance
+            </button>
+            <button class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium transition-colors @(CurrentPage == "attendance" ? "bg-[#0F172A] text-white shadow-md" : "text-slate-500 hover:text-slate-900 hover:bg-slate-50")"
+                    @onclick='() => NavigateTo("/portal/attendance")'>
+                Attendance
+            </button>
+            <button class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium transition-colors @(CurrentPage == "timetable" ? "bg-[#0F172A] text-white shadow-md" : "text-slate-500 hover:text-slate-900 hover:bg-slate-50")"
+                    @onclick='() => NavigateTo("/students/timetable")'>
+                Timetable
+            </button>
+        </nav>
+
+        <!-- Right side -->
+        <div class="flex items-center justify-end gap-2 sm:gap-3 shrink-0">
+
+            <!-- Balance chip (live from FinanceService) -->
+            <button class="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl border transition-all @(balance > 0 ? "bg-rose-50 border-rose-200 hover:bg-rose-100" : "bg-emerald-50 border-emerald-200 hover:bg-emerald-100")"
+                    @onclick='() => NavigateTo("/portal/personal-finance")' title="Account Balance">
+                <div class="flex flex-col items-end leading-none">
+                    <span class="text-[0.6rem] font-bold uppercase tracking-widest @(balance > 0 ? "text-rose-500" : "text-emerald-600")">Balance</span>
+                    <span class="text-[0.875rem] font-bold font-mono mt-0.5 @(balance > 0 ? "text-rose-600" : "text-emerald-700")">
+                        @(balanceLoaded ? (balance > 0 ? $"${balance:N2}" : "CLEAR") : "—")
+                    </span>
+                </div>
+            </button>
+
+            <!-- Avatar -->
+            <button class="flex items-center gap-2 pl-1.5 sm:pr-3 py-1.5 rounded-full border border-slate-200 bg-white hover:bg-slate-50 transition-colors shrink-0 min-w-0"
+                    @onclick='() => NavigateTo("/portal")'>
+                <div class="w-7 h-7 rounded-full bg-gradient-to-br from-slate-800 to-slate-600 flex items-center justify-center text-white text-[length:0.6875rem] font-bold shadow-sm">
+                    @initials
+                </div>
+                <div class="hidden sm:block text-left mr-1">
+                    <div class="text-[length:0.75rem] font-bold text-slate-800 leading-none">@studentName</div>
+                </div>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-slate-400">
+                    <polyline points="6 9 12 15 18 9" />
+                </svg>
+            </button>
+
+            <!-- Change Password -->
+            <button class="hidden md:flex w-10 h-10 rounded-full bg-slate-50 border border-slate-200 items-center justify-center text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors shrink-0"
+                    @onclick="OpenChangePasswordModal" title="Change Password">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <rect x="3" y="11" width="18" height="11" rx="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+            </button>
+
+            <!-- Logout -->
+            <button class="hidden md:flex w-10 h-10 rounded-full bg-slate-50 border border-slate-200 items-center justify-center text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0"
+                    @onclick="Logout" title="Sign out">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+            </button>
+
+            <!-- Mobile hamburger -->
+            <button class="lg:hidden w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center shrink-0 hover:bg-slate-50 text-slate-600"
+                    @onclick="ToggleMobileMenu">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    @if (isMobileMenuOpen)
+                    {
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    }
+                    else
+                    {
+                        <line x1="3" y1="12" x2="21" y2="12" />
+                        <line x1="3" y1="6" x2="21" y2="6" />
+                        <line x1="3" y1="18" x2="21" y2="18" />
+                    }
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- ── Mobile Dropdown ─────────────────────────────── -->
+    @if (isMobileMenuOpen)
+    {
+        <div class="fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-sm lg:hidden mt-[68px] sm:mt-[72px]" @onclick="ToggleMobileMenu"></div>
+        <nav class="fixed top-[68px] sm:top-[72px] left-0 w-full max-h-[calc(100vh-68px)] overflow-y-auto bg-white border-b border-slate-100 p-4 flex flex-col gap-2 z-50 lg:hidden shadow-xl">
+            <button class="w-full text-left px-5 py-3 rounded-xl text-sm font-semibold flex items-center gap-3 @(CurrentPage == "overview" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50")"
+                    @onclick='() => NavigateTo("/portal")'>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>
+                Overview
+            </button>
+            <button class="w-full text-left px-5 py-3 rounded-xl text-sm font-semibold flex items-center gap-3 @(CurrentPage == "results" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50")"
+                    @onclick='() => NavigateTo("/portal/results")'>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
+                Results
+            </button>
+            <button class="w-full text-left px-5 py-3 rounded-xl text-sm font-semibold flex items-center gap-3 @(CurrentPage == "finance" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50")"
+                    @onclick='() => NavigateTo("/portal/personal-finance")'>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>
+                Finance
+            </button>
+            <button class="w-full text-left px-5 py-3 rounded-xl text-sm font-semibold flex items-center gap-3 @(CurrentPage == "attendance" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50")"
+                    @onclick='() => NavigateTo("/portal/attendance")'>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><polyline points="23 11 17 5 11 11" /></svg>
+                Attendance
+            </button>
+            <button class="w-full text-left px-5 py-3 rounded-xl text-sm font-semibold flex items-center gap-3 @(CurrentPage == "timetable" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50")"
+                    @onclick='() => NavigateTo("/students/timetable")'>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                Timetable
+            </button>
+            <div class="h-px bg-slate-100 my-2 w-full"></div>
+            <!-- Mobile balance -->
+            <div class="px-5 py-3 flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">Account Balance</span>
+                <span class="text-sm font-bold font-mono @(balance > 0 ? "text-rose-600" : "text-emerald-600")">
+                    @(balanceLoaded ? (balance > 0 ? $"${balance:N2}" : "CLEAR") : "—")
+                </span>
+            </div>
+            <button class="w-full text-left px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 flex items-center gap-3"
+                    @onclick="OpenChangePasswordModal">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                Change Password
+            </button>
+            <button class="w-full text-left px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 flex items-center gap-3"
+                    @onclick="Logout">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
+                Sign Out
+            </button>
+        </nav>
+    }
+
+    <!-- Toast Notification -->
+    <ToastNotification />
+
+    <!-- Main Content -->
+    <main class="flex-1 w-full max-w-[1500px] mx-auto animate-fade-in relative z-10" style="@(isForceChange && showChangePasswordModal ? "pointer-events:none;filter:blur(6px);opacity:0.4;user-select:none;" : "")">
+        <div class="sp-page-wrap">
+            @Body
+        </div>
+    </main>
+
+    <footer class="mt-auto border-t border-slate-200 bg-white/80 px-4 py-5 text-xs text-slate-500">
+        <div class="mx-auto flex max-w-[1500px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <span>© @DateTime.Now.Year PrimeApp Demo</span>
+            <div class="flex flex-wrap gap-x-4 gap-y-2 font-semibold">
+                <a href="/privacy" class="hover:text-indigo-600">Privacy Notice</a>
+                <a href="/terms" class="hover:text-indigo-600">Terms of Use</a>
+                <a href="/portal/help" class="hover:text-indigo-600">Help centre</a>
+            </div>
+        </div>
+    </footer>
+
+    <ChangePasswordModal @bind-IsOpen="showChangePasswordModal"
+                         ForceChange="@isForceChange"
+                         Username="@authUsername"
+                         DefaultOldPassword="@defaultOldPassword"
+                         OnSuccess="HandleForcePasswordChangeSuccess" />
+</div>
+
+@code {
+    private bool isMobileMenuOpen = false;
+    private bool showChangePasswordModal;
+    private string authUsername = string.Empty;
+    private bool isForceChange;
+    private string defaultOldPassword = string.Empty;
+
+    private async Task HandleForcePasswordChangeSuccess()
+    {
+        isForceChange = false;
+        defaultOldPassword = string.Empty;
+        showChangePasswordModal = false;
+        await JSRuntime.InvokeVoidAsync("sessionStorage.removeItem", "primeappDemo.isDefaultPassword");
+        await JSRuntime.InvokeVoidAsync("sessionStorage.removeItem", "primeappDemo.defaultOldPassword");
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OpenChangePasswordModal()
+    {
+        isMobileMenuOpen = false;
+        authUsername = await JSRuntime.InvokeAsync<string>("sessionStorage.getItem", "primeappDemo.authUsername") ?? "";
+        isForceChange = false;
+        defaultOldPassword = string.Empty;
+        showChangePasswordModal = true;
+        StateHasChanged();
+    }
+    private string studentName = string.Empty;
+    private string initials = "SP";
+    private decimal balance = 0;
+    private bool balanceLoaded = false;
+    private bool layoutDataLoaded = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await CheckForcePasswordChangeAsync();
+        }
+
+        if (!firstRender || layoutDataLoaded) return;
+        layoutDataLoaded = true;
+        await LoadLayoutDataAsync();
+        StateHasChanged();
+    }
+
+    private async Task CheckForcePasswordChangeAsync()
+    {
+        try
+        {
+            var isDefaultPwd = await JSRuntime.InvokeAsync<string?>("sessionStorage.getItem", "primeappDemo.isDefaultPassword");
+            if (isDefaultPwd == "true")
+            {
+                isForceChange = true;
+                defaultOldPassword = await JSRuntime.InvokeAsync<string?>("sessionStorage.getItem", "primeappDemo.defaultOldPassword") ?? "";
+                authUsername = await JSRuntime.InvokeAsync<string?>("sessionStorage.getItem", "primeappDemo.authUsername") ?? "";
+                showChangePasswordModal = true;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[LAYOUT] Error checking force change password: {ex.Message}");
+        }
+    }
+
+    private async Task LoadLayoutDataAsync()
+    {
+        try
+        {
+            var userIdStr = await JSRuntime.InvokeAsync<string?>("sessionStorage.getItem", "primeappDemo.userId");
+            if (!long.TryParse(userIdStr, out var userId) || userId <= 0) return;
+
+            try
+            {
+                var student = await StudentService.GetStudentAsync(userId);
+                if (student is not null)
+                {
+                    studentName = $"{student.FirstName} {student.LastName}".Trim();
+                    var fi = string.IsNullOrWhiteSpace(student.FirstName) ? "" : student.FirstName[0].ToString().ToUpperInvariant();
+                    var li = string.IsNullOrWhiteSpace(student.LastName) ? "" : student.LastName[0].ToString().ToUpperInvariant();
+                    initials = $"{fi}{li}";
+                    if (string.IsNullOrWhiteSpace(initials)) initials = "SP";
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[LAYOUT] Could not load student details: {ex.Message}");
+            }
+
+            try
+            {
+                var summary = await FinanceService.GetAccountSummaryAsync(userId);
+                balance = summary?.Balance ?? 0;
+                balanceLoaded = true;
+            }
+            catch
+            {
+                balance = 0;
+                balanceLoaded = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[LAYOUT] Could not load layout data: {ex.Message}");
+        }
+    }
+
+    private void ToggleMobileMenu() => isMobileMenuOpen = !isMobileMenuOpen;
+
+    private async Task Logout()
+    {
+        await AuthService.LogoutAsync();
+        Nav.NavigateTo("/login", true);
+    }
+
+    private void NavigateTo(string url)
+    {
+        isMobileMenuOpen = false;
+        Nav.NavigateTo(url);
+    }
+
+    private string CurrentPage
+    {
+        get
+        {
+            var uri = Nav.Uri.ToLowerInvariant();
+            if (uri.EndsWith("/students/timetable")) return "timetable";
+            if (uri.EndsWith("/portal/results")) return "results";
+            if (uri.EndsWith("/portal/personal-finance")) return "finance";
+            if (uri.EndsWith("/portal/attendance")) return "attendance";
+            return "overview";
+        }
+    }
+}

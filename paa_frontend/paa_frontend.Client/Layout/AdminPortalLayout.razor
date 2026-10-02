@@ -1,0 +1,308 @@
+@inherits LayoutComponentBase
+@namespace paa_frontend.Client.Layout
+@using paa_frontend.Shared.Models
+@using paa_frontend.Client.Services.Admin
+@using Microsoft.JSInterop
+@inject AdminProfileServiceClient AdminService
+@inject paa_frontend.Client.Services.Auth.AuthService AuthService
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Nav
+@inject paa_frontend.Client.Services.UiActivityState UiActivity
+@implements IDisposable
+
+<div class="min-h-screen bg-[#F8FAFC] flex flex-col font-sans text-slate-800 relative">
+    <div class="layout-spray-bg" aria-hidden="true"></div>
+
+    <!-- ── Top Navigation ──────────────────────────────────────── -->
+    <header class="bg-white/80 backdrop-blur-md sticky border-b border-slate-100 top-0 z-50 flex items-center justify-between px-3 sm:px-5 xl:px-8 h-[68px] sm:h-[72px] gap-3">
+        
+        <!-- Brand -->
+        <div class="flex items-center gap-2 sm:gap-3 cursor-pointer min-w-0" @onclick='() => Nav.NavigateTo("/admin")'>
+            <img src="/images/demo-logo.svg" alt="PrimeApp Demo logo" class="w-9 h-9 sm:w-10 sm:h-10 object-contain drop-shadow-sm shrink-0" />
+            <div class="flex flex-col min-w-0">
+                <span class="font-bold text-slate-900 text-[length:1.1rem] tracking-tight leading-tight hidden sm:block">PrimeApp Demo</span>
+                <span class="font-bold text-slate-900 text-base tracking-tight sm:hidden truncate">PrimeApp Demo</span>
+                <span class="text-[length:0.65rem] font-semibold text-slate-400 uppercase tracking-wider hidden sm:block">Management Portal</span>
+            </div>
+        </div>
+
+        <!-- Centered Nav Links -->
+        <nav class="hidden lg:flex items-center gap-1 bg-transparent p-1.5 rounded-full">
+            <NavLink class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors" activeClass="!bg-[#0F172A] !text-white shadow-md" href="/admin" Match="NavLinkMatch.All">
+                Dashboard
+            </NavLink>
+            <div class="relative group">
+                <button class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium transition-colors @(IsStudentSectionActive ? "bg-[#0F172A] text-white shadow-md" : "text-slate-500 hover:text-slate-900 hover:bg-slate-50")">
+                    Students
+                </button>
+                <div class="absolute left-0 top-full pt-2 hidden group-hover:block z-50">
+                    <div class="min-w-44 rounded-2xl border border-slate-200 bg-white shadow-xl p-2">
+                        <NavLink class="block px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors" activeClass="bg-slate-900 text-white" href="/students" Match="NavLinkMatch.Prefix">
+                            Directory
+                        </NavLink>
+                        <NavLink class="block px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors" activeClass="bg-slate-900 text-white" href="/admin/attendance" Match="NavLinkMatch.Prefix">
+                            Attendance
+                        </NavLink>
+                    </div>
+                </div>
+            </div>
+            <div class="relative group">
+                <button class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium transition-colors @(IsStaffSectionActive ? "bg-[#0F172A] text-white shadow-md" : "text-slate-500 hover:text-slate-900 hover:bg-slate-50")">
+                    Staff
+                </button>
+                <div class="absolute left-0 top-full pt-2 hidden group-hover:block z-50">
+                    <div class="min-w-40 rounded-2xl border border-slate-200 bg-white shadow-xl p-2">
+                        <NavLink class="block px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors" activeClass="bg-slate-900 text-white" href="/admin/teachers" Match="NavLinkMatch.Prefix">
+                            Teachers
+                        </NavLink>
+                        <NavLink class="block px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors" activeClass="bg-slate-900 text-white" href="/admin/bursers" Match="NavLinkMatch.Prefix">
+                            Bursers
+                        </NavLink>
+                        <NavLink class="block px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors" activeClass="bg-slate-900 text-white" href="/admin/admins" Match="NavLinkMatch.Prefix">
+                            Administrators
+                        </NavLink>
+                    </div>
+                </div>
+            </div>
+            <NavLink class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors" activeClass="!bg-[#0F172A] !text-white shadow-md" href="/admin/academics" Match="NavLinkMatch.Prefix">
+                Academics
+            </NavLink>
+            <NavLink class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors" activeClass="!bg-[#0F172A] !text-white shadow-md" href="/admin/help">Help</NavLink>
+            <div class="relative group">
+                <button class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium transition-colors @(IsPassesSectionActive ? "bg-[#0F172A] text-white shadow-md" : "text-slate-500 hover:text-slate-900 hover:bg-slate-50")">
+                    Student Passes
+                </button>
+                <div class="absolute left-0 top-full pt-2 hidden group-hover:block z-50">
+                    <div class="min-w-40 rounded-2xl border border-slate-200 bg-white shadow-xl p-2">
+                        <NavLink class="block px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors" activeClass="bg-slate-900 text-white" href="/admin/passes" Match="NavLinkMatch.Prefix">
+                            Passes
+                        </NavLink>
+                        <NavLink class="block px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors" activeClass="bg-slate-900 text-white" href="/student-pass/scanner" Match="NavLinkMatch.Prefix">
+                            Scanner
+                        </NavLink>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Right Side: Profile & Actions -->
+        <div class="flex items-center justify-end gap-2 sm:gap-3 md:gap-4 shrink-0">
+            <AuthorizeView Roles="SUPER">
+                <a href="/super" class="hidden sm:inline-flex rounded-full border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100">Super portal</a>
+            </AuthorizeView>
+            
+            <!-- Profile Dropdown Handle -->
+            <button class="flex items-center gap-2 pl-1.5 sm:pr-3 py-1.5 rounded-full border border-slate-200 bg-white hover:bg-slate-50 transition-colors shrink-0 min-w-0" @onclick='() => Nav.NavigateTo("/admin/profile")'>
+                <div class="w-7 h-7 rounded-full bg-gradient-to-br from-slate-800 to-slate-600 flex items-center justify-center text-white text-[length:0.6875rem] font-bold shadow-sm">
+                    @AdminInitials
+                </div>
+                <div class="hidden sm:block text-left mr-1">
+                    <div class="text-[length:0.75rem] font-bold text-slate-800 leading-none">@AdminName</div>
+                </div>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-slate-400">
+                    <polyline points="6 9 12 15 18 9"/>
+                </svg>
+            </button>
+
+            <!-- Logout -->
+            <button class="hidden md:flex w-10 h-10 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0" @onclick="Logout">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+            </button>
+
+            <!-- Mobile Hamburger -->
+            <button class="lg:hidden w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center shrink-0 hover:bg-slate-50 text-slate-600" @onclick="ToggleMobileMenu">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    @if (isMobileMenuOpen) {
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    } else {
+                        <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
+                    }
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- ── Mobile Menu Dropdown ─────────────────────────────── -->
+    @if (isMobileMenuOpen)
+    {
+        <div class="fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-sm lg:hidden mt-[68px] sm:mt-[72px]" @onclick="ToggleMobileMenu"></div>
+        <nav class="fixed top-[68px] sm:top-[72px] left-0 w-full max-h-[calc(100vh-68px)] sm:max-h-[calc(100vh-72px)] overflow-y-auto bg-white border-b border-slate-100 p-4 flex flex-col gap-2 z-50 lg:hidden shadow-xl animate-fade-in-down">
+            <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50" activeClass="bg-slate-900 text-white" href="/admin" Match="NavLinkMatch.All" @onclick="ToggleMobileMenu">Dashboard</NavLink>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-2">
+                <div class="px-3 py-2 text-xs font-black uppercase tracking-widest text-slate-400">Students</div>
+                <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 block" activeClass="bg-slate-900 text-white" href="/students" Match="NavLinkMatch.Prefix" @onclick="ToggleMobileMenu">Directory</NavLink>
+                <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 block" activeClass="bg-slate-900 text-white" href="/admin/attendance" Match="NavLinkMatch.Prefix" @onclick="ToggleMobileMenu">Attendance</NavLink>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-2">
+                <div class="px-3 py-2 text-xs font-black uppercase tracking-widest text-slate-400">Staff</div>
+                <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 block" activeClass="bg-slate-900 text-white" href="/admin/teachers" Match="NavLinkMatch.Prefix" @onclick="ToggleMobileMenu">Teachers</NavLink>
+                <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 block" activeClass="bg-slate-900 text-white" href="/admin/bursers" Match="NavLinkMatch.Prefix" @onclick="ToggleMobileMenu">Bursers</NavLink>
+                <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 block" activeClass="bg-slate-900 text-white" href="/admin/admins" Match="NavLinkMatch.Prefix" @onclick="ToggleMobileMenu">Administrators</NavLink>
+            </div>
+            <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50" activeClass="bg-slate-900 text-white" href="/admin/academics" @onclick="ToggleMobileMenu">Academics</NavLink>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-2">
+                <div class="px-3 py-2 text-xs font-black uppercase tracking-widest text-slate-400">Student Passes</div>
+                <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 block" activeClass="bg-slate-900 text-white" href="/admin/passes" Match="NavLinkMatch.Prefix" @onclick="ToggleMobileMenu">Passes</NavLink>
+                <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 block" activeClass="bg-slate-900 text-white" href="/student-pass/scanner" Match="NavLinkMatch.Prefix" @onclick="ToggleMobileMenu">Scanner</NavLink>
+            </div>
+
+            <div class="h-px bg-slate-100 my-2 w-full"></div>
+            <AuthorizeView Roles="SUPER">
+                <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100" activeClass="bg-indigo-600 text-white" href="/super" Match="NavLinkMatch.All" @onclick="ToggleMobileMenu">Super portal</NavLink>
+            </AuthorizeView>
+            <button class="w-full text-left px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 flex items-center gap-3" @onclick="Logout">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                Sign Out
+            </button>
+        </nav>
+    }
+
+    <!-- ── Toast Notification ─────────────────────────────────────── -->
+    <ToastNotification />
+
+    @if (UiActivity.IsLoading && !UiActivity.IsSaving)
+    {
+        <div class="fixed left-1/2 top-[78px] z-[90] -translate-x-1/2 rounded-full border border-indigo-100 bg-white/95 px-4 py-2 text-xs font-bold text-indigo-700 shadow-lg shadow-indigo-900/10" role="status" aria-live="polite">
+            <span class="mr-2 inline-block h-2 w-2 animate-pulse rounded-full bg-indigo-500"></span>@UiActivity.StatusMessage
+        </div>
+    }
+    <PortalOperationBlocker Visible="@(UiActivity.IsSaving || UiActivity.IsSaveComplete)" Completed="@UiActivity.IsSaveComplete" Message="@UiActivity.StatusMessage" />
+
+    <!-- ── Main Content ─────────────────────────────────────────── -->
+    <main class="flex-1 w-full max-w-[1500px] mx-auto px-3 py-4 sm:px-5 sm:py-6 md:p-8 animate-fade-in pb-20 relative z-10">
+        <CascadingValue Name="PageTitle" Value="@pageTitle">
+            @Body
+        </CascadingValue>
+    </main>
+
+    <ChangePasswordModal @bind-IsOpen="showChangePasswordModal"
+                         ForceChange="@isForceChange"
+                         Username="@authUsername"
+                         DefaultOldPassword="@defaultOldPassword"
+                         OnSuccess="HandleForcePasswordChangeSuccess" />
+</div>
+
+@code {
+    [CascadingParameter(Name = "PageTitle")] private string? pageTitle { get; set; }
+    private bool isMobileMenuOpen = false;
+    private string AdminName = "Admin";
+    private string AdminInitials = "AD";
+    private bool adminProfileLoadAttempted;
+    private bool showChangePasswordModal;
+    private string authUsername = string.Empty;
+    private bool isForceChange;
+    private string defaultOldPassword = string.Empty;
+
+    private bool IsStudentSectionActive => Nav.Uri.Contains("/students", StringComparison.OrdinalIgnoreCase)
+        || Nav.Uri.Contains("/admin/attendance", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsStaffSectionActive => Nav.Uri.Contains("/admin/teachers", StringComparison.OrdinalIgnoreCase)
+        || Nav.Uri.Contains("/admin/bursers", StringComparison.OrdinalIgnoreCase)
+        || Nav.Uri.Contains("/admin/admins", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsPassesSectionActive => Nav.Uri.Contains("/admin/passes", StringComparison.OrdinalIgnoreCase)
+        || Nav.Uri.Contains("/student-pass/scanner", StringComparison.OrdinalIgnoreCase);
+
+    protected override Task OnInitializedAsync()
+    {
+        UiActivity.Changed += HandleActivityChanged;
+        return Task.CompletedTask;
+    }
+
+    private void HandleActivityChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        UiActivity.Changed -= HandleActivityChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || adminProfileLoadAttempted)
+        {
+            return;
+        }
+
+        adminProfileLoadAttempted = true;
+        await LoadAdminProfileAsync();
+        StateHasChanged();
+    }
+
+    private void ToggleMobileMenu() => isMobileMenuOpen = !isMobileMenuOpen;
+
+    private async Task Logout()
+    {
+        await AuthService.LogoutAsync();
+        Nav.NavigateTo("/login", true);
+    }
+
+    private async Task HandleForcePasswordChangeSuccess()
+    {
+        isForceChange = false;
+        defaultOldPassword = string.Empty;
+        showChangePasswordModal = false;
+        await JSRuntime.InvokeVoidAsync("sessionStorage.removeItem", "primeappDemo.isDefaultPassword");
+        await JSRuntime.InvokeVoidAsync("sessionStorage.removeItem", "primeappDemo.defaultOldPassword");
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private static string GetInitials(string? firstName, string? lastName)
+    {
+        var firstInitial = string.IsNullOrWhiteSpace(firstName) ? string.Empty : firstName.Trim()[0].ToString().ToUpperInvariant();
+        var lastInitial = string.IsNullOrWhiteSpace(lastName) ? string.Empty : lastName.Trim()[0].ToString().ToUpperInvariant();
+
+        var initials = $"{firstInitial}{lastInitial}";
+        return string.IsNullOrWhiteSpace(initials) ? "AD" : initials;
+    }
+
+    private async Task LoadAdminProfileAsync()
+    {
+        try
+        {
+            var isDefaultPwd = await JSRuntime.InvokeAsync<string?>("sessionStorage.getItem", "primeappDemo.isDefaultPassword");
+            if (isDefaultPwd == "true")
+            {
+                isForceChange = true;
+                defaultOldPassword = await JSRuntime.InvokeAsync<string?>("sessionStorage.getItem", "primeappDemo.defaultOldPassword") ?? "";
+                authUsername = await JSRuntime.InvokeAsync<string?>("sessionStorage.getItem", "primeappDemo.authUsername") ?? "";
+                showChangePasswordModal = true;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch { }
+
+        try
+        {
+            var userIdValue = await JSRuntime.InvokeAsync<string?>("sessionStorage.getItem", "primeappDemo.userId");
+
+            if (!long.TryParse(userIdValue, out var userId) || userId <= 0)
+            {
+                return;
+            }
+
+            var profile = await AdminService.GetAdminAsync(userId);
+            if (profile == null)
+            {
+                return;
+            }
+
+            var fullName = string.Join(" ", new[] { profile.FirstName, profile.LastName }
+                .Where(value => !string.IsNullOrWhiteSpace(value)));
+
+            if (!string.IsNullOrWhiteSpace(fullName))
+            {
+                AdminName = fullName;
+            }
+
+            AdminInitials = GetInitials(profile.FirstName, profile.LastName);
+        }
+        catch (Exception)
+        {
+            Console.WriteLine($"ADMIN LAYOUT ERROR");
+        }
+    }
+}

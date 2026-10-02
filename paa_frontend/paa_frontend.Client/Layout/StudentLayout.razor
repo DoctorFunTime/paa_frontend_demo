@@ -1,0 +1,63 @@
+@inherits LayoutComponentBase
+
+<div class="layout-spray-bg" aria-hidden="true"></div>
+
+<div class="min-h-screen flex flex-col font-sans relative z-10">
+
+    <!-- ── Top Navigation ──────────────────────────────────────── -->
+    <header class="bg-white/80 backdrop-blur-md sticky border-b border-slate-100 top-0 z-50 flex items-center justify-between px-6 xl:px-8 h-[72px]">
+        
+        <!-- Brand -->
+        <div class="flex items-center gap-3 w-64">
+            <div class="w-9 h-9 bg-gradient-to-br from-[#1A56DB] to-[#1239A0] rounded-xl flex items-center justify-center text-white font-bold text-[length:1rem] shadow-sm">
+                P
+            </div>
+            <span class="font-bold text-slate-900 text-[length:1.0625rem] tracking-tight">PAA Portal</span>
+        </div>
+
+        <!-- Centered Nav Links -->
+        <nav class="hidden lg:flex items-center gap-1 bg-slate-50 border border-slate-100 p-1.5 rounded-full shadow-sm">
+            <NavLink class="px-5 py-2 rounded-full text-[length:0.875rem] font-medium text-slate-500 hover:text-slate-900 transition-colors" activeClass="!bg-[#0F172A] !text-white shadow-md" href="/students" Match="NavLinkMatch.All">
+                My Dashboard
+            </NavLink>
+            <NavLink class="px-5 py-2 rounded-full text-[length:0.875rem] font-medium text-slate-500 hover:text-slate-900 transition-colors" activeClass="!bg-[#0F172A] !text-white shadow-md" href="/students/profile">
+                My Profile
+            </NavLink>
+            <NavLink class="px-5 py-2 rounded-full text-[length:0.875rem] font-medium text-slate-500 hover:text-slate-900 transition-colors" activeClass="!bg-[#0F172A] !text-white shadow-md" href="/students/fees">
+                Fees
+            </NavLink>
+            <NavLink class="px-5 py-2 rounded-full text-[length:0.875rem] font-medium text-slate-500 hover:text-slate-900 transition-colors" activeClass="!bg-[#0F172A] !text-white shadow-md" href="/students/results">
+                Results
+            </NavLink>
+            <NavLink class="px-5 py-2 rounded-full text-[length:0.875rem] font-medium text-slate-500 hover:text-slate-900 transition-colors" activeClass="!bg-[#0F172A] !text-white shadow-md" href="/students/timetable">
+                Timetable
+            </NavLink>
+        </nav>
+
+        <!-- Right Side: Profile -->
+        <div class="flex items-center justify-end gap-4 w-64">
+            <!-- Profile Dropdown Handle -->
+            <button class="flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-full border border-slate-200 bg-white hover:bg-slate-50 transition-colors">
+                <div class="w-7 h-7 rounded-full bg-gradient-to-br from-[#1A56DB] to-[#60A5FA] flex items-center justify-center text-white text-[length:0.6875rem] font-bold">
+                    ST
+                </div>
+                <div class="hidden sm:block text-left mr-1">
+                    <div class="text-[length:0.75rem] font-bold text-slate-800 leading-none">Student</div>
+                </div>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-slate-400">
+                    <polyline points="6 9 12 15 18 9"/>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- ── Main Content ─────────────────────────────────────────── -->
+    <main class="flex-1 w-full max-w-[1500px] mx-auto p-6 md:p-8 animate-fade-in">
+        @Body
+    </main>
+
+</div>
+
+@code {
+    [CascadingParameter(Name = "PageTitle")] private string? PageTitle { get; set; } = "My Dashboard";
+}

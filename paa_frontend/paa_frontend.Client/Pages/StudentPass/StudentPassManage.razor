@@ -1,0 +1,1409 @@
+@page "/admin/passes"
+@namespace paa_frontend.Client.Pages.StudentPass
+@layout paa_frontend.Client.Layout.AdminPortalLayout
+@using paa_frontend.Shared.Models
+@using paa_frontend.Client.Services
+@using paa_frontend.Client.Services.StudentPass
+@using paa_frontend.Shared.Models.Finance
+@using Microsoft.AspNetCore.Components.Web
+@inject FinancePassServiceClient FinanceService
+@inject StudentProfileServiceClient StudentProfileService
+@inject IJSRuntime JS
+@implements IDisposable
+
+<CascadingValue Name="PageTitle" Value="@pageTitle">
+
+    <style>
+            @@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@@300;400;500;600;700;800&family=JetBrains+Mono:wght@@400;500;600&display=swap');
+
+            :root {
+                --primary: #6366f1;
+                --primary-hover: #4f46e5;
+                --primary-dim: rgba(99, 102, 241, 0.1);
+                --ink: #0f172a;
+                --ink2: #475569;
+                --ink3: #94a3b8;
+                --bg: #f8fafc;
+                --card: #ffffff;
+                --border: rgba(226, 232, 240, 0.8);
+                --green: #10b981;
+                --green-dim: rgba(16, 185, 129, 0.1);
+                --amber: #f59e0b;
+                --amber-dim: rgba(245, 158, 11, 0.1);
+                --red: #ef4444;
+                --red-dim: rgba(239, 68, 68, 0.1);
+                --radius: 16px;
+                --shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 2px 8px -1px rgba(15, 23, 42, 0.03);
+                font-family: 'Outfit', sans-serif;
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            .page-wrap {
+                padding: 20px 16px;
+                max-width: 960px;
+                margin: 0 auto;
+            }
+
+            @@media (min-width: 640px) {
+                .page-wrap {
+                    padding: 32px 24px;
+                }
+            }
+
+            .breadcrumb {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 13px;
+                color: var(--ink3);
+                margin-bottom: 20px;
+                font-weight: 500;
+            }
+
+                .breadcrumb a {
+                    color: var(--ink3);
+                    text-decoration: none;
+                }
+
+                    .breadcrumb a:hover {
+                        color: var(--primary);
+                    }
+
+            .page-header {
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                margin-bottom: 28px;
+                gap: 16px;
+                flex-wrap: wrap;
+            }
+
+            .page-title {
+                font-size: 24px;
+                font-weight: 800;
+                color: var(--ink);
+                letter-spacing: -0.5px;
+                line-height: 1.2;
+            }
+
+            @@media (min-width: 640px) {
+                .page-title {
+                    font-size: 28px;
+                }
+            }
+
+            .page-sub {
+                font-size: 13px;
+                color: var(--ink2);
+                margin-top: 4px;
+            }
+
+            /* Tabs */
+            .nav-tabs {
+                display: flex;
+                gap: 4px;
+                border-bottom: 2px solid var(--border);
+                margin-bottom: 24px;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+            }
+
+                .nav-tabs::-webkit-scrollbar {
+                    display: none;
+                }
+
+            .tab-btn {
+                padding: 10px 16px;
+                background: none;
+                border: none;
+                font-family: 'Outfit', sans-serif;
+                font-size: 14px;
+                font-weight: 600;
+                color: var(--ink3);
+                cursor: pointer;
+                border-bottom: 3px solid transparent;
+                margin-bottom: -2px;
+                transition: all 0.2s ease;
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
+
+                .tab-btn:hover {
+                    color: var(--ink2);
+                }
+
+                .tab-btn.active {
+                    color: var(--primary);
+                    border-bottom-color: var(--primary);
+                }
+
+            /* Cards */
+            .card-panel {
+                background: var(--card);
+                border-radius: var(--radius);
+                border: 1px solid var(--border);
+                padding: 20px;
+                box-shadow: var(--shadow);
+            }
+
+            @@media (min-width: 640px) {
+                .card-panel {
+                    padding: 24px;
+                }
+            }
+
+            .section-title {
+                font-size: 16px;
+                font-weight: 700;
+                color: var(--ink);
+                margin-bottom: 18px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            /* Buttons */
+            .btn-primary {
+                display: inline-flex;
+                align-items: center;
+                gap: 7px;
+                padding: 10px 18px;
+                background: var(--primary);
+                color: white;
+                border: none;
+                border-radius: 12px;
+                font-size: 14px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                font-family: 'Outfit', sans-serif;
+                white-space: nowrap;
+            }
+
+                .btn-primary:hover:not(:disabled) {
+                    background: var(--primary-hover);
+                    transform: translateY(-1px);
+                }
+
+                .btn-primary:disabled {
+                    opacity: 0.45;
+                    cursor: not-allowed;
+                }
+
+            .btn-ghost {
+                display: inline-flex;
+                align-items: center;
+                gap: 7px;
+                padding: 9px 16px;
+                background: transparent;
+                color: var(--ink2);
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                font-family: 'Outfit', sans-serif;
+                white-space: nowrap;
+            }
+
+                .btn-ghost:hover {
+                    background: var(--bg);
+                    color: var(--ink);
+                }
+
+            .btn-sm {
+                padding: 6px 12px;
+                font-size: 12px;
+                border-radius: 9px;
+            }
+
+            /* Badges */
+            .badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                padding: 3px 10px;
+                border-radius: 99px;
+                font-size: 11px;
+                font-weight: 600;
+            }
+
+            .badge-green {
+                background: var(--green-dim);
+                color: var(--green);
+            }
+
+            .badge-red {
+                background: var(--red-dim);
+                color: var(--red);
+            }
+
+            .badge-gray {
+                background: rgba(148, 163, 184, 0.12);
+                color: var(--ink2);
+            }
+
+            /* Form elements */
+            .form-group {
+                margin-bottom: 16px;
+            }
+
+            .form-label {
+                display: block;
+                font-size: 11px;
+                font-weight: 700;
+                color: var(--ink2);
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin-bottom: 5px;
+            }
+
+            .form-control {
+                width: 100%;
+                padding: 10px 13px;
+                border: 1.5px solid var(--border);
+                border-radius: 10px;
+                font-size: 14px;
+                color: var(--ink);
+                background: var(--card);
+                outline: none;
+                font-family: 'Outfit', sans-serif;
+                transition: border-color 0.15s ease, box-shadow 0.15s ease;
+                -webkit-appearance: none;
+            }
+
+                .form-control:focus {
+                    border-color: var(--primary);
+                    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+                }
+
+            /* Table */
+            .table-wrap {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                border-radius: 12px;
+                border: 1px solid var(--border);
+            }
+
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                min-width: 520px;
+            }
+
+            thead th {
+                padding: 12px 16px;
+                font-size: 11px;
+                font-weight: 700;
+                color: var(--ink3);
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                background: #fafafb;
+                border-bottom: 1px solid var(--border);
+                text-align: left;
+                white-space: nowrap;
+            }
+
+            tbody td {
+                padding: 14px 16px;
+                font-size: 13px;
+                color: var(--ink2);
+                border-bottom: 1px solid var(--border);
+                vertical-align: middle;
+            }
+
+            tbody tr:last-child td {
+                border-bottom: none;
+            }
+
+            tbody tr:hover {
+                background: rgba(99, 102, 241, 0.015);
+            }
+
+            /* Pass row card layout for mobile */
+            .pass-card {
+                background: var(--card);
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                padding: 14px 16px;
+                margin-bottom: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+            }
+
+            .pass-card-info {
+                min-width: 0;
+            }
+
+            .pass-card-name {
+                font-weight: 700;
+                color: var(--ink);
+                font-size: 14px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .pass-card-uid {
+                font-family: 'JetBrains Mono', monospace;
+                font-size: 11px;
+                color: var(--primary);
+                font-weight: 600;
+                margin-top: 2px;
+            }
+
+            .pass-card-actions {
+                display: flex;
+                gap: 6px;
+                flex-shrink: 0;
+            }
+
+            /* Filter row */
+            .filter-row {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 18px;
+                flex-wrap: wrap;
+            }
+
+                .filter-row .form-group {
+                    margin-bottom: 0;
+                    flex: 1;
+                    min-width: 160px;
+                }
+
+            /* NFC assignment form */
+            .assign-box {
+                background: var(--bg);
+                border: 1.5px dashed var(--border);
+                border-radius: 14px;
+                padding: 20px;
+                margin-top: 16px;
+            }
+
+                .assign-box.active-assign {
+                    border-color: var(--primary);
+                    background: var(--primary-dim);
+                }
+
+            /* NFC hidden capture input */
+            .nfc-hidden-capture {
+                position: fixed;
+                left: -9999px;
+                top: 0;
+                opacity: 0;
+                width: 1px;
+                height: 1px;
+                pointer-events: none;
+            }
+
+            /* NFC scanned display */
+            .nfc-scanned-display {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 11px 14px;
+                background: var(--primary-dim);
+                border: 1.5px solid var(--primary);
+                border-radius: 10px;
+                font-family: 'JetBrains Mono', monospace;
+                font-size: 13px;
+                font-weight: 600;
+                color: var(--primary);
+            }
+
+            .nfc-waiting-display {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 11px 14px;
+                background: var(--bg);
+                border: 1.5px dashed var(--border);
+                border-radius: 10px;
+                font-size: 13px;
+                color: var(--ink3);
+                cursor: pointer;
+                transition: border-color 0.2s ease, background 0.2s ease;
+            }
+
+                .nfc-waiting-display:hover {
+                    border-color: var(--primary);
+                    background: var(--primary-dim);
+                }
+
+                .nfc-waiting-display.nfc-ready {
+                    border-color: var(--primary);
+                    background: var(--primary-dim);
+                    color: var(--primary);
+                }
+
+            @@keyframes nfc-pulse {
+                0%, 100% {
+                    opacity: 1;
+                }
+
+                50% {
+                    opacity: 0.4;
+                }
+            }
+
+            .nfc-pulse-dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: var(--primary);
+                animation: nfc-pulse 1.4s ease-in-out infinite;
+                flex-shrink: 0;
+            }
+
+
+            .nfc-input-wrap .form-control {
+                padding-left: 42px;
+            }
+
+            .nfc-input-icon {
+                position: absolute;
+                left: 13px;
+                top: 50%;
+                transform: translateY(-50%);
+                color: var(--ink3);
+                pointer-events: none;
+            }
+
+            /* Student search dropdown — inline (not absolute) so it scrolls
+                           with the modal body and is never hidden under the keyboard */
+            .student-search-wrap {
+                position: relative;
+            }
+
+            .student-dropdown {
+                margin-top: 6px;
+                background: var(--card);
+                border: 1.5px solid var(--border);
+                border-radius: 12px;
+                box-shadow: 0 4px 16px rgba(15,23,42,0.08);
+                z-index: 10;
+                max-height: 200px;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .student-option {
+                padding: 11px 14px;
+                cursor: pointer;
+                border-bottom: 1px solid var(--border);
+                transition: background 0.1s ease;
+            }
+
+                .student-option:last-child {
+                    border-bottom: none;
+                }
+
+                .student-option:hover, .student-option.highlighted {
+                    background: var(--primary-dim);
+                }
+
+            .student-option-name {
+                font-weight: 600;
+                color: var(--ink);
+                font-size: 14px;
+            }
+
+            .student-option-meta {
+                font-size: 11px;
+                color: var(--ink3);
+                margin-top: 1px;
+            }
+
+            /* Selected student chip */
+            .student-chip {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 10px 14px;
+                background: var(--primary-dim);
+                border: 1.5px solid var(--primary);
+                border-radius: 10px;
+                margin-bottom: 14px;
+            }
+
+            .student-chip-name {
+                font-weight: 700;
+                color: var(--ink);
+                font-size: 14px;
+            }
+
+            .student-chip-meta {
+                font-size: 12px;
+                color: var(--ink2);
+            }
+
+            .student-chip-clear {
+                background: none;
+                border: none;
+                cursor: pointer;
+                color: var(--ink3);
+                margin-left: auto;
+                padding: 2px;
+            }
+
+                .student-chip-clear:hover {
+                    color: var(--red);
+                }
+
+            /* Empty state */
+            .empty-state {
+                text-align: center;
+                padding: 48px 24px;
+                color: var(--ink3);
+            }
+
+                .empty-state svg {
+                    margin-bottom: 12px;
+                    opacity: 0.5;
+                }
+
+                .empty-state h3 {
+                    font-size: 15px;
+                    font-weight: 700;
+                    color: var(--ink2);
+                    margin: 0 0 6px;
+                }
+
+                .empty-state p {
+                    font-size: 13px;
+                    margin: 0;
+                }
+
+            /* Loading spinner */
+            @@keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+
+            .spinner {
+                animation: spin 0.9s linear infinite;
+            }
+
+            /* Toast */
+            .toast-msg {
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                padding: 13px 20px;
+                border-radius: 12px;
+                background: var(--ink);
+                color: white;
+                font-weight: 600;
+                font-size: 13px;
+                display: flex;
+                align-items: center;
+                gap: 9px;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+                z-index: 10000;
+                white-space: nowrap;
+                animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+                max-width: calc(100vw - 32px);
+            }
+
+                .toast-msg.error {
+                    background: var(--red);
+                }
+
+            @@keyframes toastIn {
+                from {
+                    transform: translateX(-50%) translateY(16px);
+                    opacity: 0;
+                }
+
+                to {
+                    transform: translateX(-50%) translateY(0);
+                    opacity: 1;
+                }
+            }
+
+            /* Modal */
+            .modal-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(15, 23, 42, 0.55);
+                backdrop-filter: blur(4px);
+                z-index: 1000;
+                display: flex;
+                align-items: flex-start; /* Align to top on mobile to sit above keyboard */
+                justify-content: center;
+                /* Add top padding to clear the layout sticky header (68px) on mobile viewports */
+                padding: 84px 16px 20px;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            @@media (min-width: 640px) {
+                .modal-overlay {
+                    align-items: center; /* Center on desktop */
+                    padding: 24px;
+                }
+            }
+
+            .modal-content {
+                background: var(--card);
+                border-radius: 20px; /* Fully rounded on mobile as well */
+                width: 100%;
+                max-width: 480px;
+                border: 1px solid var(--border);
+                box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+                animation: scaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                margin-top: 20px;
+                margin-bottom: 20px;
+                max-height: 85dvh; /* Limit height on taller mobile screens */
+            }
+
+            @@media (min-width: 640px) {
+                .modal-content {
+                    margin-top: 0;
+                    margin-bottom: 0;
+                    max-height: 80vh;
+                }
+            }
+
+            /* Disable rigid max-height when screen height is small (e.g., keyboard is open) */
+            @@media (max-height: 520px) {
+                .modal-content {
+                    max-height: none;
+                    overflow: visible;
+                }
+                .modal-body {
+                    overflow-y: visible;
+                }
+            }
+
+            @@keyframes scaleUp {
+                from {
+                    opacity: 0;
+                    transform: scale(0.95) translateY(10px);
+                }
+
+                to {
+                    opacity: 1;
+                    transform: scale(1) translateY(0);
+                }
+            }
+
+            .modal-header {
+                padding: 16px 20px 14px;
+                border-bottom: 1px solid var(--border);
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                flex-shrink: 0;
+            }
+
+            .modal-title {
+                font-size: 16px;
+                font-weight: 700;
+                color: var(--ink);
+            }
+
+            .modal-close {
+                background: none;
+                border: none;
+                cursor: pointer;
+                color: var(--ink3);
+                padding: 4px;
+                border-radius: 8px;
+                transition: color 0.15s ease;
+            }
+
+                .modal-close:hover {
+                    color: var(--ink);
+                    background: var(--bg);
+                }
+
+            .modal-body {
+                padding: 20px;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+                flex: 1;
+            }
+
+            .modal-footer {
+                padding: 14px 20px;
+                /* Extra bottom padding for phones with a home indicator */
+                padding-bottom: max(14px, env(safe-area-inset-bottom, 14px));
+                background: #fafafb;
+                border-top: 1px solid var(--border);
+                display: flex;
+                justify-content: flex-end;
+                gap: 10px;
+                flex-shrink: 0;
+            }
+    </style>
+
+    <div class="page-wrap">
+
+        <!-- Breadcrumb -->
+        <div class="breadcrumb">
+            <a href="/admin">Admin</a>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
+            <span style="color:var(--ink2);">Student Passes</span>
+        </div>
+
+        <!-- Page Header -->
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Pass Management</h1>
+                <p class="page-sub">Assign NFC cards to students and manage pass statuses.</p>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <a class="btn-ghost btn-sm" href="/student-pass/scanner">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 4h-1a2 2 0 0 0-2 2v1" /><path d="M17 4h1a2 2 0 0 1 2 2v1" /><path d="M7 20h-1a2 2 0 0 1-2-2v-1" /><path d="M17 20h1a2 2 0 0 0 2-2v-1" /><path d="M8 12h8" /><path d="M12 8v8" /></svg>
+                    Scanner
+                </a>
+
+                <button class="btn-primary btn-sm" @onclick="OpenAssignModalAsync">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                    Assign Card
+                </button>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="nav-tabs">
+            <button class="tab-btn @(activeTab == 0 ? "active" : "")" @onclick="() => activeTab = 0">All Passes</button>
+            <button class="tab-btn @(activeTab == 1 ? "active" : "")" @onclick="() => activeTab = 1">Active</button>
+            <button class="tab-btn @(activeTab == 2 ? "active" : "")" @onclick="() => activeTab = 2">Inactive</button>
+        </div>
+
+        @if (isLoading && passes.Count == 0)
+        {
+            <div style="display:flex; justify-content:center; align-items:center; padding:80px; gap:12px; color:var(--ink3);">
+                <svg class="spinner" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
+                <span style="font-weight:600; font-size:14px;">Loading passes...</span>
+            </div>
+        }
+        else
+        {
+            <!-- Filter Row -->
+            <div class="filter-row">
+                <div class="form-group">
+                    <input class="form-control"
+                           type="search"
+                           placeholder="Search by name or card UID…"
+                           @bind="passSearch"
+                           @bind:event="oninput" />
+                </div>
+            </div>
+        }
+        <!-- Passes List -->
+        @{
+            var filtered = GetFilteredPasses().ToList();
+        }
+
+        @if (!filtered.Any())
+        {
+            <div class="empty-state">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                <h3>No passes found</h3>
+                <p>Try adjusting your search or issue a new card above.</p>
+            </div>
+        }
+        else
+        {
+            <!-- Desktop Table -->
+            <div class="card-panel" style="padding:0; overflow:hidden; display:none;" id="desktop-table">
+                <div class="table-wrap" style="border:none; border-radius:0;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Card UID</th>
+                                <th>Status</th>
+                                <th>Issued</th>
+                                <th style="text-align:right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var pass in filtered)
+                            {
+                                <tr>
+                                    <td>
+                                        <div style="font-weight:600; color:var(--ink);">@pass.FullName</div>
+                                        <div style="font-size:11px; color:var(--ink3); margin-top:2px;">ID @pass.StudentId</div>
+                                    </td>
+                                    <td>
+                                        <code style="font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:600; color:var(--primary);">@pass.PassId</code>
+                                    </td>
+                                    <td>
+                                        @if (pass.IsActive)
+                                        {
+                                            <span class="badge badge-green">
+                                                <span style="width:5px;height:5px;border-radius:50%;background:var(--green);"></span>Active
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge badge-red">
+                                                <span style="width:5px;height:5px;border-radius:50%;background:var(--red);"></span>Inactive
+                                            </span>
+                                        }
+                                    </td>
+                                    <td style="font-size:12px; color:var(--ink3);">@pass.ExpirationDate.ToString("dd MMM yyyy")</td>
+                                    <td style="text-align:right;">
+                                        <div style="display:flex; gap:6px; justify-content:flex-end;">
+                                            <button class="btn-ghost btn-sm"
+                                                    style="border-color:@(pass.IsActive ? "var(--red)" : "var(--green)"); color:@(pass.IsActive ? "var(--red)" : "var(--green)");"
+                                                    @onclick="() => TogglePassAsync(pass)">
+                                                @(pass.IsActive ? "Deactivate" : "Activate")
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Mobile Cards -->
+            <div>
+                @foreach (var pass in filtered)
+                {
+                    <div class="pass-card">
+                        <div class="pass-card-info">
+                            <div class="pass-card-name">@pass.FullName</div>
+                            <div class="pass-card-uid">@pass.PassId</div>
+                            <div style="margin-top:6px;">
+                                @if (pass.IsActive)
+                                {
+                                    <span class="badge badge-green">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-red">Inactive</span>
+                                }
+                            </div>
+                        </div>
+                        <div class="pass-card-actions">
+                            <button class="btn-ghost btn-sm"
+                                    style="border-color:@(pass.IsActive ? "var(--red)" : "var(--green)"); color:@(pass.IsActive ? "var(--red)" : "var(--green)");"
+                                    @onclick="() => TogglePassAsync(pass)">
+                                @(pass.IsActive ? "Deactivate" : "Activate")
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
+        <!-- Pagination hint -->
+        @if (passes.Count >= 1000)
+        {
+            <p style="text-align:center; font-size:12px; color:var(--ink3); margin-top:12px;">Showing first 1 000 passes. Use search to narrow results.</p>
+        }
+        }
+    </div>
+
+    <!-- ── Modal: Assign NFC Card to Student ────────────────────────────────── -->
+    @if (isAssignModalOpen)
+    {
+        <div class="modal-overlay" @onclick="async () => await CloseAssignModal()">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <div class="modal-header">
+                    <h3 class="modal-title">Assign NFC Card</h3>
+                    <button class="modal-close" @onclick="async () => await CloseAssignModal()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                    </button>
+                </div>
+                <div class="modal-body">
+
+                    <!-- Step 1: Pick student -->
+                    <div class="form-group">
+                        <label class="form-label">Student</label>
+
+                        @if (selectedStudent != null)
+                        {
+                            <div class="student-chip">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                                <div>
+                                    <div class="student-chip-name">@selectedStudent.FirstName @selectedStudent.LastName</div>
+                                    <div class="student-chip-meta">ID @selectedStudent.Id &nbsp;·&nbsp; @(selectedStudent.Classroom ?? "Form " + selectedStudent.Form)</div>
+                                </div>
+                                <button class="student-chip-clear" @onclick="ClearSelectedStudent" title="Clear">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                                </button>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="student-search-wrap">
+                                <input class="form-control"
+                                       type="search"
+                                       inputmode="search"
+                                       placeholder="Search student by name or ID…"
+                                       @bind="studentSearchQuery"
+                                       @bind:event="oninput"
+                                       @onfocus="() => showStudentDropdown = true"
+                                       @onblur="OnStudentSearchBlur"
+                                       autocomplete="off"
+                                       @onfocus:preventDefault="false"
+                                       id="student-search-input" />
+
+                                @if (showStudentDropdown && studentSearchQuery.Length >= 1)
+                                {
+                                    var matches = GetStudentMatches();
+                                    if (matches.Any())
+                                    {
+                                        <div class="student-dropdown">
+                                            @foreach (var s in matches)
+                                            {
+                                                <div class="student-option" @onmousedown="async () => await SelectStudent(s)">
+                                                    <div class="student-option-name">@s.FirstName @s.LastName</div>
+                                                    <div class="student-option-meta">ID @s.Id &nbsp;·&nbsp; @(s.Classroom ?? "Form " + s.Form)</div>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="student-dropdown">
+                                            <div class="student-option" style="color:var(--ink3); cursor:default;">No students match "@studentSearchQuery"</div>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Step 2: NFC Scan — same mode buttons as StudentPassScanner -->
+                    <div class="form-group">
+                        <label class="form-label">NFC Card</label>
+
+                        <!-- Mode buttons — exact copy of scanner's sp-btn controls -->
+                        <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+                            <button class="btn-ghost btn-sm" @onclick="AssignUseUsbAsync"
+                                    style="@(assignActiveModeLabel == "USB Reader" ? "border-color:var(--primary);color:var(--primary);" : "")">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="3" y="5" width="10" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5" /><path d="M6 5V4a2 2 0 014 0v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
+                                USB Reader
+                            </button>
+                            <button class="btn-ghost btn-sm" @onclick="AssignStartWebNfcAsync"
+                                    disabled="@(!assignWebNfcSupported || isAssignWebNfcActive)"
+                                    style="@(isAssignWebNfcActive ? "border-color:var(--primary);color:var(--primary);" : "")">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" fill="currentColor" /><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5" /></svg>
+                                Phone NFC
+                            </button>
+                            @if (isAssignWebNfcActive)
+                            {
+                                <button class="btn-ghost btn-sm" @onclick="StopAssignWebNfcAsync"
+                                        style="border-color:var(--red);color:var(--red);">
+                                    Stop
+                                </button>
+                            }
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(nfcUidInput))
+                        {
+                            <div class="nfc-scanned-display">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 4h-1a2 2 0 0 0-2 2v1" /><path d="M17 4h1a2 2 0 0 1 2 2v1" /><path d="M7 20h-1a2 2 0 0 1-2-2v-1" /><path d="M17 20h1a2 2 0 0 0 2-2v-1" /><path d="M8 12h8" /><path d="M12 8v8" /></svg>
+                                <span style="flex:1;">@nfcUidInput</span>
+                                <button style="background:none;border:none;cursor:pointer;color:var(--ink3);padding:2px;" @onclick="() => nfcUidInput = string.Empty" title="Clear">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                                </button>
+                            </div>
+                            <small style="font-size:11px; color:var(--green); margin-top:4px; display:block; font-weight:600;">
+                                ✓ Card scanned — ready to assign
+                            </small>
+                        }
+                        else
+                        {
+                            <div class="nfc-waiting-display nfc-ready">
+                                <span class="nfc-pulse-dot"></span>
+                                <span>@(isAssignWebNfcActive ? "Tap phone to NFC card…" : "Tap card to USB reader…")</span>
+                            </div>
+                        }
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(assignError))
+                    {
+                        <div style="padding:12px 14px; background:var(--red-dim); border-radius:10px; color:var(--red); font-size:13px; font-weight:600; display:flex; gap:8px; align-items:center;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                            @assignError
+                        </div>
+                    }
+
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-ghost" @onclick="async () => await CloseAssignModal()">Cancel</button>
+                    <button class="btn-primary"
+                            @onclick="AssignCardAsync"
+                            disabled="@(selectedStudent == null || string.IsNullOrWhiteSpace(nfcUidInput) || isAssigning)">
+                        @if (isAssigning)
+                        {
+                            <svg class="spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
+                        }
+                        Assign Card
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Toast -->
+    @if (!string.IsNullOrEmpty(toastMessage))
+    {
+        <div class="toast-msg @toastType">
+            @if (toastType == "success")
+            {
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+            }
+            else
+            {
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+            }
+            @toastMessage
+        </div>
+    }
+    <!-- Hidden NFC capture input — always in DOM so scanner keystrokes are never lost -->
+    <input @ref="assignNfcInputRef"
+           id="nfc-assign-capture"
+           class="nfc-hidden-capture"
+           @onkeydown="OnAssignNfcKeyDown"
+           @oninput="OnAssignNfcInput"
+           value="@assignNfcBuffer"
+           autocomplete="off"
+           tabindex="-1"
+           readonly="@isAssigning" />
+
+</CascadingValue>
+
+@code {
+    private string pageTitle = "Student Pass Registry";
+
+    public class PassItem
+    {
+        public long StudentId { get; set; }
+        public string FullName { get; set; } = string.Empty;
+        public string PassId { get; set; } = string.Empty;
+        public bool IsActive { get; set; }
+        public DateTime ExpirationDate { get; set; }
+    }
+
+    // Data
+    private List<PassItem> passes = new();
+    private List<StudentProfileModel.Student> students = new();
+
+    // Tab: 0=all, 1=active, 2=inactive
+    private int activeTab = 0;
+    private string passSearch = "";
+
+    // Loading
+    private bool isLoading = false;
+
+    // Assign modal
+    private bool isAssignModalOpen = false;
+    private bool isAssigning = false;
+    private string studentSearchQuery = "";
+    private bool showStudentDropdown = false;
+    private StudentProfileModel.Student? selectedStudent = null;
+    private string nfcUidInput = "";
+    private string assignError = "";
+
+    // NFC — exact same fields as StudentPassScanner
+    private ElementReference assignNfcInputRef;
+    private string assignNfcBuffer = string.Empty;
+    private DotNetObjectReference<StudentPassManage>? assignScannerRef;
+    private bool assignWebNfcSupported;
+    private bool isAssignWebNfcActive;
+    private string assignActiveModeLabel = "USB Reader";
+
+    // Toast
+    private string toastMessage = "";
+    private string toastType = "success";
+
+    protected override async Task OnInitializedAsync()
+    {
+        assignScannerRef = DotNetObjectReference.Create(this);
+        await LoadDataAsync();
+    }
+
+    // Exact same pattern as StudentPassScanner.OnAfterRenderAsync —
+    // only runs on firstRender, checks NFC support, focuses capture input.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        assignWebNfcSupported = await JS.InvokeAsync<bool>("studentPassScanner.isWebNfcSupported");
+        StateHasChanged();
+    }
+
+    private async Task OpenAssignModalAsync()
+    {
+        isAssignModalOpen = true;
+        nfcUidInput = "";
+        assignNfcBuffer = string.Empty;
+        assignError = "";
+        isAssignWebNfcActive = false;
+        assignActiveModeLabel = "USB Reader";
+        StateHasChanged();
+        // Focus capture input exactly as scanner does on page load
+        await JS.InvokeVoidAsync("studentPassScanner.focusCaptureInput", "nfc-assign-capture");
+    }
+
+    // ── NFC mode switching — exact copy of scanner's UseUsbReaderAsync / StartWebNfcAsync / StopWebNfcAsync ──
+
+    private async Task AssignUseUsbAsync()
+    {
+        assignActiveModeLabel = "USB Reader";
+        await StopAssignWebNfcAsync();
+        await JS.InvokeVoidAsync("studentPassScanner.focusCaptureInput", "nfc-assign-capture");
+    }
+
+    private async Task AssignStartWebNfcAsync()
+    {
+        if (!assignWebNfcSupported) return;
+        try
+        {
+            await JS.InvokeVoidAsync("studentPassScanner.startWebNfc", assignScannerRef);
+            isAssignWebNfcActive = true;
+            assignActiveModeLabel = "Phone NFC";
+        }
+        catch (JSException)
+        {
+            isAssignWebNfcActive = false;
+            assignActiveModeLabel = "USB Reader";
+        }
+    }
+
+    private async Task StopAssignWebNfcAsync()
+    {
+        if (isAssignWebNfcActive)
+            await JS.InvokeVoidAsync("studentPassScanner.stopWebNfc");
+        isAssignWebNfcActive = false;
+        if (assignActiveModeLabel == "Phone NFC")
+            assignActiveModeLabel = "USB Reader";
+    }
+
+    // ── USB input handling — exact copy of scanner's OnNfcInput / OnNfcKeyDown ──
+
+    private void OnAssignNfcInput(ChangeEventArgs e) =>
+        assignNfcBuffer = e.Value?.ToString() ?? string.Empty;
+
+    private async Task OnAssignNfcKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(assignNfcBuffer)) return;
+        var code = assignNfcBuffer.Trim();
+        assignNfcBuffer = string.Empty;
+        await ReceiveAssignNfcCode(code);
+    }
+
+    // Web NFC callback — exact copy of scanner's [JSInvokable] ReceiveNfcCode
+    [JSInvokable]
+    public Task ReceiveNfcCode(string nfcCode) => ReceiveAssignNfcCode(nfcCode);
+
+    private Task ReceiveAssignNfcCode(string nfcCode)
+    {
+        if (string.IsNullOrWhiteSpace(nfcCode)) return Task.CompletedTask;
+        nfcUidInput = nfcCode.Trim();
+        assignError = string.Empty;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        try
+        {
+            var accountsTask = FinanceService.GetAllAccountsAsync();
+            var studentTask = StudentProfileService.GetStudentsAsync();
+            await Task.WhenAll(accountsTask, studentTask);
+
+            var accountsList = await accountsTask ?? new List<FinanceAccountDto>();
+            students = await studentTask ?? new List<StudentProfileModel.Student>();
+
+            passes = accountsList
+                .Where(a => !string.IsNullOrEmpty(a.NfcId))
+                .Select(a => {
+                    var student = students.FirstOrDefault(s => s.Id == a.StudentId);
+                    return new PassItem
+                    {
+                        StudentId = a.StudentId,
+                        FullName = student != null ? $"{student.FirstName} {student.LastName}" : $"Student {a.StudentId}",
+                        PassId = a.NfcId!,
+                        IsActive = a.AccountStatus != "BLOCKED",
+                        ExpirationDate = a.UpdatedAt.AddYears(1)
+                    };
+                })
+                .ToList();
+        }
+        catch (Exception)
+        {
+            ShowToast("Failed to load data. Check your connection.", "error");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private IEnumerable<PassItem> GetFilteredPasses()
+    {
+        var result = passes.AsEnumerable();
+
+        if (activeTab == 1) result = result.Where(p => p.IsActive);
+        else if (activeTab == 2) result = result.Where(p => !p.IsActive);
+
+        if (!string.IsNullOrWhiteSpace(passSearch))
+        {
+            var q = passSearch.Trim();
+            result = result.Where(p =>
+                p.FullName.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                p.PassId.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                p.StudentId.ToString().Contains(q));
+        }
+
+        return result;
+    }
+
+    private async Task TogglePassAsync(PassItem pass)
+    {
+        try
+        {
+            bool success = pass.IsActive
+                ? await FinanceService.SetNfcValueAsync(pass.StudentId, "")
+                : await FinanceService.SetNfcValueAsync(pass.StudentId, pass.PassId);
+
+            if (success)
+            {
+                ShowToast($"Pass {(pass.IsActive ? "deactivated" : "activated")} successfully.");
+                await LoadDataAsync();
+            }
+            else
+            {
+                ShowToast("Failed to update pass status.", "error");
+            }
+        }
+        catch
+        {
+            ShowToast("An error occurred. Please try again.", "error");
+        }
+    }
+
+    // ── NFC capture handlers ─────────────────────────────────────────────
+
+
+    private async Task CloseAssignModal()
+    {
+        await StopAssignWebNfcAsync();
+        isAssignModalOpen = false;
+        selectedStudent = null;
+        studentSearchQuery = "";
+        nfcUidInput = "";
+        assignNfcBuffer = string.Empty;
+        assignError = "";
+        showStudentDropdown = false;
+    }
+
+    private IEnumerable<StudentProfileModel.Student> GetStudentMatches()
+    {
+        if (string.IsNullOrWhiteSpace(studentSearchQuery)) return Enumerable.Empty<StudentProfileModel.Student>();
+        var q = studentSearchQuery.Trim();
+        return students
+            .Where(s =>
+                $"{s.FirstName} {s.LastName}".Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                s.Id.ToString().Contains(q))
+            .OrderBy(s => s.LastName)
+            .Take(8);
+    }
+
+    private async Task SelectStudent(StudentProfileModel.Student student)
+    {
+        selectedStudent = student;
+        studentSearchQuery = "";
+        showStudentDropdown = false;
+        assignError = "";
+        // Immediately focus the hidden NFC capture input using the same JS helper
+        // as the scanner page — the USB reader can start sending keystrokes right away.
+        try
+        {
+            await JS.InvokeVoidAsync("studentPassScanner.focusCaptureInput", "nfc-assign-capture");
+        }
+        catch { }
+    }
+
+    private void ClearSelectedStudent()
+    {
+        selectedStudent = null;
+        studentSearchQuery = "";
+        assignError = "";
+    }
+
+    private void OnStudentSearchBlur()
+    {
+        Task.Delay(150).ContinueWith(_ => InvokeAsync(() =>
+        {
+            showStudentDropdown = false;
+            StateHasChanged();
+        }));
+    }
+
+    private async Task AssignCardAsync()
+    {
+        if (selectedStudent == null || string.IsNullOrWhiteSpace(nfcUidInput)) return;
+
+        assignError = "";
+        isAssigning = true;
+
+        try
+        {
+            var nfc = nfcUidInput.Trim();
+            var studentId = (long)selectedStudent.Id;
+
+            var linked = await FinanceService.SetNfcValueAsync(studentId, nfc);
+            if (!linked)
+            {
+                assignError = "NFC linking to the finance account failed. Try again.";
+                return;
+            }
+
+            ShowToast($"Card assigned to {selectedStudent.FirstName} {selectedStudent.LastName}.");
+            await CloseAssignModal();
+            await LoadDataAsync();
+        }
+        catch (Exception)
+        {
+            assignError = "An unexpected error occurred. Please try again.";
+        }
+        finally
+        {
+            isAssigning = false;
+        }
+    }
+
+    private void ShowToast(string message, string type = "success")
+    {
+        toastMessage = message;
+        toastType = type;
+        StateHasChanged();
+        Task.Delay(3500).ContinueWith(_ =>
+        {
+            toastMessage = "";
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    public void Dispose() => assignScannerRef?.Dispose();
+}

@@ -1,0 +1,59 @@
+@page "/staff/timetable"
+@layout paa_frontend.Client.Layout.StaffPortalLayout
+@using paa_frontend.Shared.Models
+@using paa_frontend.Client.Services
+@inject TimetableServiceClient Timetable
+@inject TeacherProfileServiceClient TeacherService
+@inject Microsoft.JSInterop.IJSRuntime JS
+
+<div class="mx-auto max-w-7xl space-y-5">
+    <header class="no-print"><p class="text-xs font-bold uppercase tracking-widest text-indigo-700">Staff portal</p><h1 class="mt-2 text-3xl font-extrabold text-slate-900">Teacher's Timetable</h1><p class="mt-2 text-sm text-slate-600">Your periods are preloaded from the active published timetable and your teaching assignments.</p></header>
+    @if(loading){<div class="flex items-center gap-3 rounded-lg border border-sky-200 bg-sky-50 p-4 text-sm font-semibold text-sky-900" role="status"><span class="h-4 w-4 animate-spin rounded-full border-2 border-sky-700 border-t-transparent"></span>Loading your teaching timetable…</div>}
+    @if(!string.IsNullOrWhiteSpace(error)){<div class="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm font-semibold text-amber-950" role="alert">@error</div>}
+    @if(!loading && published is not null){<TimetablePrintView Heading="Teacher's Timetable" DocumentLabel="Staff timetable" Term="@published.Term" IdentityLine="@teacherName" VersionName="@published.Name" Slots="slots" Assignments="assignments" ShowClass="true" />}
+</div>
+
+@code {
+    private bool loading=true;
+    private string? error;
+    private string teacherName="Staff member";
+    private TimetableVersionInfo? published;
+    private List<TimetableSlot> slots=new();
+    private List<TimetableAssignment> assignments=new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var idText=await JS.InvokeAsync<string?>("sessionStorage.getItem", "primeappDemo.userId");
+            if(!long.TryParse(idText,out var teacherId)||teacherId<=0){error="We could not identify your staff account. Please sign in again.";return;}
+            var teacher=await TeacherService.GetTeacherAsync(teacherId);
+            if(teacher is not null)teacherName=FormatEducatorName(teacher);
+            published=await Timetable.GetActivePublishedAsync();
+            if(published is null){error="The school has not published an active timetable yet.";return;}
+            var slotsTask=Timetable.GetSlotsAsync();
+            var assignmentsTask=Timetable.GetByTeacherAsync(published.Id,teacherId.ToString());
+            await Task.WhenAll(slotsTask,assignmentsTask);
+            slots=await slotsTask;
+            assignments=await assignmentsTask;
+            if(assignments.Count==0)error="You have no teaching periods in the active timetable. If this is unexpected, ask the administrator to verify your subject allocations.";
+        }
+        catch(Exception ex){error=$"Your teaching timetable could not be loaded: {ex.Message}";}
+        finally{loading=false;}
+    }
+
+    private static string FormatEducatorName(TeacherProfileModel.Teacher teacher)
+    {
+        var firstName=teacher.FirstName?.Trim();
+        var lastName=teacher.LastName?.Trim();
+        if(string.IsNullOrWhiteSpace(firstName)&&string.IsNullOrWhiteSpace(lastName))return "Staff member";
+        var initial=string.IsNullOrWhiteSpace(firstName)?"":$"{char.ToUpperInvariant(firstName[0])} ";
+        var title=teacher.Gender?.Trim().ToLowerInvariant() switch
+        {
+            "female" or "f" or "woman" => "Madam",
+            "male" or "m" or "man" => "Mr",
+            _ => ""
+        };
+        return string.Join(" ",new[]{title,initial.TrimEnd(),lastName}.Where(value=>!string.IsNullOrWhiteSpace(value)));
+    }
+}

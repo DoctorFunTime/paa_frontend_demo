@@ -1,0 +1,817 @@
+@page "/staff/report-cards"
+@page "/staff/report-cards/{StudentId:long}"
+@namespace paa_frontend.Client.Pages.Staff
+@layout paa_frontend.Client.Layout.StaffPortalLayout
+@using paa_frontend.Shared.Models
+@using paa_frontend.Client.Services
+@using static paa_frontend.Shared.Models.StudentProfileModel
+@inject AssessmentServiceClient AssessmentService
+@inject StudentProfileServiceClient StudentService
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<CascadingValue Name="PageTitle" Value="@pageTitle">
+
+<style>
+@@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+:root {
+    --blue:#1A4FFF;--blue-dim:#ebefff;--ink:#0d1117;--ink2:#4a5168;--ink3:#9097a8;
+    --bg:#f2f3f7;--card:#ffffff;--green:#00b67a;--green-dim:#e2f8f0;
+    --amber:#f59e0b;--amber-dim:#fef3c7;--red:#ef4444;--red-dim:#fef2f2;
+    --purple:#7c3aed;--purple-dim:#ede9fe;
+    --border:rgba(0,0,0,0.07);--shadow:0 1px 3px rgba(0,0,0,0.06),0 4px 16px rgba(0,0,0,0.04);
+    --radius:14px; font-family:'Sora',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--ink);}
+a{text-decoration:none;color:inherit;}
+input,select,button,textarea{font-family:'Sora',sans-serif;}
+
+.page-wrap{padding:28px 32px;max-width:1400px;margin:0 auto;}
+.breadcrumb{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink3);margin-bottom:20px;}
+.breadcrumb a{color:var(--ink3);} .breadcrumb a:hover{color:var(--blue);}
+
+.page-header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:24px;gap:16px;flex-wrap:wrap;}
+.page-title{font-size:22px;font-weight:700;color:var(--ink);letter-spacing:-0.5px;margin-bottom:3px;}
+.page-sub{font-size:13px;color:var(--ink3);}
+.header-actions{display:flex;gap:8px;flex-wrap:wrap;}
+
+.btn-primary{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;background:var(--blue);color:white;border:none;border-radius:10px;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s;}
+.btn-primary:hover{filter:brightness(1.1);transform:translateY(-1px);}
+.btn-primary:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+.btn-ghost{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;background:transparent;color:var(--ink2);border:1px solid var(--border);border-radius:10px;font-size:13px;font-weight:400;cursor:pointer;transition:all 0.15s;}
+.btn-ghost:hover{background:var(--card);color:var(--ink);}
+
+.tab-nav{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:24px;}
+.tab-btn{padding:9px 16px;border:none;background:transparent;font-size:13px;color:var(--ink3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all 0.15s;font-family:'Sora',sans-serif;}
+.tab-btn:hover{color:var(--ink2);}
+.tab-btn.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:500;}
+
+.two-col{display:grid;grid-template-columns:320px 1fr;gap:24px;align-items:start;}
+.panel-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:20px;box-shadow:var(--shadow);}
+.panel-title{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:14px;}
+.form-group{margin-bottom:14px;}
+.form-label{font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;display:block;}
+.form-control{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;color:var(--ink);background:var(--card);outline:none;transition:border-color 0.15s;}
+.form-control:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,79,255,0.08);}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.form-hint{font-size:11px;color:var(--ink3);margin-top:4px;}
+
+.pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;}
+.pill-green{background:var(--green-dim);color:#008a5a;}
+.pill-blue{background:var(--blue-dim);color:var(--blue);}
+.pill-amber{background:var(--amber-dim);color:#9a6800;}
+.pill-red{background:var(--red-dim);color:var(--red);}
+.pill-gray{background:rgba(0,0,0,0.05);color:var(--ink3);}
+.pill-purple{background:var(--purple-dim);color:var(--purple);}
+
+/* student search */
+.student-search-result{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;cursor:pointer;transition:background 0.1s;border:1px solid transparent;}
+.student-search-result:hover{background:var(--bg);}
+.student-search-result.selected{background:var(--blue-dim);border-color:rgba(26,79,255,0.2);}
+.s-avatar{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;}
+
+/* report card preview */
+.rc-preview{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;box-shadow:var(--shadow);}
+.rc-header{background:var(--ink);color:white;padding:24px 28px;}
+.rc-school{font-size:18px;font-weight:700;letter-spacing:-0.3px;}
+.rc-subtitle{font-size:11.5px;color:rgba(255,255,255,0.4);margin-top:2px;text-transform:uppercase;letter-spacing:0.6px;}
+.rc-meta-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;margin-top:20px;}
+.rc-meta-item{padding:10px 16px;border-right:1px solid rgba(255,255,255,0.08);}
+.rc-meta-item:last-child{border-right:none;}
+.rc-meta-label{font-size:9.5px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;}
+.rc-meta-val{font-size:13px;font-weight:600;color:white;}
+.rc-body{padding:0;}
+.rc-table{width:100%;border-collapse:collapse;}
+.rc-table th{padding:10px 20px;text-align:left;font-size:10.5px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.01);}
+.rc-table td{padding:12px 20px;border-bottom:1px solid rgba(0,0,0,0.04);font-size:13px;color:var(--ink2);vertical-align:middle;}
+.rc-table tbody tr:last-child td{border-bottom:none;}
+.rc-table tbody tr:hover{background:rgba(26,79,255,0.015);}
+.rc-grade-cell{font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;}
+.rc-footer{padding:20px 28px;border-top:1px solid var(--border);background:rgba(0,0,0,0.01);}
+.rc-comments{font-size:13px;color:var(--ink2);line-height:1.6;font-style:italic;}
+
+/* Teacher signature grid — matches Teacher.java entity */
+.rc-sig-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:24px;}
+.rc-sig{border-top:1.5px solid var(--border);padding-top:10px;}
+.rc-sig-name{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:2px;}
+.rc-sig-detail{font-size:11px;color:var(--ink3);line-height:1.6;}
+.rc-sig-role{font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:0.5px;margin-top:6px;}
+
+/* teacher picker */
+.teacher-option{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;cursor:pointer;transition:background 0.1s;border:1.5px solid var(--border);}
+.teacher-option:hover{border-color:rgba(26,79,255,0.3);background:var(--blue-dim);}
+.teacher-option.selected{border-color:var(--blue);background:var(--blue-dim);}
+.t-avatar{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;background:var(--blue-dim);color:var(--blue);}
+
+/* history list */
+.rc-history-item{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.1s;}
+.rc-history-item:last-child{border-bottom:none;}
+.rc-history-item:hover .rchi-title{color:var(--blue);}
+.rchi-title{font-size:13px;font-weight:500;color:var(--ink);transition:color 0.15s;}
+.rchi-meta{font-size:11px;color:var(--ink3);margin-top:2px;}
+
+/* toolbar */
+.toolbar{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;}
+.search-wrap{position:relative;flex:1;min-width:220px;max-width:360px;}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--ink3);pointer-events:none;}
+.search-input{width:100%;padding:9px 12px 9px 38px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;color:var(--ink);background:var(--card);outline:none;}
+.search-input:focus{border-color:var(--blue);}
+.search-input::placeholder{color:var(--ink3);}
+
+/* table */
+.table-wrap{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;box-shadow:var(--shadow);}
+.data-table{width:100%;border-collapse:collapse;}
+.data-table th{padding:11px 16px;text-align:left;font-size:10.5px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);}
+.data-table th:first-child{padding-left:20px;}
+.data-table td{padding:12px 16px;border-bottom:1px solid rgba(0,0,0,0.04);font-size:13px;color:var(--ink2);vertical-align:middle;}
+.data-table td:first-child{padding-left:20px;}
+.data-table tbody tr{cursor:pointer;transition:background 0.1s;}
+.data-table tbody tr:hover{background:rgba(26,79,255,0.02);}
+.data-table tbody tr:last-child td{border-bottom:none;}
+
+.toast{position:fixed;bottom:24px;right:24px;padding:13px 18px;border-radius:12px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;box-shadow:0 8px 32px rgba(0,0,0,0.15);z-index:999;}
+.toast-success{background:var(--green);color:white;}
+.toast-error{background:var(--red);color:white;}
+
+@@keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+.a1{animation:fadeUp .3s ease both;}
+.a2{animation:fadeUp .3s .06s ease both;}
+.a3{animation:fadeUp .3s .12s ease both;}
+
+@@media(max-width:900px){
+    .two-col{grid-template-columns:1fr;}
+    .rc-meta-grid{grid-template-columns:1fr 1fr;}
+    .rc-sig-row{grid-template-columns:1fr;}
+    .form-row{grid-template-columns:1fr;}
+    .page-wrap{padding:16px;}
+}
+</style>
+
+<div class="page-wrap">
+
+    <div class="breadcrumb a1">
+        <a href="/staff">Staff Portal</a>
+        <span style="color:var(--border);">›</span>
+        <span style="color:var(--ink2);">Report Cards</span>
+    </div>
+
+    <div class="page-header a1">
+        <div>
+            <div class="page-title">Report Cards</div>
+            <div class="page-sub">Generate and print student academic reports. Teacher sign-off details are pulled from the staff directory.</div>
+        </div>
+    </div>
+
+    <div class="tab-nav a2">
+        <button class="tab-btn @(activeTab == "generate" ? "active" : "")" @onclick='() => activeTab = "generate"'>
+            Generate Report Card
+        </button>
+        <button class="tab-btn @(activeTab == "view" ? "active" : "")" @onclick='() => activeTab = "view"'>
+            View / Print
+        </button>
+        <button class="tab-btn @(activeTab == "history" ? "active" : "")" @onclick='() => activeTab = "history"'>
+            History
+        </button>
+    </div>
+
+    <!-- ══ TAB: GENERATE ══ -->
+    @if (activeTab == "generate")
+    {
+        <div class="two-col a3">
+            <!-- Left: form -->
+            <div style="display:flex;flex-direction:column;gap:16px;">
+
+                <!-- Student picker -->
+                <div class="panel-card">
+                    <div class="panel-title">1. Select Student</div>
+                    <div class="search-wrap" style="max-width:100%;margin-bottom:12px;">
+                        <span class="search-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></span>
+                        <input class="search-input" type="text" placeholder="Search student name…" @bind="studentSearch" @bind:event="oninput" />
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;">
+                        @foreach (var s in FilteredMockStudents)
+                        {
+                            var sid = s.Id;
+                            bool sel = request.StudentId == sid;
+                            <div class="student-search-result @(sel ? "selected" : "")" @onclick="() => SelectStudent(s)">
+                                <div class="s-avatar" style="background:rgba(26,79,255,0.1);color:var(--blue);font-size:11px;">
+                                    @(s.FirstName?[0])@(s.LastName?[0])
+                                </div>
+                                <div style="flex:1;">
+                                    <div style="font-size:13px;font-weight:500;color:var(--ink);">@s.FirstName @s.LastName</div>
+                                    <div style="font-size:11px;color:var(--ink3);margin-top:1px;">Form @s.Form · @s.Classroom</div>
+                                </div>
+                                @if (sel)
+                                {
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Term & weights -->
+                <div class="panel-card">
+                    <div class="panel-title">2. Term &amp; Weighting</div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Term</label>
+                            <select class="form-control" @bind="request.Term">
+                                <option>Term 1</option><option>Term 2</option><option>Term 3</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Term Year</label>
+                            <input class="form-control" type="number" @bind="request.TermYear" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Term Month (end month label)</label>
+                        <input class="form-control" type="text" placeholder="e.g. April" @bind="request.TermMonth" />
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Coursework Weight (0–1)</label>
+                            <input class="form-control" type="number" step="0.05" min="0" max="1" @bind="request.CourseworkWeight" @bind:after="PersistCourseworkWeight" />
+                            <div class="form-hint">e.g. 0.30 = 30% coursework</div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Exam Weight (derived)</label>
+                            <input class="form-control" type="number" value="@(1 - request.CourseworkWeight)" disabled style="opacity:0.5;" />
+                            <div class="form-hint">Auto-calculated: 1 − coursework weight</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- O-Level field -->
+                <div class="panel-card">
+                    <div class="panel-title">3. Level &amp; Field</div>
+                    <div class="form-group">
+                        <label class="form-label">Level</label>
+                        <select class="form-control" @bind="generateLevel">
+                            <option value="form1to4">Forms 1–4</option>
+                            <option value="olevel">O-Level</option>
+                            <option value="alevel">A-Level</option>
+                        </select>
+                    </div>
+                    @if (generateLevel == "olevel")
+                    {
+                        <div class="form-group">
+                            <label class="form-label">O-Level Field</label>
+                            <select class="form-control" @bind="generateField">
+                                @foreach (var f in OLevelField.All) { <option>@f</option> }
+                            </select>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Right: subjects, teacher, comments -->
+            <div style="display:flex;flex-direction:column;gap:16px;">
+
+                <div class="panel-card">
+                    <div class="panel-title">4. Subjects to Include</div>
+                    <div style="font-size:12px;color:var(--ink3);margin-bottom:12px;">
+                        Marks are resolved from the Coursework and Exam tables filtered to the selected term's month range.
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:240px;overflow-y:auto;">
+                        @foreach (var subj in AllSubjects)
+                        {
+                            bool chk = request.SubjectNames.Contains(subj);
+                            <label style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;cursor:pointer;border:1px solid @(chk ? "var(--blue)" : "var(--border)");background:@(chk ? "var(--blue-dim)" : "transparent");transition:all 0.12s;">
+                                <input type="checkbox" checked="@chk" style="accent-color:var(--blue);"
+                                       @onchange="() => ToggleSubject(subj)" />
+                                <span style="font-size:12.5px;color:@(chk ? "var(--blue)" : "var(--ink2)");font-weight:@(chk ? "500" : "400");">@subj</span>
+                            </label>
+                        }
+                    </div>
+                </div>
+
+                <!-- Form Teacher picker — sourced from Teacher entity -->
+                <div class="panel-card">
+                    <div class="panel-title">5. Form Teacher Sign-off</div>
+                    <div style="font-size:12px;color:var(--ink3);margin-bottom:12px;">
+                        Select the form teacher whose details will appear on the report card signature block.
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;">
+                        @foreach (var t in MockTeachers)
+                        {
+                            bool sel = selectedTeacherId == t.Id;
+                            <div class="teacher-option @(sel ? "selected" : "")" @onclick="() => SelectTeacher(t)">
+                                <div class="t-avatar">@(t.FirstName[0])@(t.LastName[0])</div>
+                                <div style="flex:1;">
+                                    <div style="font-size:13px;font-weight:500;color:var(--ink);">@t.FirstName @t.LastName</div>
+                                    <div style="font-size:11px;color:var(--ink3);margin-top:1px;">@t.Email · @t.Phone</div>
+                                    <div style="font-size:11px;color:var(--ink3);">Gender: @t.Gender · Status:
+                                        <span style="color:@(t.Status == "Active" ? "var(--green)" : "var(--amber)");">@t.Status</span>
+                                    </div>
+                                </div>
+                                @if (sel)
+                                {
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="panel-card">
+                    <div class="panel-title">6. Overall Comments</div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <textarea class="form-control" rows="3" placeholder="Form teacher's overall comment…"
+                                  @bind="request.OverallComments"
+                                  style="resize:vertical;"></textarea>
+                        <div class="form-hint">Stored in <code style="font-family:'JetBrains Mono',monospace;">ReportCard.overall_comments</code></div>
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:8px;justify-content:flex-end;">
+                    <button class="btn-ghost" @onclick="PreviewReportCard">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        Preview
+                    </button>
+                    <button class="btn-primary" @onclick="GenerateReportCard" disabled="@(isGenerating || request.StudentId == 0 || !request.SubjectNames.Any())">
+                        @if (isGenerating) { <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> }
+                        @(isGenerating ? "Generating…" : "Generate & Save")
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- ══ TAB: VIEW / PRINT ══ -->
+    @if (activeTab == "view")
+    {
+        <div class="a3">
+            @if (PreviewCard == null)
+            {
+                <div style="text-align:center;padding:60px;color:var(--ink3);">
+                    <div style="margin:0 auto 16px;width:52px;height:52px;background:rgba(0,0,0,0.04);border-radius:14px;display:flex;align-items:center;justify-content:center;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    </div>
+                    <div style="font-size:14px;font-weight:500;color:var(--ink2);margin-bottom:5px;">No report card loaded</div>
+                    <div style="font-size:12px;">Generate one or click a record in History</div>
+                </div>
+            }
+            else
+            {
+                <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:16px;">
+                    <button class="btn-ghost">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Download PDF
+                    </button>
+                    <button class="btn-ghost">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                        Print
+                    </button>
+                </div>
+
+                <!-- ── Report Card Document ── -->
+                <div class="rc-preview">
+                    <div class="rc-header">
+                        <div class="rc-school">Pamushana Academy</div>
+                        <div class="rc-subtitle">Student Academic Report Card</div>
+                        <div class="rc-meta-grid">
+                            <div class="rc-meta-item">
+                                <div class="rc-meta-label">Student</div>
+                                <div class="rc-meta-val">@PreviewCard.StudentFirstName @PreviewCard.StudentLastName</div>
+                            </div>
+                            <div class="rc-meta-item">
+                                <div class="rc-meta-label">Form / Class</div>
+                                <div class="rc-meta-val">Form @PreviewCard.StudentForm · @PreviewCard.StudentClass</div>
+                            </div>
+                            <div class="rc-meta-item">
+                                <div class="rc-meta-label">Term</div>
+                                <div class="rc-meta-val">@PreviewCard.Term · @PreviewCard.TermMonth @PreviewCard.TermYear</div>
+                            </div>
+                            <div class="rc-meta-item">
+                                <div class="rc-meta-label">Generated</div>
+                                <div class="rc-meta-val">@PreviewCard.GeneratedDate.ToString("dd MMM yyyy")</div>
+                            </div>
+                            <div class="rc-meta-item">
+                                <div class="rc-meta-label">Coursework / Exam Weight</div>
+                                    <div class="rc-meta-val">@((PreviewCard.CourseworkWeight ?? 0.3) * 100).ToString("F0"))% / @(((1 - (PreviewCard.CourseworkWeight ?? 0.3)) * 100).ToString("F0"))%</div>
+                            </div>
+                            <div class="rc-meta-item">
+                                <div class="rc-meta-label">Student ID</div>
+                                <div class="rc-meta-val" style="font-family:'JetBrains Mono',monospace;font-size:11px;">@PreviewCard.StudentId</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="rc-body">
+                        <table class="rc-table">
+                            <thead>
+                                <tr>
+                                    <th>Subject</th>
+                                    <th style="text-align:center;">Coursework (@((PreviewCard.CourseworkWeight ?? 0.3) * 100).ToString("F0"))%)</th>
+                                    <th style="text-align:center;">Exam (@(((1 - (PreviewCard.CourseworkWeight ?? 0.3)) * 100).ToString("F0"))%)</th>
+                                    <th style="text-align:center;">Final Mark</th>
+                                    <th style="text-align:center;">Grade</th>
+                                    <th>Comments</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var subj in PreviewCard.Subjects)
+                                {
+                                    string gradeColor = subj.Grade switch {
+                                        "A" => "var(--green)",
+                                        "B" or "C" => "var(--blue)",
+                                        "D" or "E" => "var(--amber)",
+                                        _ => "var(--red)"
+                                    };
+                                    <tr>
+                                        <td style="font-weight:500;color:var(--ink);">@subj.SubjectName</td>
+                                        <td style="text-align:center;font-family:'JetBrains Mono',monospace;font-size:12px;">@subj.CourseworkMark.ToString("F1")</td>
+                                        <td style="text-align:center;font-family:'JetBrains Mono',monospace;font-size:12px;">@subj.ExamMark.ToString("F1")</td>
+                                        <td style="text-align:center;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:var(--ink);">@subj.FinalMark.ToString("F1")</td>
+                                        <td style="text-align:center;">
+                                            <span class="rc-grade-cell" style="color:@gradeColor;">@subj.Grade</span>
+                                        </td>
+                                        <td style="font-size:12px;color:var(--ink3);font-style:italic;">@(string.IsNullOrEmpty(subj.Comments) ? "—" : subj.Comments)</td>
+                                    </tr>
+                                }
+                                <!-- Summary row -->
+                                <tr style="background:rgba(0,0,0,0.02);">
+                                    <td style="font-weight:600;color:var(--ink);">Overall Average</td>
+                                    <td style="text-align:center;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;">
+                                        @(PreviewCard.Subjects.Average(s => s.CourseworkMark).ToString("F1"))
+                                    </td>
+                                    <td style="text-align:center;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;">
+                                        @(PreviewCard.Subjects.Average(s => s.ExamMark).ToString("F1"))
+                                    </td>
+                                    <td style="text-align:center;font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--blue);">
+                                        @(PreviewCard.Subjects.Average(s => s.FinalMark).ToString("F1"))
+                                    </td>
+                                    <td></td><td></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Footer: comment + teacher sign-off using Teacher entity fields -->
+                    <div class="rc-footer">
+                        @if (!string.IsNullOrEmpty(PreviewCard.OverallComments))
+                        {
+                            <div style="font-size:10.5px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Form Teacher's Comment</div>
+                            <div class="rc-comments">"@PreviewCard.OverallComments"</div>
+                        }
+
+                        <!-- Signature row — Teacher fields: firstName, lastName, email, phone, gender, status -->
+                        <div class="rc-sig-row">
+                            <div class="rc-sig">
+                                @if (SigningTeacher != null)
+                                {
+                                    <div class="rc-sig-name">@SigningTeacher.FirstName @SigningTeacher.LastName</div>
+                                    <div class="rc-sig-detail">@SigningTeacher.Email</div>
+                                    <div class="rc-sig-detail">@SigningTeacher.Phone</div>
+                                    <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+                                        <span class="pill @(SigningTeacher.Status == "Active" ? "pill-green" : "pill-amber")" style="font-size:10px;">@SigningTeacher.Status</span>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="rc-sig-name" style="color:var(--ink3);">Form Teacher</div>
+                                    <div class="rc-sig-detail">Signature</div>
+                                }
+                                <div class="rc-sig-role">Form Teacher</div>
+                            </div>
+                            <div class="rc-sig">
+                                <div class="rc-sig-name" style="color:var(--ink3);">Head Teacher</div>
+                                <div class="rc-sig-detail">Signature</div>
+                                <div class="rc-sig-role">Head Teacher</div>
+                            </div>
+                            <div class="rc-sig">
+                                <div class="rc-sig-name" style="color:var(--ink3);">Parent / Guardian</div>
+                                <div class="rc-sig-detail">Signature &amp; Date</div>
+                                <div class="rc-sig-role">Parent / Guardian</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- ══ TAB: HISTORY ══ -->
+    @if (activeTab == "history")
+    {
+        <div class="a3">
+            <div class="toolbar" style="margin-bottom:16px;">
+                <div class="search-wrap">
+                    <span class="search-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></span>
+                    <input class="search-input" type="text" placeholder="Search by student name or term…" />
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Term</th>
+                            <th>Generated</th>
+                            <th>Subjects</th>
+                            <th>Avg. Final</th>
+                            <th>CW Weight</th>
+                            <th style="width:80px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var rc in MockHistory)
+                        {
+                            var rcRef = rc;
+                            <tr @onclick="() => LoadHistoryCard(rcRef)">
+                                <td>
+                                    <div style="font-size:13px;font-weight:500;color:var(--ink);">@rc.StudentFirstName @rc.StudentLastName</div>
+                                    <div style="font-size:11px;color:var(--ink3);margin-top:1px;">Form @rc.StudentForm · @rc.StudentClass · ID @rc.StudentId</div>
+                                </td>
+                                <td>
+                                    <div style="font-size:13px;font-weight:500;color:var(--ink);">@rc.Term</div>
+                                    <div style="font-size:11px;color:var(--ink3);margin-top:1px;">@rc.TermMonth @rc.TermYear</div>
+                                </td>
+                                <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink3);">@rc.GeneratedDate.ToString("dd MMM yyyy")</td>
+                                <td><span class="pill pill-blue">@rc.Subjects.Count subjects</span></td>
+                                <td style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:var(--ink);">
+                                    @(rc.Subjects.Any() ? rc.Subjects.Average(s => s.FinalMark).ToString("F1") : "—")
+                                </td>
+                                <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink3);">
+                                    @((rc.CourseworkWeight ?? 0.3) * 100).ToString("F0"))% / @(((1 - (rc.CourseworkWeight ?? 0.3)) * 100).ToString("F0"))%
+                                </td>
+                                <td>
+                                    <button class="btn-ghost" style="font-size:11.5px;padding:5px 10px;" @onclick:stopPropagation="true" @onclick="() => LoadHistoryCard(rcRef)">View</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+</div>
+
+@if (!string.IsNullOrEmpty(toastMsg))
+{
+    <div class="toast @(toastIsError ? "toast-error" : "toast-success")">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        @toastMsg
+    </div>
+}
+
+</CascadingValue>
+
+@code {
+    [Parameter] public long StudentId { get; set; }
+
+    private readonly string pageTitle = "Report Cards";
+    private string activeTab = "generate";
+    private string studentSearch = "";
+    private string generateLevel = "olevel";
+    private string generateField = OLevelField.Sciences;
+    private bool isGenerating = false;
+    private string toastMsg = "";
+    private bool toastIsError = false;
+
+    // ── Teacher sign-off — mirrors Teacher.java entity ────
+    private long selectedTeacherId = 0;
+    private MockTeacherItem? SigningTeacher =>
+        MockTeachers.FirstOrDefault(t => t.Id == selectedTeacherId);
+
+    private void SelectTeacher(MockTeacherItem t)
+        => selectedTeacherId = t.Id;
+
+    // ── Request model ─────────────────────────────────────
+    private ReportCardRequest request = new()
+    {
+        Term             = "Term 2",
+        TermMonth        = "March",
+        TermYear         = DateTime.Now.Year,
+        CourseworkWeight = 0.30,
+        SubjectNames     = new(),
+    };
+
+    private ReportCardModel? PreviewCard = null;
+    private const string CourseworkWeightStorageKey = "paa.admin.courseworkWeightPercent";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var stored = await JS.InvokeAsync<string?>("localStorage.getItem", CourseworkWeightStorageKey);
+            if (double.TryParse(stored, out var savedPercent))
+                request.CourseworkWeight = Math.Clamp(savedPercent / 100.0, 0, 1);
+        }
+        catch { }
+
+        if (StudentId > 0)
+        {
+            request.StudentId = StudentId;
+            activeTab = "history";
+        }
+    }
+
+    private async Task PersistCourseworkWeight()
+    {
+        request.CourseworkWeight = Math.Clamp(request.CourseworkWeight, 0, 1);
+        await JS.InvokeVoidAsync("localStorage.setItem", CourseworkWeightStorageKey, (request.CourseworkWeight * 100).ToString("0.##"));
+    }
+
+    // ── Student selection ─────────────────────────────────
+    private void SelectStudent(MockStudentItem s)
+    {
+        request.StudentId        = s.Id;
+        request.StudentFirstName = s.FirstName;
+        request.StudentLastName  = s.LastName;
+        request.StudentForm      = s.Form;
+        request.StudentClass     = s.Classroom;
+    }
+
+    // ── Subject toggle ────────────────────────────────────
+    private void ToggleSubject(string subj)
+    {
+        if (request.SubjectNames.Contains(subj))
+            request.SubjectNames.Remove(subj);
+        else
+            request.SubjectNames.Add(subj);
+    }
+
+    // ── Preview ───────────────────────────────────────────
+    private void PreviewReportCard()
+    {
+        if (request.StudentId == 0 || !request.SubjectNames.Any()) return;
+        PreviewCard = BuildPreviewCard();
+        activeTab = "view";
+    }
+
+    // ── Generate & Save ───────────────────────────────────
+    private async Task GenerateReportCard()
+    {
+        if (request.StudentId == 0 || !request.SubjectNames.Any()) return;
+        isGenerating = true;
+
+        try
+        {
+            string field = generateLevel == "olevel" ? generateField : "";
+            var result = await AssessmentService.GenerateReportCardAsync(request, field);
+
+            if (result != null)
+            {
+                PreviewCard = result;
+                MockHistory.Insert(0, result);
+                ShowToast("Report card generated and saved");
+                activeTab = "view";
+            }
+            else ShowToast(AssessmentService.LastReportCardError ??
+                           "Generation failed — ensure every subject has a teacher comment.", error: true);
+        }
+        catch
+        {
+            ShowToast("Could not reach the report-generation service.", error: true);
+        }
+        finally { isGenerating = false; }
+    }
+
+    private ReportCardModel BuildPreviewCard()
+    {
+        double cw = request.CourseworkWeight;
+        double ew = 1 - cw;
+
+        return new ReportCardModel
+        {
+            StudentId        = request.StudentId,
+            StudentFirstName = request.StudentFirstName,
+            StudentLastName  = request.StudentLastName,
+            StudentForm      = request.StudentForm,
+            StudentClass     = request.StudentClass,
+            Term             = request.Term,
+            TermMonth        = request.TermMonth,
+            TermYear         = request.TermYear ?? DateTime.Now.Year,
+            GeneratedDate    = DateOnly.FromDateTime(DateTime.Now),
+            CourseworkWeight = cw,
+            OverallComments  = request.OverallComments,
+            Subjects = request.SubjectNames.Select(name =>
+            {
+                double cwMark = Random.Shared.NextDouble() * 40 + 55;
+                double exMark = Random.Shared.NextDouble() * 40 + 50;
+                double final  = Math.Round(cwMark * cw + exMark * ew, 1);
+                string grade  = GradeHelper.ToGrade(final);
+                return new ReportCardSubjectModel
+                {
+                    SubjectName    = name,
+                    CourseworkMark = Math.Round(cwMark, 1),
+                    ExamMark       = Math.Round(exMark, 1),
+                    FinalMark      = final,
+                    Grade          = grade,
+                    Comments       = "",
+                };
+            }).ToList(),
+        };
+    }
+
+    private void LoadHistoryCard(ReportCardModel rc)
+    {
+        PreviewCard = rc;
+        activeTab = "view";
+    }
+
+    // ── Toast ─────────────────────────────────────────────
+    private System.Threading.CancellationTokenSource? _toastCts;
+    private async void ShowToast(string msg, bool error = false)
+    {
+        _toastCts?.Cancel();
+        toastMsg = msg; toastIsError = error; StateHasChanged();
+        _toastCts = new();
+        try { await Task.Delay(3500, _toastCts.Token); toastMsg = ""; StateHasChanged(); }
+        catch (TaskCanceledException) { }
+    }
+
+    // ── Mock data: students ───────────────────────────────
+    private class MockStudentItem
+    {
+        public long   Id        { get; set; }
+        public string FirstName { get; set; } = "";
+        public string LastName  { get; set; } = "";
+        public int    Form      { get; set; }
+        public string Classroom { get; set; } = "";
+    }
+
+    private List<MockStudentItem> AllMockStudents = new()
+    {
+        new() { Id=1001, FirstName="Chiedza",  LastName="Mutasa",   Form=4, Classroom="4A" },
+        new() { Id=1002, FirstName="Farai",    LastName="Ncube",    Form=3, Classroom="3B" },
+        new() { Id=1003, FirstName="Tatenda",  LastName="Dube",     Form=4, Classroom="4A" },
+        new() { Id=1004, FirstName="Rudo",     LastName="Chieza",   Form=3, Classroom="3A" },
+        new() { Id=1005, FirstName="Munashe",  LastName="Tafadzwa", Form=4, Classroom="4B" },
+        new() { Id=1006, FirstName="Blessing", LastName="Mupfumi",  Form=6, Classroom="L6 Sci" },
+        new() { Id=1007, FirstName="Simba",    LastName="Kaseke",   Form=3, Classroom="3C" },
+        new() { Id=1008, FirstName="Nyasha",   LastName="Chirwa",   Form=4, Classroom="4A" },
+    };
+
+    private List<MockStudentItem> FilteredMockStudents =>
+        string.IsNullOrWhiteSpace(studentSearch)
+            ? AllMockStudents
+            : AllMockStudents.Where(s =>
+                (s.FirstName + " " + s.LastName).Contains(studentSearch, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    // ── Mock data: teachers — mirrors Teacher.java entity ─
+    // Fields: id, firstName, lastName, email, gender, phone, nationalId, dateOfBirth, status, createdAt, updatedAt
+    private class MockTeacherItem
+    {
+        public long     Id          { get; set; }
+        public string   FirstName   { get; set; } = "";
+        public string   LastName    { get; set; } = "";
+        public string   Email       { get; set; } = "";
+        public string   Gender      { get; set; } = "";
+        public string   Phone       { get; set; } = "";
+        public string   NationalId  { get; set; } = "";
+        public DateOnly DateOfBirth { get; set; }
+        public string   Status      { get; set; } = "";
+    }
+
+    private List<MockTeacherItem> MockTeachers = new()
+    {
+        new() { Id=101, FirstName="Tariro",  LastName="Moyo",    Email="t.moyo@pamushana.ac.zw",    Gender="Female", Phone="+263 77 123 4567", NationalId="63-100001-F-22", DateOfBirth=new DateOnly(1985,3,15), Status="Active" },
+        new() { Id=102, FirstName="Tendai",  LastName="Ncube",   Email="t.ncube@pamushana.ac.zw",   Gender="Male",   Phone="+263 71 234 5678", NationalId="63-100002-M-14", DateOfBirth=new DateOnly(1979,8,22), Status="Active" },
+        new() { Id=103, FirstName="Sekai",   LastName="Dube",    Email="s.dube@pamushana.ac.zw",    Gender="Female", Phone="+263 78 345 6789", NationalId="63-100003-F-09", DateOfBirth=new DateOnly(1990,1,30), Status="Active" },
+        new() { Id=104, FirstName="Taurai",  LastName="Mutasa",  Email="t.mutasa@pamushana.ac.zw",  Gender="Male",   Phone="+263 73 456 7890", NationalId="63-100004-M-31", DateOfBirth=new DateOnly(1983,6,11), Status="On Leave" },
+    };
+
+    // ── Subject list ──────────────────────────────────────
+    private List<string> AllSubjects = new()
+    {
+        "Physics", "Chemistry", "Biology", "Combined Science",
+        "Mathematics", "Additional Mathematics",
+        "English Language", "English Literature",
+        "History", "Geography", "Divinity",
+        "Accounts", "Business Studies", "Economics",
+        "Art", "Design & Technology",
+    };
+
+    // ── Mock history ──────────────────────────────────────
+    private List<ReportCardModel> MockHistory = new()
+    {
+        new() {
+            Id=1, StudentId=1001, StudentFirstName="Chiedza", StudentLastName="Mutasa",
+            StudentForm=4, StudentClass="4A", Term="Term 1", TermMonth="April", TermYear=2026,
+            GeneratedDate=new DateOnly(2026,4,25), CourseworkWeight=0.30,
+            OverallComments="An excellent student who shows great initiative.",
+            Subjects = new() {
+                new() { SubjectName="Physics",          CourseworkMark=82, ExamMark=78, FinalMark=79.2, Grade="B", Comments="Good understanding of kinematics." },
+                new() { SubjectName="Mathematics",      CourseworkMark=91, ExamMark=88, FinalMark=88.9, Grade="A", Comments="Outstanding. Keep it up." },
+                new() { SubjectName="Chemistry",        CourseworkMark=74, ExamMark=70, FinalMark=71.2, Grade="B", Comments="Solid lab work." },
+                new() { SubjectName="English Language", CourseworkMark=68, ExamMark=65, FinalMark=65.9, Grade="C", Comments="Work on essay structure." },
+            }
+        },
+        new() {
+            Id=2, StudentId=1002, StudentFirstName="Farai", StudentLastName="Ncube",
+            StudentForm=3, StudentClass="3B", Term="Term 1", TermMonth="April", TermYear=2026,
+            GeneratedDate=new DateOnly(2026,4,25), CourseworkWeight=0.30,
+            OverallComments="Shows promise. Needs to improve consistency.",
+            Subjects = new() {
+                new() { SubjectName="Physics", CourseworkMark=61, ExamMark=58, FinalMark=58.9, Grade="C", Comments="" },
+                new() { SubjectName="Biology", CourseworkMark=70, ExamMark=72, FinalMark=71.4, Grade="B", Comments="Good practical skills." },
+            }
+        },
+    };
+}

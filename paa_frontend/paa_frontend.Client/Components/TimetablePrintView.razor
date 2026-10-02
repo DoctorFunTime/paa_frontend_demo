@@ -1,0 +1,214 @@
+@using paa_frontend.Shared.Models
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+
+<style>
+    .timetable-border-wrap { position: relative; height: 100%; background: #fff; padding: 10px; box-sizing: border-box; }
+    .timetable-cert-frame { position: relative; height: 100%; border: 2px solid #1a7f52; outline: 5px solid rgba(26,127,82,.15); outline-offset: -12px; border-radius: 4px; padding: 10px; background: #fff; box-sizing: border-box; }
+    .timetable-corner { position: absolute; z-index: 3; width: 46px; height: 46px; pointer-events: none; }
+    .timetable-corner svg { width: 100%; height: 100%; }
+    .timetable-corner.tl { top: 4px; left: 4px; }
+    .timetable-corner.tr { top: 4px; right: 4px; transform: scaleX(-1); }
+    .timetable-corner.bl { bottom: 4px; left: 4px; transform: scaleY(-1); }
+    .timetable-corner.br { bottom: 4px; right: 4px; transform: scale(-1,-1); }
+    .timetable-sheet { position: relative; isolation: isolate; width: 100%; height: 100%; overflow: hidden; background: #fff; color: #14213a; padding: 12px; box-sizing: border-box; }
+    .timetable-watermark { position: absolute; inset: 0; display: grid; place-items: center; z-index: 0; pointer-events: none; }
+    .timetable-watermark img { width: min(68vw, 620px); height: min(68vw, 620px); object-fit: contain; opacity: .11; }
+    .timetable-sheet > :not(.timetable-watermark) { position: relative; z-index: 1; }
+    .timetable-grid { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .timetable-grid th, .timetable-grid td { border: 1px solid #7a8aa5; padding: 6px; vertical-align: middle; overflow-wrap: anywhere; }
+    .timetable-grid th { background: #eaf0fa; color: #17345f; text-transform: uppercase; font-size: 10px; }
+    .timetable-grid td { height: 62px; text-align: center; font-size: 11px; line-height: 1.25; }
+    .timetable-grid td.subject-cell { background-color: var(--subject-cell-color, #edf2f8) !important; background-image: none !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    .timetable-grid td > div { max-width: 100%; overflow-wrap: anywhere; }
+    .timetable-grid .day-label { width: 12%; background: #f2f5fa; font-weight: 700; text-align: left; }
+    .timetable-grid .period-heading { min-width: 70px; }
+    .timetable-grid .non-lesson { color: #58677f; background: #f4f6f9; font-style: italic; }
+    .timetable-grid-scroll { width: 100%; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+    .timetable-grid { min-width: 900px; }
+    .timetable-print-root { width: 100%; }
+    @@media screen and (max-width: 640px) {
+        .timetable-border-wrap { padding: 4px; }
+        .timetable-cert-frame { padding: 6px; outline-offset: -9px; }
+        .timetable-sheet { padding: 8px; }
+        .timetable-header { flex-wrap: wrap; gap: 8px; }
+        .timetable-header > div:first-child { flex: 1 1 100%; }
+        .timetable-header > div:last-child { margin-left: auto; }
+        .timetable-header-logo { width: 42px; height: 42px; }
+        .timetable-header h1 { font-size: 18px; line-height: 1.15; }
+        .timetable-grid th, .timetable-grid td { padding: 8px; }
+        .timetable-grid td { height: 64px; }
+    }
+    @@media print {
+        @@page { size: A4 landscape; margin: 0; }
+        html, body { width: 297mm; height: 210mm; overflow: hidden !important; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+        body * { visibility: hidden !important; }
+        body *:has(.timetable-print-root) { position: static !important; transform: none !important; }
+        .timetable-print-root, .timetable-print-root * { visibility: visible !important; }
+        /* Keep the certificate frame inside the physical page box. Print engines
+           can clip strokes placed directly against a page edge. */
+        .timetable-print-root { position: fixed !important; top: 4mm; left: 4mm; width: 289mm; height: 196mm; overflow: hidden; padding: 0; box-sizing: border-box; break-inside: avoid; page-break-inside: avoid; }
+        .timetable-print-root .no-print { display: none !important; }
+        .timetable-border-wrap { width: 100%; height: 100%; padding: 0; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+        .timetable-sheet { width: 100%; height: 100%; padding: 5mm; box-sizing: border-box; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+        .timetable-watermark img { width: 180mm; height: 180mm; opacity: .10; }
+        .timetable-header { margin-bottom: 4mm !important; padding-bottom: 3mm !important; }
+        .timetable-header-logo { width: 16mm !important; height: 16mm !important; }
+        .timetable-header h1 { margin-top: 0 !important; font-size: 17pt !important; line-height: 1.1 !important; }
+        .timetable-header p { font-size: 8pt !important; line-height: 1.15 !important; }
+        .timetable-grid th, .timetable-grid td { padding: 2mm 1.5mm; font-size: 8pt; }
+        .timetable-grid td { height: 20mm; }
+        .timetable-grid td > div { line-height: 1.15; }
+        .timetable-grid th { font-size: 7pt; }
+        .timetable-grid .period-heading { min-width: 0; }
+        .timetable-grid-scroll { overflow: visible; }
+        .timetable-grid { min-width: 0; }
+        .timetable-cert-frame { height: 100%; padding: 2mm; outline-offset: -8px; }
+        .timetable-corner { width: 10mm; height: 10mm; }
+        .timetable-footer { margin-top: 3mm !important; padding-top: 2mm !important; font-size: 7pt !important; }
+        .timetable-statement { margin-top: 2mm !important; padding-top: 1.5mm !important; font-size: 6.5pt !important; }
+    }
+</style>
+
+<div class="timetable-print-root">
+    @if (Printable)
+    {
+        <div class="no-print mb-3 flex justify-end">
+            <button class="rounded-md bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-700" @onclick="Print">Print timetable</button>
+        </div>
+    }
+    <div class="timetable-border-wrap">
+      <article class="timetable-cert-frame">
+       <div class="timetable-corner tl"><svg viewBox="0 0 48 48" fill="none"><path d="M2 46V12C2 6.48 6.48 2 12 2H46" stroke="#1a7f52" stroke-width="2.5" stroke-linecap="round"/><circle cx="8" cy="8" r="3" fill="#1a7f52" opacity=".6"/></svg></div>
+       <div class="timetable-corner tr"><svg viewBox="0 0 48 48" fill="none"><path d="M2 46V12C2 6.48 6.48 2 12 2H46" stroke="#1a7f52" stroke-width="2.5" stroke-linecap="round"/><circle cx="8" cy="8" r="3" fill="#1a7f52" opacity=".6"/></svg></div>
+       <div class="timetable-corner bl"><svg viewBox="0 0 48 48" fill="none"><path d="M2 46V12C2 6.48 6.48 2 12 2H46" stroke="#1a7f52" stroke-width="2.5" stroke-linecap="round"/><circle cx="8" cy="8" r="3" fill="#1a7f52" opacity=".6"/></svg></div>
+       <div class="timetable-corner br"><svg viewBox="0 0 48 48" fill="none"><path d="M2 46V12C2 6.48 6.48 2 12 2H46" stroke="#1a7f52" stroke-width="2.5" stroke-linecap="round"/><circle cx="8" cy="8" r="3" fill="#1a7f52" opacity=".6"/></svg></div>
+       <div class="timetable-sheet">
+        <div class="timetable-watermark"><img src="/images/demo-logo.svg" alt="" /></div>
+        <header class="timetable-header mb-4 flex items-center justify-between border-b-2 border-slate-300 pb-3">
+            <div class="flex min-w-0 items-center gap-3">
+                <img src="/images/demo-logo.svg" alt="PrimeApp Demo" class="timetable-header-logo h-14 w-14 shrink-0 object-contain" />
+                <div class="min-w-0"><p class="text-[10px] font-bold uppercase tracking-widest text-slate-500">PrimeApp Demo</p><h1 class="mt-1 text-xl font-extrabold text-slate-900">@Heading</h1><p class="mt-1 text-xs font-semibold text-slate-600">@Term</p></div>
+            </div>
+            <div class="ml-3 shrink-0 text-right"><p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">@DocumentLabel</p><p class="mt-1 text-sm font-bold text-slate-800">@IdentityLine</p><p class="text-[10px] text-slate-500">@VersionName</p></div>
+        </header>
+        @if (OptedOutSubjects.Count > 0)
+        {
+            <div class="mb-3 border border-amber-500 bg-amber-50/90 px-3 py-2 text-xs"><strong>Subjects opted out of:</strong> @string.Join(", ", OptedOutSubjects)</div>
+        }
+        <div class="no-print mb-2 text-xs text-slate-500 sm:hidden">Swipe horizontally to view all periods.</div>
+        <div class="timetable-grid-scroll">
+        <table class="timetable-grid">
+            <thead>
+                <tr><th class="day-label">Day</th>
+                    @foreach (var period in PeriodNumbers)
+                    {
+                        <th class="period-heading">P@(period)<br /><span class="font-normal">@PeriodTime(period)</span></th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var day in Days)
+                {
+                    <tr><th class="day-label">@day.Name</th>
+                        @foreach (var period in PeriodNumbers)
+                        {
+                            var slot = Slots.FirstOrDefault(s => s.DayOfWeek == day.Number && s.PeriodNumber == period);
+                            var cellAssignments = Assignments.Where(a => Slots.Any(s => s.Id == a.SlotId && s.DayOfWeek == day.Number && s.PeriodNumber == period)).ToList();
+                            <td class="@(cellAssignments.Count > 0 ? "subject-cell" : slot is not null && slot.Type != "LESSON" ? "non-lesson" : "")" style="@(cellAssignments.Count > 0 ? $"--subject-cell-color:{SubjectTint(cellAssignments[0].SubjectId)}" : null)">
+                                @if (cellAssignments.Count > 0)
+                                {
+                                    @if (cellAssignments.Count > 1) { <div class="font-bold text-rose-700">Conflicting lessons — edit timetable</div> }
+                                    @foreach (var assignment in cellAssignments)
+                                    {
+                                    <div class="font-bold">@assignment.SubjectId</div>
+                                    @if (ShowClass)
+                                    {
+                                        <div class="mt-1 text-[10px]">@FormatClass(assignment.ClassId)</div>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(assignment.RoomId))
+                                    {
+                                        <div class="text-[10px]">Room @assignment.RoomId</div>
+                                    }
+                                    }
+                                }
+                                else if (slot is not null && slot.Type != "LESSON")
+                                {
+                                    <div class="font-semibold">@SlotLabel(slot.Type)</div>
+                                }
+                                else
+                                {
+                                    <span class="text-slate-400">—</span>
+                                }
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
+        <footer class="timetable-footer mt-3 flex justify-between border-t border-slate-300 pt-2 text-[10px] text-slate-500"><span>Issued @DateTime.Today.ToString("dd MMM yyyy")</span><span>@VersionName</span></footer>
+        <div class="timetable-statement mt-2 border-t border-dashed border-emerald-700/30 pt-2 text-center text-[9px] uppercase tracking-wide text-slate-500">&copy; @DateTime.Now.Year PrimeApp Demo &nbsp;•&nbsp; All Rights Reserved &nbsp;•&nbsp; Demo Timetable &nbsp;•&nbsp; Fictional data · Demonstration only</div>
+       </div>
+      </article>
+    </div>
+</div>
+
+@code {
+    private static readonly (int Number, string Name)[] Weekdays = { (1, "Monday"), (2, "Tuesday"), (3, "Wednesday"), (4, "Thursday"), (5, "Friday") };
+    [Parameter] public string Heading { get; set; } = "Weekly timetable";
+    [Parameter] public string Term { get; set; } = "";
+    [Parameter] public string IdentityLine { get; set; } = "";
+    [Parameter] public string VersionName { get; set; } = "";
+    [Parameter] public string DocumentLabel { get; set; } = "Timetable";
+    [Parameter] public bool ShowClass { get; set; }
+    [Parameter] public bool Printable { get; set; } = true;
+    [Parameter] public List<TimetableSlot> Slots { get; set; } = new();
+    [Parameter] public List<TimetableAssignment> Assignments { get; set; } = new();
+    [Parameter] public List<string> OptedOutSubjects { get; set; } = new();
+
+    private IEnumerable<(int Number, string Name)> Days => Weekdays.Concat(Slots.Where(s => s.DayOfWeek > 5).Select(s => s.DayOfWeek).Distinct().OrderBy(d => d).Select(d => (d, d == 6 ? "Saturday" : "Sunday")));
+    private IEnumerable<int> PeriodNumbers => Slots.Select(s => s.PeriodNumber).Distinct().OrderBy(n => n);
+
+    private string PeriodTime(int period)
+    {
+        var slot = Slots.FirstOrDefault(s => s.DayOfWeek == 1 && s.PeriodNumber == period)
+            ?? Slots.FirstOrDefault(s => s.PeriodNumber == period);
+        if (slot is null) return "";
+        var start = slot.StartTime?.ToString("HH:mm") ?? "";
+        var end = slot.EndTime?.ToString("HH:mm") ?? "";
+        return $"{start}–{end}";
+    }
+
+    private static string SlotLabel(string? type) => type?.ToUpperInvariant() switch
+    {
+        "BREAK" => "Break",
+        "LUNCH" => "Lunch",
+        "SPORT" => "Sports",
+        "BLOCKED" => "Unavailable",
+        _ => type ?? ""
+    };
+
+    private static readonly string[] SubjectTints = { "rgba(234,241,252,.72)", "rgba(234,244,236,.72)", "rgba(247,239,226,.72)", "rgba(241,234,246,.72)", "rgba(231,242,242,.72)", "rgba(248,234,231,.72)", "rgba(239,242,227,.72)", "rgba(233,237,244,.72)" };
+    private static string SubjectTint(string? subject)
+    {
+        if (string.IsNullOrWhiteSpace(subject)) return "#FFFFFF";
+        var hash = subject.Trim().ToUpperInvariant().Aggregate(17, (value, character) => unchecked(value * 31 + character));
+        return SubjectTints[(int)((uint)hash % (uint)SubjectTints.Length)];
+    }
+
+    private static string FormatClass(string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return "Class not set";
+        var parts = id.Split('|');
+        if (parts.Length == 3 && parts[0].StartsWith('F') && int.TryParse(parts[0][1..], out var form))
+        {
+            var code = parts[1];
+            var name = parts[2];
+            return $"Form {form}: {name}" + (string.IsNullOrWhiteSpace(code) || code.Equals(name, StringComparison.OrdinalIgnoreCase) ? "" : $" ({code})");
+        }
+        return id;
+    }
+
+    private Task Print() => JS.InvokeVoidAsync("window.print").AsTask();
+}

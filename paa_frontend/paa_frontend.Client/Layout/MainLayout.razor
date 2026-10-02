@@ -1,0 +1,139 @@
+@inherits LayoutComponentBase
+@inject NavigationManager NavManager
+
+<div class="layout-spray-bg" aria-hidden="true"></div>
+
+<div class="min-h-screen text-[#0d1117] flex flex-col font-sans relative z-10 w-full">
+
+    <!-- ── Top Navigation (From Dashboard) ──────────────────────────────────────── -->
+    <header class="bg-white/10 backdrop-blur-2xl backdrop-saturate-150 border-b border-white/30 px-4 md:px-8 flex items-center justify-between h-[58px] sticky top-0 z-[100] transform-gpu">
+        
+        <div class="flex items-center">
+            <!-- Mobile Menu Toggle -->
+            @if (!IsLegalPage)
+            {
+                <button @onclick="ToggleMobileMenu" class="md:hidden mr-3 p-1 text-[#4a5168] hover:bg-[#f2f3f7] rounded-lg transition-colors" aria-label="Open navigation menu">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                </button>
+            }
+
+            <!-- Brand -->
+            <a href="/" class="flex items-center gap-[9px] mr-4 md:mr-9 no-underline">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 overflow-hidden bg-white/70 backdrop-blur-md shadow-sm border border-white/50 p-1">
+                    <img src="/images/demo-logo.svg" alt="PrimeApp Demo" class="w-full h-full object-contain" />
+                </div>
+                <span class="text-[length:14.5px] font-bold text-[#0d1117] tracking-[-0.3px]">PrimeApp Demo</span>
+            </a>
+        </div>
+
+        <!-- Desktop Nav Links -->
+        <nav class="@(IsLegalPage ? "hidden" : "hidden md:flex") items-center gap-[2px] flex-1">
+            <AuthorizeView Roles="ADMIN,SUPERUSER,SUPER">
+                <NavLink class="px-[13px] py-[6px] rounded-lg text-[length:13px] text-black/60 hover:bg-black/5 hover:text-black/80 transition-all whitespace-nowrap border-none bg-transparent" activeClass="!bg-[#ef4444] !text-white font-semibold shadow-[0_2px_8px_rgba(200,16,46,0.25)]" href="/admin" Match="NavLinkMatch.All">
+                    Dashboard
+                </NavLink>
+            </AuthorizeView>
+            
+            <AuthorizeView Roles="STUDENT,SUPER">
+                <NavLink class="px-[13px] py-[6px] rounded-lg text-[length:13px] text-black/60 hover:bg-black/5 hover:text-black/80 transition-all whitespace-nowrap border-none bg-transparent" activeClass="!bg-[#ef4444] !text-white font-semibold shadow-[0_2px_8px_rgba(200,16,46,0.25)]" href="/portal">
+                    Student Portal
+                </NavLink>
+            </AuthorizeView>
+
+            <AuthorizeView Roles="STAFF,TEACHER,SUPER">
+                <NavLink class="px-[13px] py-[6px] rounded-lg text-[length:13px] text-black/60 hover:bg-black/5 hover:text-black/80 transition-all whitespace-nowrap border-none bg-transparent" activeClass="!bg-[#ef4444] !text-white font-semibold shadow-[0_2px_8px_rgba(200,16,46,0.25)]" href="/staff">
+                    Staff Portal
+                </NavLink>
+            </AuthorizeView>
+
+            <AuthorizeView Roles="BURSER,SUPER">
+                <NavLink class="px-[13px] py-[6px] rounded-lg text-[length:13px] text-black/60 hover:bg-black/5 hover:text-black/80 transition-all whitespace-nowrap border-none bg-transparent" activeClass="!bg-[#ef4444] !text-white font-semibold shadow-[0_2px_8px_rgba(200,16,46,0.25)]" href="/burser">
+                    Finance Portal
+                </NavLink>
+            </AuthorizeView>
+
+            <AuthorizeView Roles="ADMIN,SUPERUSER,SUPER">
+                <NavLink class="px-[13px] py-[6px] rounded-lg text-[length:13px] text-black/60 hover:bg-black/5 hover:text-black/80 transition-all whitespace-nowrap border-none bg-transparent" activeClass="!bg-[#ef4444] !text-white font-semibold shadow-[0_2px_8px_rgba(200,16,46,0.25)]" href="/students">
+                    Students
+                </NavLink>
+                <NavLink class="px-[13px] py-[6px] rounded-lg text-[length:13px] text-black/60 hover:bg-black/5 hover:text-black/80 transition-all whitespace-nowrap border-none bg-transparent" activeClass="!bg-[#ef4444] !text-white font-semibold shadow-[0_2px_8px_rgba(200,16,46,0.25)]" href="/academics">
+                    Academics
+                </NavLink>
+            </AuthorizeView>
+        </nav>
+
+        <!-- Right Side: Actions & Profile -->
+        @if (!IsLegalPage)
+        {
+            <div class="flex items-center gap-2 ml-auto">
+                <button class="w-[34px] h-[34px] rounded-lg bg-transparent border-none flex items-center justify-center text-black/60 hover:bg-black/5 hover:text-black/90 transition-all" aria-label="Search">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+                </button>
+                <button class="w-[34px] h-[34px] rounded-lg bg-transparent border-none flex items-center justify-center text-black/60 hover:bg-black/5 hover:text-black/90 transition-all relative" aria-label="Notifications">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+                    <div class="absolute top-[6px] right-[7px] w-[5px] h-[5px] bg-[#c8102e] rounded-full"></div>
+                </button>
+                <div class="w-[34px] h-[34px] rounded-lg bg-[#c8102e] flex items-center justify-center text-[length:12px] font-bold text-white tracking-[0.5px] cursor-pointer ml-1 shadow-md hover:scale-105 transition-transform">
+                    AP
+                </div>
+            </div>
+        }
+    </header>
+
+    <!-- Mobile Navigation Menu -->
+    @if (isMobileMenuOpen && !IsLegalPage)
+    {
+        <div class="md:hidden bg-white/40 backdrop-blur-3xl border-b border-white/30 flex flex-col p-4 shadow-lg absolute top-[58px] left-0 right-0 z-[90]">
+            <AuthorizeView Roles="ADMIN,SUPERUSER,SUPER">
+                <NavLink class="px-4 py-3 rounded-lg text-[length:14px] text-black/60 hover:bg-black/5 hover:text-black/90" activeClass="bg-[#ef4444] text-white font-semibold" href="/admin" Match="NavLinkMatch.All" @onclick="CloseMobileMenu">Dashboard</NavLink>
+            </AuthorizeView>
+
+            <AuthorizeView Roles="STUDENT,SUPER">
+                <NavLink class="px-4 py-3 rounded-lg text-[length:14px] text-black/60 hover:bg-black/5 hover:text-black/90" activeClass="bg-[#ef4444] text-white font-semibold" href="/portal" @onclick="CloseMobileMenu">Student Portal</NavLink>
+            </AuthorizeView>
+
+            <AuthorizeView Roles="STAFF,TEACHER,SUPER">
+                <NavLink class="px-4 py-3 rounded-lg text-[length:14px] text-black/60 hover:bg-black/5 hover:text-black/90" activeClass="bg-[#ef4444] text-white font-semibold" href="/staff" @onclick="CloseMobileMenu">Staff Portal</NavLink>
+            </AuthorizeView>
+
+            <AuthorizeView Roles="BURSER,SUPER">
+                <NavLink class="px-4 py-3 rounded-lg text-[length:14px] text-black/60 hover:bg-black/5 hover:text-black/90" activeClass="bg-[#ef4444] text-white font-semibold" href="/burser" @onclick="CloseMobileMenu">Finance Portal</NavLink>
+            </AuthorizeView>
+
+            <AuthorizeView Roles="ADMIN,SUPERUSER,SUPER">
+                <NavLink class="px-4 py-3 rounded-lg text-[length:14px] text-black/60 hover:bg-black/5 hover:text-black/90" activeClass="bg-[#ef4444] text-white font-semibold" href="/students" @onclick="CloseMobileMenu">Students</NavLink>
+                <NavLink class="px-4 py-3 rounded-lg text-[length:14px] text-black/60 hover:bg-black/5 hover:text-black/90" activeClass="bg-[#ef4444] text-white font-semibold" href="/academics" @onclick="CloseMobileMenu">Academics</NavLink>
+            </AuthorizeView>
+        </div>
+        <!-- Backdrop -->
+        <div class="md:hidden fixed inset-0 bg-black/20 backdrop-blur-sm z-[80] top-[58px]" @onclick="CloseMobileMenu"></div>
+    }
+
+    <!-- ── Toast Notification ─────────────────────────────────────── -->
+    <ToastNotification />
+
+    <!-- ── Main Content ─────────────────────────────────────────── -->
+    <main class="flex-1 w-full relative z-0">
+        @Body
+    </main>
+
+</div>
+
+@code {
+    [CascadingParameter(Name = "PageTitle")] private string? PageTitle { get; set; }
+
+    private bool isMobileMenuOpen = false;
+
+    private bool IsLegalPage =>
+        NavManager.ToBaseRelativePath(NavManager.Uri).Split('?', '#')[0].Trim('/').ToLowerInvariant() is "privacy" or "terms";
+
+    private void ToggleMobileMenu()
+    {
+        isMobileMenuOpen = !isMobileMenuOpen;
+    }
+
+    private void CloseMobileMenu()
+    {
+        isMobileMenuOpen = false;
+    }
+}

@@ -1,0 +1,570 @@
+@page "/login"
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+@namespace paa_frontend.Client.Pages.Auth
+@inject paa_frontend.Client.Services.Auth.AuthService AuthService
+@inject paa_frontend.Client.Services.NotificationService NotificationService
+@inject NavigationManager NavManager
+@inject paa_frontend.Client.Services.Admin.AdminProfileServiceClient AdminProfileService
+@inject paa_frontend.Client.Services.StudentProfileServiceClient StudentProfileService
+@inject paa_frontend.Client.Services.TeacherProfileServiceClient TeacherProfileService
+@inject paa_frontend.Client.Services.BurserProfileServiceClient BurserProfileService
+@inject IJSRuntime JSRuntime
+@using System.Text.Json;
+@layout EmptyLayout
+
+<style>
+@@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Nunito:wght@700;800&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+    height: 100%;
+    font-family: 'DM Sans', sans-serif;
+}
+
+h1:focus, h2:focus, h3:focus, h4:focus, h5:focus, h6:focus {
+    outline: 0 !important;
+    box-shadow: none !important;
+}
+
+/* ── PAGE / ANIMATED GRADIENT BACKDROP ──
+   Pure CSS gradient (no image request) so the page paints instantly. */
+.page {
+    min-height: 100svh;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    position: relative;
+    overflow: hidden;
+    background:
+        radial-gradient(ellipse at 8% 8%, rgba(129, 140, 248, 0.20), transparent 42%),
+        radial-gradient(ellipse at 92% 88%, rgba(45, 212, 191, 0.14), transparent 46%),
+        linear-gradient(135deg, #f8fafc 0%, #eef2ff 52%, #f0fdfa 100%);
+}
+
+@@keyframes drift {
+    0%   { background-position: 0% 0%; }
+    100% { background-position: 100% 100%; }
+}
+
+@@media (prefers-reduced-motion: reduce) {
+    .page { animation: none; }
+}
+
+/* soft floating orbs purely decorative, GPU-cheap (blur only, no images) */
+.orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(52px);
+    opacity: 0.22;
+    pointer-events: none;
+    z-index: 0;
+}
+.orb-1 { width: 260px; height: 260px; background: #818cf8; top: -80px; left: -80px; }
+.orb-2 { width: 220px; height: 220px; background: #2dd4bf; bottom: -70px; right: -60px; }
+.orb-3 { width: 180px; height: 180px; background: #38bdf8; bottom: 20%; left: 8%; display: none; }
+
+@@media (min-width: 640px) {
+    .orb-3 { display: block; }
+}
+
+/* ── CARD WRAPPER ── */
+.card-wrapper {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 400px;
+}
+
+/* ── GLASS CARD ── */
+.card {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: 32px;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-top: 1px solid rgba(255, 255, 255, 0.9);
+    box-shadow:
+        0 1px 0 rgba(255,255,255,0.9) inset,
+        0 20px 60px rgba(15, 23, 42, 0.10);
+    padding: 40px 30px;
+    animation: cardIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+    text-align: center;
+}
+
+@@keyframes cardIn {
+    from { opacity: 0; transform: translate3d(0, 20px, 0) scale(0.98); }
+    to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+/* ── BRAND / LOGO BADGE ── */
+.brand-badge {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 18px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.9);
+    border: 1px solid rgba(255,255,255,0.6);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    overflow: hidden;
+}
+.brand-badge img { width: 100%; height: 100%; object-fit: contain; }
+
+.brand-text {
+    font-family: 'Nunito', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    color: #475569;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+
+/* ── HEADING ── */
+.heading { margin-bottom: 28px; }
+
+.heading h1 {
+    font-family: 'Nunito', sans-serif;
+    font-size: clamp(1.5rem, 5vw, 1.85rem);
+    font-weight: 800;
+    color: #172033;
+    letter-spacing: -0.4px;
+    margin-bottom: 6px;
+    line-height: 1.2;
+}
+
+.heading p {
+    font-size: 13.5px;
+    color: #64748b;
+    font-weight: 500;
+}
+
+/* ── FORM ── */
+form.login-form { text-align: left; }
+
+.field { margin-bottom: 14px; }
+
+.field-body { position: relative; }
+
+.field-icon {
+    position: absolute;
+    left: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.field-input {
+    width: 100%;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    color: #172033;
+    background: rgba(248, 250, 252, 0.82);
+    border: 1.5px solid #dbe3ef;
+    border-radius: 999px;
+    padding: 14px 18px 14px 46px;
+    outline: none;
+    transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+    -webkit-appearance: none;
+}
+
+.field-input::placeholder { color: #94a3b8; }
+
+.field-input:hover {
+    background: #ffffff;
+    border-color: #c7d2fe;
+}
+
+.field-input:focus {
+    background: #ffffff;
+    border-color: #818cf8;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12);
+}
+
+.field-input.has-toggle { padding-right: 46px; }
+
+.toggle-btn {
+    position: absolute;
+    right: 4px; top: 50%;
+    transform: translateY(-50%);
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #94a3b8;
+    transition: color 0.15s;
+    border-radius: 50%;
+    z-index: 1;
+}
+.toggle-btn:hover { color: #4f46e5; }
+.toggle-btn:active { background: #eef2ff; }
+
+.validation-message {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #dc2626;
+    margin: 6px 4px 0;
+    display: block;
+}
+
+/* ── SUBMIT ── */
+.submit-wrap { margin-top: 22px; }
+
+.submit {
+    width: 100%;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: #0b1120;
+    background: #ffffff;
+    border: none;
+    border-radius: 999px;
+    padding: 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    letter-spacing: -0.1px;
+    transition: transform 0.12s ease, box-shadow 0.2s ease, opacity 0.15s ease;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+.submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 14px 34px rgba(0,0,0,0.3); }
+.submit:active:not(:disabled) { transform: translateY(0) scale(0.99); }
+.submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.spinner {
+    width: 15px; height: 15px;
+    border: 2px solid rgba(15, 23, 42, 0.2);
+    border-top-color: #0b1120;
+    border-radius: 50%;
+    animation: spin 0.65s linear infinite;
+    flex-shrink: 0;
+}
+@@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── FOOTER ── */
+.card-footer {
+    margin-top: 26px;
+    padding-top: 18px;
+    border-top: 1px solid #e2e8f0;
+    text-align: center;
+    font-size: 11.5px;
+    color: #94a3b8;
+    line-height: 1.6;
+}
+.card-footer a {
+    color: #4f46e5;
+    font-weight: 700;
+    text-decoration: none;
+}
+.card-footer a:hover { text-decoration: underline; }
+.footer-links {
+    margin-top: 10px;
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-size: 12px;
+}
+
+/* ── RESPONSIVE ── */
+@@media (max-width: 480px) {
+    .page { align-items: center; padding: 16px; }
+    .card { padding: 32px 22px; border-radius: 26px; }
+    .brand-badge { width: 52px; height: 52px; border-radius: 16px; }
+    .heading { margin-bottom: 22px; }
+}
+
+/* Respect larger touch targets on touch devices */
+@@media (hover: none) {
+    .field-input { padding-top: 15px; padding-bottom: 15px; }
+    .submit { padding: 16px; }
+}
+</style>
+
+<div class="page">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
+    <div class="card-wrapper">
+        <div class="card">
+
+            <div class="brand-badge">
+                <img src="/images/demo-logo.svg" alt="PrimeApp Demo" />
+            </div>
+            <div class="brand-text">PrimeApp Demo</div>
+
+            <div class="heading">
+                <h1>Explore the demo</h1>
+                <p>Choose a role to explore with fictional data</p>
+            </div>
+
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px">
+                @foreach (var role in new[] { "admin", "student", "teacher", "burser", "super" })
+                {
+                    <button type="button" disabled="@isLoading" @onclick="() => EnterDemo(role)" style="flex:1 1 40%;padding:10px;border:1px solid #c7d2fe;border-radius:12px;background:#eef2ff;color:#3730a3;cursor:pointer">@(role == "burser" ? "Bursar" : System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(role))</button>
+                }
+            </div>
+            <EditForm Model="loginModel" OnValidSubmit="HandleLogin" class="login-form">
+                <DataAnnotationsValidator />
+
+                <div class="field">
+                    <div class="field-body">
+                        <span class="field-icon">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                <circle cx="12" cy="7" r="4"/>
+                            </svg>
+                        </span>
+                        <InputText @bind-Value="loginModel.Username"
+                                   class="field-input"
+                                   placeholder="Username"
+                                   id="login-username"
+                                   autocomplete="username" />
+                    </div>
+                    <ValidationMessage For="@(() => loginModel.Username)" class="validation-message" />
+                </div>
+
+                <div class="field">
+                    <div class="field-body">
+                        <span class="field-icon">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="11" width="18" height="11" rx="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                            </svg>
+                        </span>
+                        <InputText @bind-Value="loginModel.Password"
+                                   class="field-input has-toggle"
+                                   type="@(showPassword ? "text" : "password")"
+                                   placeholder="Password"
+                                   id="login-password"
+                                   autocomplete="current-password" />
+                        <button type="button" @onclick="TogglePassword" tabindex="-1" class="toggle-btn" aria-label="Toggle password visibility">
+                            @if (showPassword)
+                            {
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                                    <line x1="1" y1="1" x2="23" y2="23"/>
+                                </svg>
+                            }
+                            else
+                            {
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                            }
+                        </button>
+                    </div>
+                    <ValidationMessage For="@(() => loginModel.Password)" class="validation-message" />
+                </div>
+
+                <div class="submit-wrap">
+                    <button type="submit" disabled="@isLoading" class="submit">
+                        @if (isLoading)
+                        {
+                            <span class="spinner"></span>
+                            <span>Signing in…</span>
+                        }
+                        else
+                        {
+                            <span>Sign in</span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <line x1="5" y1="12" x2="19" y2="12"/>
+                                <polyline points="12 5 19 12 12 19"/>
+                            </svg>
+                        }
+                    </button>
+                </div>
+            </EditForm>
+
+            <div class="card-footer">
+                Demo accounts: admin, student, teacher, burser, super. Password: demo. No real school or payment connection.
+                <div class="footer-links">
+                    <a href="/privacy">Privacy Notice</a>
+                    <a href="/terms">Terms of Use</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginModel loginModel = new() { Username = "admin", Password = "demo" };
+    private async Task EnterDemo(string role)
+    {
+        loginModel.Username = role;
+        loginModel.Password = "demo";
+        await HandleLogin();
+    }
+    private bool isLoading;
+    private bool showPassword;
+    private string storedRole = string.Empty;
+
+    private void TogglePassword() => showPassword = !showPassword;
+
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        string? tokenString = await AuthService.LoginAsync(loginModel.Username, loginModel.Password);
+        string? role = string.IsNullOrEmpty(tokenString) ? null : GetRoleFromToken(tokenString);
+
+        if (!string.IsNullOrEmpty(role))
+        {
+            storedRole = role;
+            var cleanUsername = (loginModel.Username ?? string.Empty).Trim();
+            await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "primeappDemo.authUsername", cleanUsername);
+
+            var userIdVal = await JSRuntime.InvokeAsync<string?>("sessionStorage.getItem", "primeappDemo.userId");
+            if (long.TryParse(userIdVal, out var userId) && userId > 0)
+            {
+                string? firstName = null;
+                string? lastName = null;
+
+                try
+                {
+                    switch (role)
+                    {
+                        case "ADMIN":
+                        case "SUPERUSER":
+                        case "SUPER":
+                            var admin = await AdminProfileService.GetAdminAsync(userId);
+                            firstName = admin?.FirstName;
+                            lastName = admin?.LastName;
+                            break;
+                        case "STUDENT":
+                            var student = await StudentProfileService.GetStudentAsync(userId);
+                            firstName = student?.FirstName;
+                            lastName = student?.LastName;
+                            break;
+                        case "BURSER":
+                            var burser = await BurserProfileService.GetBurserAsync(userId);
+                            firstName = burser?.FirstName;
+                            lastName = burser?.LastName;
+                            break;
+                        case "TEACHER":
+                            var teacher = await TeacherProfileService.GetTeacherAsync(userId);
+                            firstName = teacher?.FirstName;
+                            lastName = teacher?.LastName;
+                            break;
+                    }
+                }
+                catch (Exception)
+                {
+                    Console.WriteLine($"[LOGIN ERROR] Error fetching profile");
+                }
+
+                if (!string.IsNullOrWhiteSpace(firstName) && !string.IsNullOrWhiteSpace(lastName))
+                {
+                    string defaultPassword = (firstName.Trim() + lastName.Trim()).ToUpperInvariant();
+                    string defaultPasswordNoSpaces = defaultPassword.Replace(" ", "");
+                    string enteredPassword = (loginModel.Password ?? "").Trim();
+
+                    if (string.Equals(enteredPassword, defaultPassword, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(enteredPassword, defaultPasswordNoSpaces, StringComparison.OrdinalIgnoreCase))
+                    {
+                        await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "primeappDemo.isDefaultPassword", "true");
+                        await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "primeappDemo.defaultOldPassword", loginModel.Password);
+                    }
+                    else
+                    {
+                        await JSRuntime.InvokeVoidAsync("sessionStorage.removeItem", "primeappDemo.isDefaultPassword");
+                        await JSRuntime.InvokeVoidAsync("sessionStorage.removeItem", "primeappDemo.defaultOldPassword");
+                    }
+                }
+            }
+
+            NavigateToDashboard(role);
+        }
+        else
+        {
+            NotificationService.ShowError("Invalid credentials or access denied. Please try again.");
+        }
+        isLoading = false;
+    }
+
+    private void NavigateToDashboard(string role)
+    {
+        switch (role)
+        {
+            case "SUPER":
+                NavManager.NavigateTo("/super");
+                break;
+            case "ADMIN":
+            case "SUPERUSER":
+                NavManager.NavigateTo("/admin");
+                break;
+            case "STUDENT":
+                NavManager.NavigateTo("/portal");
+                break;
+            case "BURSER":
+                NavManager.NavigateTo("/burser");
+                break;
+            case "TEACHER":
+                NavManager.NavigateTo("/staff");
+                break;
+            default:
+                NotificationService.ShowError("Invalid credentials or access denied. Please try again.");
+                break;
+        }
+    }
+
+    private string GetRoleFromToken(string token)
+    {
+        try
+        {
+            var payload = token.Split('.')[1];
+            switch (payload.Length % 4)
+            {
+                case 2: payload += "=="; break;
+                case 3: payload += "="; break;
+            }
+            var jsonBytes = Convert.FromBase64String(payload);
+            var jsonString = System.Text.Encoding.UTF8.GetString(jsonBytes);
+            using var doc = JsonDocument.Parse(jsonString);
+            
+            var roleKeys = new[] { "roles", "role" };
+            foreach (var key in roleKeys)
+            {
+                if (doc.RootElement.TryGetProperty(key, out var roleElement))
+                {
+                    if (roleElement.ValueKind == JsonValueKind.Array && roleElement.GetArrayLength() > 0)
+                    {
+                        return roleElement.EnumerateArray().First().GetString()?.ToUpper() ?? "";
+                    }
+                    else if (roleElement.ValueKind == JsonValueKind.String)
+                    {
+                        return roleElement.GetString()?.ToUpper() ?? "";
+                    }
+                }
+            }
+            return "";
+        }
+        catch { return ""; }
+    }
+
+    private class LoginModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Username is required")]
+        public string Username { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Password is required")]
+        public string Password { get; set; } = string.Empty;
+    }
+}

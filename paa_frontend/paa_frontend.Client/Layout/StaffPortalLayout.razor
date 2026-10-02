@@ -1,0 +1,218 @@
+@inherits LayoutComponentBase
+@namespace paa_frontend.Client.Layout
+@using paa_frontend.Shared.Models
+@using paa_frontend.Client.Services
+@using Microsoft.JSInterop
+@inject TeacherProfileServiceClient TeacherService
+@inject paa_frontend.Client.Services.Auth.AuthService AuthService
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Nav
+
+<div class="min-h-screen bg-[#F8FAFC] flex flex-col font-sans text-slate-800 relative">
+    <div class="layout-spray-bg" aria-hidden="true"></div>
+
+    <!-- ── Top Navigation ──────────────────────────────────────── -->
+    <header class="bg-white/80 backdrop-blur-md sticky border-b border-slate-100 top-0 z-50 flex items-center justify-between px-3 sm:px-5 xl:px-8 h-[68px] sm:h-[72px] gap-3">
+
+        <!-- Brand -->
+        <div class="flex items-center gap-2 sm:gap-3 cursor-pointer min-w-0" @onclick='() => Nav.NavigateTo("/staff")'>
+            <img src="/images/demo-logo.svg" alt="PrimeApp Demo logo" class="w-9 h-9 sm:w-10 sm:h-10 object-contain drop-shadow-sm shrink-0" />
+            <div class="flex flex-col min-w-0">
+                <span class="font-bold text-slate-900 text-[length:1.1rem] tracking-tight leading-tight hidden sm:block">PrimeApp Demo</span>
+                <span class="font-bold text-slate-900 text-base tracking-tight sm:hidden truncate">PrimeApp Demo</span>
+                <span class="text-[length:0.65rem] font-semibold text-slate-400 uppercase tracking-wider hidden sm:block">Staff Portal</span>
+            </div>
+        </div>
+
+        <!-- Centered Nav Links -->
+        <nav class="hidden lg:flex items-center gap-1 bg-transparent p-1.5 rounded-full">
+            <NavLink class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors" activeClass="!bg-[#0F172A] !text-white shadow-md" href="/staff" Match="NavLinkMatch.All">
+                Dashboard
+            </NavLink>
+            <NavLink class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors" activeClass="!bg-[#0F172A] !text-white shadow-md" href="/staff/students" Match="NavLinkMatch.Prefix">
+                Students
+            </NavLink>
+            <NavLink class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors" activeClass="!bg-[#0F172A] !text-white shadow-md" href="/staff/marks" Match="NavLinkMatch.Prefix">
+                Marks
+            </NavLink>
+            <NavLink class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors" activeClass="!bg-[#0F172A] !text-white shadow-md" href="/staff/timetable" Match="NavLinkMatch.Prefix">Timetable</NavLink>
+            <NavLink class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors" activeClass="!bg-[#0F172A] !text-white shadow-md" href="/staff/profile" Match="NavLinkMatch.Prefix">
+                Profile
+            </NavLink>
+            <NavLink class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors" activeClass="!bg-[#0F172A] !text-white shadow-md" href="/staff/help">Help</NavLink>
+        </nav>
+
+        <!-- Right Side: Profile & Actions -->
+        <div class="flex items-center justify-end gap-2 sm:gap-3 md:gap-4 shrink-0">
+
+            <!-- Profile Button -->
+            <button class="flex items-center gap-2 pl-1.5 sm:pr-3 py-1.5 rounded-full border border-slate-200 bg-white hover:bg-slate-50 transition-colors shrink-0 min-w-0" @onclick='() => Nav.NavigateTo("/staff/profile")'>
+                <div class="w-7 h-7 rounded-full bg-gradient-to-br from-slate-800 to-slate-600 flex items-center justify-center text-white text-[length:0.6875rem] font-bold shadow-sm">
+                    @StaffInitials
+                </div>
+                <div class="hidden sm:block text-left mr-1">
+                    <div class="text-[length:0.75rem] font-bold text-slate-800 leading-none">@StaffName</div>
+                </div>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-slate-400">
+                    <polyline points="6 9 12 15 18 9" />
+                </svg>
+            </button>
+
+            <!-- Logout -->
+            <button class="hidden md:flex w-10 h-10 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0" @onclick="Logout">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+            </button>
+
+            <!-- Mobile Hamburger -->
+            <button class="lg:hidden w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center shrink-0 hover:bg-slate-50 text-slate-600" @onclick="ToggleMobileMenu">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    @if (isMobileMenuOpen)
+                    {
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    }
+                    else
+                    {
+                        <line x1="3" y1="12" x2="21" y2="12" />
+                        <line x1="3" y1="6" x2="21" y2="6" />
+                        <line x1="3" y1="18" x2="21" y2="18" />
+                    }
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- ── Mobile Menu Dropdown ─────────────────────────────── -->
+    @if (isMobileMenuOpen)
+    {
+        <div class="fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-sm lg:hidden mt-[68px] sm:mt-[72px]" @onclick="ToggleMobileMenu"></div>
+        <nav class="fixed top-[68px] sm:top-[72px] left-0 w-full max-h-[calc(100vh-68px)] sm:max-h-[calc(100vh-72px)] overflow-y-auto bg-white border-b border-slate-100 p-4 flex flex-col gap-2 z-50 lg:hidden shadow-xl animate-fade-in-down">
+            <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50" activeClass="bg-slate-900 text-white" href="/staff" Match="NavLinkMatch.All" @onclick="ToggleMobileMenu">Dashboard</NavLink>
+            <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50" activeClass="bg-slate-900 text-white" href="/staff/students" Match="NavLinkMatch.Prefix" @onclick="ToggleMobileMenu">Students</NavLink>
+            <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50" activeClass="bg-slate-900 text-white" href="/staff/marks" Match="NavLinkMatch.Prefix" @onclick="ToggleMobileMenu">Marks</NavLink>
+            <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50" activeClass="bg-slate-900 text-white" href="/staff/timetable" Match="NavLinkMatch.Prefix" @onclick="ToggleMobileMenu">Timetable</NavLink>
+            <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50" activeClass="bg-slate-900 text-white" href="/staff/profile" Match="NavLinkMatch.Prefix" @onclick="ToggleMobileMenu">Profile</NavLink>
+
+            <div class="h-px bg-slate-100 my-2 w-full"></div>
+            <button class="w-full text-left px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 flex items-center gap-3" @onclick="Logout">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
+                Sign Out
+            </button>
+        </nav>
+    }
+
+    <!-- ── Toast Notification ─────────────────────────────────────── -->
+    <ToastNotification />
+
+    <!-- ── Main Content ─────────────────────────────────────────── -->
+    <main class="flex-1 w-full max-w-[1500px] mx-auto px-3 py-4 sm:px-5 sm:py-6 md:p-8 animate-fade-in pb-20 relative z-10">
+        <CascadingValue Name="PageTitle" Value="@pageTitle">
+            @Body
+        </CascadingValue>
+    </main>
+
+    <ChangePasswordModal @bind-IsOpen="showChangePasswordModal"
+                         ForceChange="@isForceChange"
+                         Username="@authUsername"
+                         DefaultOldPassword="@defaultOldPassword"
+                         OnSuccess="HandleForcePasswordChangeSuccess" />
+</div>
+
+@code {
+    [CascadingParameter(Name = "PageTitle")] private string? pageTitle { get; set; }
+    private bool isMobileMenuOpen = false;
+    private string StaffName = "Staff";
+    private string StaffInitials = "ST";
+    private bool staffProfileLoadAttempted;
+    private bool showChangePasswordModal;
+    private string authUsername = string.Empty;
+    private bool isForceChange;
+    private string defaultOldPassword = string.Empty;
+
+    protected override Task OnInitializedAsync()
+    {
+        return Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || staffProfileLoadAttempted)
+        {
+            return;
+        }
+
+        staffProfileLoadAttempted = true;
+        await LoadStaffProfileAsync();
+        StateHasChanged();
+    }
+
+    private void ToggleMobileMenu() => isMobileMenuOpen = !isMobileMenuOpen;
+
+    private async Task Logout()
+    {
+        await AuthService.LogoutAsync();
+        Nav.NavigateTo("/login", true);
+    }
+
+    private async Task HandleForcePasswordChangeSuccess()
+    {
+        isForceChange = false;
+        defaultOldPassword = string.Empty;
+        showChangePasswordModal = false;
+        await JSRuntime.InvokeVoidAsync("sessionStorage.removeItem", "primeappDemo.isDefaultPassword");
+        await JSRuntime.InvokeVoidAsync("sessionStorage.removeItem", "primeappDemo.defaultOldPassword");
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private static string GetInitials(string? firstName, string? lastName)
+    {
+        var firstInitial = string.IsNullOrWhiteSpace(firstName) ? string.Empty : firstName.Trim()[0].ToString().ToUpperInvariant();
+        var lastInitial = string.IsNullOrWhiteSpace(lastName) ? string.Empty : lastName.Trim()[0].ToString().ToUpperInvariant();
+        var initials = $"{firstInitial}{lastInitial}";
+        return string.IsNullOrWhiteSpace(initials) ? "ST" : initials;
+    }
+
+    private async Task LoadStaffProfileAsync()
+    {
+        try
+        {
+            var isDefaultPwd = await JSRuntime.InvokeAsync<string?>("sessionStorage.getItem", "primeappDemo.isDefaultPassword");
+            if (isDefaultPwd == "true")
+            {
+                isForceChange = true;
+                defaultOldPassword = await JSRuntime.InvokeAsync<string?>("sessionStorage.getItem", "primeappDemo.defaultOldPassword") ?? "";
+                authUsername = await JSRuntime.InvokeAsync<string?>("sessionStorage.getItem", "primeappDemo.authUsername") ?? "";
+                showChangePasswordModal = true;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch { }
+
+        try
+        {
+            var userIdValue = await JSRuntime.InvokeAsync<string?>("sessionStorage.getItem", "primeappDemo.userId");
+            if (!long.TryParse(userIdValue, out var userId) || userId <= 0)
+                return;
+
+            var profile = await TeacherService.GetTeacherAsync(userId);
+            if (profile == null)
+                return;
+
+            var fullName = string.Join(" ", new[] { profile.FirstName, profile.LastName }
+                .Where(value => !string.IsNullOrWhiteSpace(value)));
+
+            if (!string.IsNullOrWhiteSpace(fullName))
+                StaffName = fullName;
+
+            StaffInitials = GetInitials(profile.FirstName, profile.LastName);
+        }
+        catch (Exception)
+        {
+            Console.WriteLine($"[STAFF LAYOUT ERROR]");
+        }
+    }
+}

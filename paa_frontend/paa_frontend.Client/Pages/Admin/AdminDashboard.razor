@@ -1,0 +1,556 @@
+@page "/admin"
+@namespace paa_frontend.Client.Pages.Admin
+@layout paa_frontend.Client.Layout.AdminPortalLayout
+@using paa_frontend.Client.Services
+@using paa_frontend.Client.Services.Admin
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.JSInterop
+@using System.Security.Claims
+@using static paa_frontend.Shared.Models.StudentProfileModel
+@using AdminProfileRecord = paa_frontend.Shared.Models.AdminProfileModel.Admin
+@inject StudentProfileServiceClient StudentService
+@inject AdminProfileServiceClient AdminService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Nav
+
+<style>
+    .donut-ring {
+        transition: stroke-dasharray 0.8s cubic-bezier(.4,0,.2,1);
+    }
+
+    .hbar-fill {
+        transition: width 0.9s cubic-bezier(.4,0,.2,1);
+    }
+
+    .stat-tile {
+        position: relative;
+        overflow: hidden;
+    }
+
+        .stat-tile::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            background: radial-gradient(circle at 50% 0%, rgba(255,255,255,0.12), transparent 70%);
+            transition: opacity 0.3s;
+        }
+
+        .stat-tile:hover::before {
+            opacity: 1;
+        }
+
+    .qlink {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 11px 14px;
+        border-radius: 14px;
+        transition: background 0.18s, transform 0.18s;
+        text-decoration: none;
+    }
+
+        .qlink:hover {
+            background: rgba(255,255,255,0.65);
+            transform: translateX(3px);
+        }
+
+    .qlink-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .shimmer {
+        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.4s infinite;
+        border-radius: 6px;
+    }
+
+    @@keyframes shimmer {
+        0% {
+            background-position: 200% 0;
+        }
+
+        100% {
+            background-position: -200% 0;
+        }
+    }
+</style>
+
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+    <div>
+        <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight mb-1">Dashboard</h1>
+        <p class="text-sm font-medium text-slate-500">
+            Welcome back, <span class="text-slate-700 font-semibold">@DisplayName</span> &mdash; @DateTime.Now.ToString("dddd, dd MMMM yyyy")
+        </p>
+    </div>
+    <div class="flex w-full md:w-auto flex-wrap items-center gap-2">
+        <a href="/admin/profile"
+           class="px-4 py-2 bg-white/70 hover:bg-white backdrop-blur-sm border border-slate-200/70 rounded-full text-xs font-semibold text-slate-600 transition-colors shadow-sm flex items-center gap-2">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+            Profile
+        </a>
+        <a href="/students/add?returnPortal=admin"
+           class="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-full text-xs font-semibold transition-all shadow-md hover:shadow-lg flex items-center gap-2">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+            New Student
+        </a>
+        <a href="/admin/admins/add"
+           class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-xs font-semibold transition-all shadow-md hover:shadow-lg flex items-center gap-2">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+            New Admin
+        </a>
+    </div>
+</div>
+
+@if (isLoading)
+{
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        @for (int i = 0; i < 4; i++)
+        {
+            <div class="rounded-2xl p-5 border border-slate-200/60 bg-white/50">
+                <div class="shimmer h-3 w-20 mb-3"></div>
+                <div class="shimmer h-8 w-14 mb-2"></div>
+                <div class="shimmer h-2.5 w-24"></div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <!-- KPI Strip -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+
+        <div class="stat-tile rounded-2xl p-4 sm:p-5 border border-blue-100 bg-gradient-to-br from-blue-50 to-white">
+            <div class="text-[0.65rem] font-bold text-blue-400 uppercase tracking-widest mb-2">Active Students</div>
+            <div class="text-3xl font-black text-blue-700 tracking-tight">@ActiveStudents</div>
+            <div class="text-xs text-slate-500 mt-1.5">currently enrolled</div>
+        </div>
+
+        <div class="stat-tile rounded-2xl p-4 sm:p-5 border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white">
+            <div class="text-[0.65rem] font-bold text-emerald-500 uppercase tracking-widest mb-2">Joined · Last 30 Days</div>
+            <div class="text-3xl font-black text-emerald-600 tracking-tight">@RecentJoins</div>
+            <div class="text-xs text-slate-500 mt-1.5">new admissions</div>
+        </div>
+
+        <div class="stat-tile rounded-2xl p-4 sm:p-5 border border-slate-200 bg-gradient-to-br from-slate-50 to-white">
+            <div class="text-[0.65rem] font-bold text-amber-500 uppercase tracking-widest mb-2">Transferred In · Last 30 Days</div>
+            <div class="text-3xl font-black text-amber-600 tracking-tight">@RecentTransfers</div>
+            <div class="text-xs text-slate-500 mt-1.5">recent transfer admissions</div>
+        </div>
+
+        <div class="stat-tile rounded-2xl p-4 sm:p-5 border border-indigo-100 bg-gradient-to-br from-indigo-50 to-white">
+            <div class="text-[0.65rem] font-bold text-indigo-400 uppercase tracking-widest mb-2">Active Students</div>
+            <div class="text-3xl font-black text-indigo-600 tracking-tight">@ActivePct%</div>
+            <div class="text-xs text-slate-500 mt-1.5">of all student records</div>
+        </div>
+
+    </div>
+
+    <!-- Main Grid -->
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+
+        <!-- LEFT: Charts -->
+        <div class="xl:col-span-2 flex flex-col gap-5">
+
+            <!-- Enrollment by Form horizontal bars -->
+            <div class="bg-white/60 backdrop-blur border border-slate-200/60 rounded-2xl p-5">
+                <div class="flex items-center justify-between mb-5">
+                    <div>
+                        <div class="text-sm font-bold text-slate-800">Enrollment by Form</div>
+                        <div class="text-xs text-slate-400 mt-0.5">Student distribution across forms</div>
+                    </div>
+                    <a href="/students" class="text-xs font-bold text-blue-600 hover:text-blue-800">View all &rarr;</a>
+                </div>
+                <div class="flex flex-col gap-3">
+                    @foreach (var row in FormData)
+                    {
+                        int pct = MaxFormCount == 0 ? 0 : (int)((double)row.Count / MaxFormCount * 100);
+                        string widthVal = pct == 0 ? "2" : pct.ToString();
+                        <div class="flex items-center gap-3">
+                            <div class="w-14 text-xs font-bold text-slate-500 shrink-0">@row.Label</div>
+                            <div class="flex-1 h-7 rounded-lg overflow-hidden @row.Bg relative">
+                                <div class="h-full rounded-lg hbar-fill @row.Color flex items-center pl-2.5" style="width:@(widthVal)%">
+                                    @if (pct > 12)
+                                    {
+                                        <span class="text-xs font-bold text-white">@row.Count</span>
+                                    }
+                                </div>
+                                @if (pct <= 12 && row.Count > 0)
+                                {
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-600">@row.Count</span>
+                                }
+                                @if (row.Count == 0)
+                                {
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400">0</span>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Donut + Programme split -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+
+                <!-- Donut: Active vs Inactive -->
+                <div class="bg-white/60 backdrop-blur border border-slate-200/60 rounded-2xl p-5">
+                    <div class="text-sm font-bold text-slate-800 mb-1">Enrollment Status</div>
+                    <div class="text-xs text-slate-400 mb-5">Active vs Inactive breakdown</div>
+                    <div class="flex items-center justify-center gap-6">
+                        <svg width="110" height="110" viewBox="0 0 110 110" class="-rotate-90">
+                            <circle cx="55" cy="55" r="40" fill="none" stroke="#e2e8f0" stroke-width="16" />
+                            @{
+                                double _total = TotalStudents == 0 ? 1 : TotalStudents;
+                                double _circ = 2 * Math.PI * 40;
+                                double _activeDash = (ActiveStudents / _total) * _circ;
+                                double _inactiveDash = _circ - _activeDash;
+                                string _activeDashArr = $"{_activeDash:F1} {_inactiveDash:F1}";
+                            }
+                            <circle cx="55" cy="55" r="40" fill="none"
+                                    stroke="#10b981" stroke-width="16"
+                                    stroke-dasharray="@_activeDashArr"
+                                    class="donut-ring" />
+                            @if (InactiveStudents > 0)
+                            {
+                                double _inactiveSeg = (InactiveStudents / _total) * _circ;
+                                double _inactiveGap = _circ - _inactiveSeg;
+                                double _inactiveOffset = -_activeDash;
+                                string _inactiveDashArr = $"{_inactiveSeg:F1} {_inactiveGap:F1}";
+                                string _inactiveOffsetStr = $"{_inactiveOffset:F1}";
+                                <circle cx="55" cy="55" r="40" fill="none"
+                                        stroke="#94a3b8" stroke-width="16"
+                                        stroke-dasharray="@_inactiveDashArr"
+                                        stroke-dashoffset="@_inactiveOffsetStr"
+                                        class="donut-ring" />
+                            }
+                        </svg>
+                        <div class="flex flex-col gap-2.5">
+                            <div class="flex items-center gap-2">
+                                <div class="w-2.5 h-2.5 rounded-sm bg-emerald-500 shrink-0"></div>
+                                <div>
+                                    <div class="text-xs font-bold text-slate-700">Active</div>
+                                    <div class="text-[0.65rem] text-slate-400">@ActiveStudents students</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="w-2.5 h-2.5 rounded-sm bg-slate-400 shrink-0"></div>
+                                <div>
+                                    <div class="text-xs font-bold text-slate-700">Inactive</div>
+                                    <div class="text-[0.65rem] text-slate-400">@InactiveStudents students</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Programme Split -->
+                <div class="bg-white/60 backdrop-blur border border-slate-200/60 rounded-2xl p-5">
+                    <div class="text-sm font-bold text-slate-800 mb-1">Programme Split</div>
+                    <div class="text-xs text-slate-400 mb-5">O-Level (Forms 1&ndash;4) vs A-Level (5&ndash;6)</div>
+                    <div class="flex flex-col gap-4">
+                        <div>
+                            <div class="flex justify-between text-xs font-semibold text-slate-600 mb-1.5">
+                                <span>O-Level</span>
+                                <span class="font-bold text-blue-600">@OLevelCount</span>
+                            </div>
+                            <div class="h-3 rounded-full bg-blue-100 overflow-hidden">
+                                <div class="h-full rounded-full bg-blue-500 hbar-fill" style="width:@(OLevelPct)%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs font-semibold text-slate-600 mb-1.5">
+                                <span>A-Level</span>
+                                <span class="font-bold text-violet-600">@ALevelCount</span>
+                            </div>
+                            <div class="h-3 rounded-full bg-violet-100 overflow-hidden">
+                                <div class="h-full rounded-full bg-violet-500 hbar-fill" style="width:@(ALevelPct)%"></div>
+                            </div>
+                        </div>
+                        <div class="pt-1 border-t border-slate-100 text-[0.65rem] text-slate-400">
+                            @ActiveStudents active students across both programmes
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- RIGHT: Quick Links + Form Snapshot -->
+        <div class="flex flex-col gap-5">
+
+            <!-- Quick Navigation -->
+            <div class="bg-white/60 backdrop-blur border border-slate-200/60 rounded-2xl p-5">
+                <div class="text-sm font-bold text-slate-800 mb-4">Quick Access</div>
+                <div class="flex flex-col gap-0.5">
+
+                    <a href="/students" class="qlink">
+                        <div class="qlink-icon bg-blue-100 text-blue-600">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-bold text-slate-800">Students</div>
+                            <div class="text-xs text-slate-400">Directory &amp; profiles</div>
+                        </div>
+                        <svg width="14" height="14" class="text-slate-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+                    </a>
+
+                    <a href="/students/bulk-import" class="qlink">
+                        <div class="qlink-icon bg-indigo-100 text-indigo-600">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /><path d="M5 21h14" /></svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-bold text-slate-800">Bulk Import</div>
+                            <div class="text-xs text-slate-400">Paste or upload student data</div>
+                        </div>
+                        <svg width="14" height="14" class="text-slate-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+                    </a>
+
+                    <a href="/admin/attendance" class="qlink">
+                        <div class="qlink-icon bg-amber-100 text-amber-600">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-bold text-slate-800">Attendance</div>
+                            <div class="text-xs text-slate-400">Track &amp; review records</div>
+                        </div>
+                        <svg width="14" height="14" class="text-slate-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+                    </a>
+
+                    <a href="/admin/grades/approval" class="qlink">
+                        <div class="qlink-icon bg-violet-100 text-violet-600">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-bold text-slate-800">Marks Approval</div>
+                            <div class="text-xs text-slate-400">Review &amp; approve grades</div>
+                        </div>
+                        <svg width="14" height="14" class="text-slate-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+                    </a>
+
+                    <a href="/admin/academics/alevel" class="qlink">
+                        <div class="qlink-icon bg-indigo-100 text-indigo-600">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z" /><path d="M6 12v5c3 3 9 3 12 0v-5" /></svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-bold text-slate-800">A-Level Hub</div>
+                            <div class="text-xs text-slate-400">Subjects &amp; assignments</div>
+                        </div>
+                        <svg width="14" height="14" class="text-slate-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+                    </a>
+
+                    <a href="/admin/academics/olevel" class="qlink">
+                        <div class="qlink-icon bg-sky-100 text-sky-600">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z" /><path d="M6 12v5c3 3 9 3 12 0v-5" /></svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-bold text-slate-800">O-Level Hub</div>
+                            <div class="text-xs text-slate-400">Subjects &amp; classes</div>
+                        </div>
+                        <svg width="14" height="14" class="text-slate-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+                    </a>
+
+                    <a href="/admin/teacher-analytics" class="qlink">
+                        <div class="qlink-icon bg-rose-100 text-rose-600">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20v-6M6 20V10M18 20V4" /></svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-bold text-slate-800">Teacher Analytics</div>
+                            <div class="text-xs text-slate-400">Performance overview</div>
+                        </div>
+                        <svg width="14" height="14" class="text-slate-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+                    </a>
+
+                    <a href="/admin/profile" class="qlink">
+                        <div class="qlink-icon bg-slate-100 text-slate-500">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-bold text-slate-800">My Profile</div>
+                            <div class="text-xs text-slate-400">Account settings</div>
+                        </div>
+                        <svg width="14" height="14" class="text-slate-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+                    </a>
+
+                    <a href="/admin/admins" class="qlink">
+                        <div class="qlink-icon bg-indigo-100 text-indigo-600">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-bold text-slate-800">Administrators</div>
+                            <div class="text-xs text-slate-400">Create, edit &amp; remove admins</div>
+                        </div>
+                        <svg width="14" height="14" class="text-slate-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+                    </a>
+
+                </div>
+            </div>
+
+            <!-- Form Snapshot -->
+            <div class="bg-white/60 backdrop-blur border border-slate-200/60 rounded-2xl p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="text-sm font-bold text-slate-800">Form Snapshot</div>
+                    <span class="text-[0.65rem] font-bold text-slate-400 uppercase tracking-wider">Total / Active</span>
+                </div>
+                <div class="flex flex-col divide-y divide-slate-100">
+                    @foreach (var row in FormData)
+                    {
+                        int formNum = int.Parse(row.Label.Replace("Form ", ""));
+                        int activeInForm = students?.Count(s => s.Form == formNum && s.Status == "Active") ?? 0;
+                        <div class="flex items-center justify-between py-2.5">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-2 h-2 rounded-sm @row.Color shrink-0"></div>
+                                <span class="text-sm font-semibold text-slate-700">@row.Label</span>
+                            </div>
+                            <div class="flex items-center gap-3 text-xs font-bold">
+                                <span class="text-slate-600">@row.Count</span>
+                                <span class="text-slate-300">/</span>
+                                <span class="text-emerald-600">@activeInForm</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+}
+
+@code {
+    private List<Student>? students;
+    private string DisplayName = "Administrator";
+    private string DisplayRole = "Admin";
+    private string DisplayInitials = "AD";
+    private AdminProfileRecord? adminProfile;
+    private bool adminProfileLoadAttempted;
+    private bool isLoading = true;
+
+    private int TotalStudents => students?.Count ?? 0;
+    private int ActiveStudents => students?.Count(s => s.Status == "Active") ?? 0;
+    private int InactiveStudents => students?.Count(s => s.Status != "Active") ?? 0;
+    private DateTime RecentCutoff => DateTime.Now.AddDays(-30);
+    private int RecentJoins => students?.Count(s => s.CreatedAt.HasValue && s.CreatedAt.Value >= RecentCutoff) ?? 0;
+    private int RecentTransfers => students?.Count(s => s.CreatedAt.HasValue && s.CreatedAt.Value >= RecentCutoff && IsTransferStatus(s.Status)) ?? 0;
+    private static bool IsTransferStatus(string? status)
+        => !string.IsNullOrWhiteSpace(status) && status.Contains("transfer", StringComparison.OrdinalIgnoreCase);
+    private int ActivePct => TotalStudents == 0 ? 0 : (int)((double)ActiveStudents / TotalStudents * 100);
+
+    private int OLevelCount => students?.Count(s => s.Status == "Active" && s.Form >= 1 && s.Form <= 4) ?? 0;
+    private int ALevelCount => students?.Count(s => s.Status == "Active" && s.Form >= 5 && s.Form <= 6) ?? 0;
+    private int OLevelPct => TotalStudents == 0 ? 0 : (int)((double)OLevelCount / TotalStudents * 100);
+    private int ALevelPct => TotalStudents == 0 ? 0 : (int)((double)ALevelCount / TotalStudents * 100);
+
+    private int LargestForm =>
+        FormData.OrderByDescending(r => r.Count)
+                .Select(r => int.Parse(r.Label.Replace("Form ", "")))
+                .FirstOrDefault();
+
+    private int LargestFormCount =>
+        FormData.OrderByDescending(r => r.Count)
+                .Select(r => r.Count)
+                .FirstOrDefault();
+
+    private int MaxFormCount =>
+        FormData.Max(r => r.Count) == 0 ? 1 : FormData.Max(r => r.Count);
+
+    private record FormRow(string Label, int Count, string Color, string Bg);
+
+    private IEnumerable<FormRow> FormData => new[]
+    {
+        new FormRow("Form 1", students?.Count(s => s.Status == "Active" && s.Form == 1) ?? 0, "bg-blue-500",    "bg-blue-50"),
+        new FormRow("Form 2", students?.Count(s => s.Status == "Active" && s.Form == 2) ?? 0, "bg-emerald-500", "bg-emerald-50"),
+        new FormRow("Form 3", students?.Count(s => s.Status == "Active" && s.Form == 3) ?? 0, "bg-indigo-500",  "bg-indigo-50"),
+        new FormRow("Form 4", students?.Count(s => s.Status == "Active" && s.Form == 4) ?? 0, "bg-amber-500",   "bg-amber-50"),
+        new FormRow("Form 5", students?.Count(s => s.Status == "Active" && s.Form == 5) ?? 0, "bg-violet-500",  "bg-violet-50"),
+        new FormRow("Form 6", students?.Count(s => s.Status == "Active" && s.Form == 6) ?? 0, "bg-sky-500",     "bg-sky-50"),
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                DisplayName = user.FindFirst(ClaimTypes.Name)?.Value
+                    ?? user.FindFirst("sub")?.Value
+                    ?? user.Identity.Name
+                    ?? "Administrator";
+
+                DisplayRole = user.Claims
+                    .Where(c => c.Type == ClaimTypes.Role)
+                    .Select(c => c.Value)
+                    .FirstOrDefault() ?? "Admin";
+            }
+        }
+        catch
+        {
+            DisplayName = "Administrator";
+            DisplayRole = "Admin";
+        }
+    }
+    /// <summary>
+    /// Load the students and admin profile after the page has rendered for the first time.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || adminProfileLoadAttempted) return;
+        adminProfileLoadAttempted = true;
+
+        // Load students (heavy call — deferred so page renders immediately)
+        try { students = await StudentService.GetStudentsAsync(); }
+        catch { students = new(); }
+        isLoading = false;
+
+        await LoadAdminProfileAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadAdminProfileAsync()
+    {
+        try
+        {
+            var userIdValue = await JSRuntime.InvokeAsync<string?>("sessionStorage.getItem", "primeappDemo.userId");
+            if (!long.TryParse(userIdValue, out var userId) || userId <= 0)
+            {
+                DisplayInitials = GetInitials(DisplayName, string.Empty);
+                return;
+            }
+
+            adminProfile = await AdminService.GetAdminAsync(userId);
+            if (adminProfile is null)
+            {
+                DisplayInitials = GetInitials(DisplayName, string.Empty);
+                return;
+            }
+
+            var fullName = string.Join(" ", new[] { adminProfile.FirstName, adminProfile.LastName }
+                .Where(v => !string.IsNullOrWhiteSpace(v)));
+
+            if (!string.IsNullOrWhiteSpace(fullName)) DisplayName = fullName;
+            DisplayInitials = GetInitials(adminProfile.FirstName, adminProfile.LastName);
+        }
+        catch
+        {
+            DisplayInitials = GetInitials(DisplayName, string.Empty);
+        }
+    }
+
+    private static string GetInitials(string? first, string? last)
+    {
+        var f = string.IsNullOrWhiteSpace(first) ? "" : first.Trim()[0].ToString().ToUpperInvariant();
+        var l = string.IsNullOrWhiteSpace(last) ? "" : last.Trim()[0].ToString().ToUpperInvariant();
+        var initials = $"{f}{l}";
+        return string.IsNullOrWhiteSpace(initials) ? "AD" : initials;
+    }
+}

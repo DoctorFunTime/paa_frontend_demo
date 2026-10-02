@@ -1,0 +1,1774 @@
+@page "/admin/attendance"
+@namespace paa_frontend.Client.Pages.Admin
+@layout paa_frontend.Client.Layout.AdminPortalLayout
+@using paa_frontend.Shared.Models
+@using paa_frontend.Client.Services.Admin
+@using static paa_frontend.Shared.Models.StudentProfileModel
+@using static paa_frontend.Shared.Models.TeacherProfileModel
+@using static paa_frontend.Shared.Models.BurserProfileModel
+@using static paa_frontend.Shared.Models.Admin.OlevelClassesModel
+@using static paa_frontend.Shared.Models.Admin.AlevelClassesModel
+@using static paa_frontend.Shared.Models.Admin.Form1and2Model
+@inject AttendanceServiceClient AttendanceService
+@inject StudentProfileServiceClient StudentService
+@inject TeacherProfileServiceClient TeacherService
+@inject BurserProfileServiceClient BurserService
+@inject AlevelClassServiceClient AClassService
+@inject OlevelClassServiceClient OClassService
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+@if (isLoadingOverview)
+{
+    <AdminLoadingSkeleton />
+}
+
+<style>
+    .page-wrap {
+        padding: 0;
+        max-width: 1500px;
+        margin: 0 auto;
+    }
+
+    .att-header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        margin-bottom: 24px;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .att-title {
+        font-size: 22px;
+        font-weight: 700;
+        color: #0F172A;
+        letter-spacing: -0.4px;
+        margin-bottom: 3px;
+    }
+
+    .att-sub {
+        font-size: 13px;
+        color: rgba(0,0,0,0.45);
+    }
+
+    .tab-bar {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 24px;
+        background: rgba(0,0,0,0.04);
+        padding: 4px;
+        border-radius: 12px;
+        width: fit-content;
+    }
+
+    .tab-btn {
+        padding: 8px 18px;
+        border: none;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        color: rgba(0,0,0,0.45);
+        cursor: pointer;
+        background: transparent;
+        transition: all 0.2s;
+    }
+
+        .tab-btn:hover {
+            color: #0F172A;
+        }
+
+        .tab-btn.active {
+            background: #0F172A;
+            color: white;
+            box-shadow: 0 2px 8px rgba(15,23,42,0.25);
+        }
+
+    .control-bar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    .form-control {
+        padding: 9px 12px;
+        border: 1.5px solid rgba(0,0,0,0.08);
+        border-radius: 10px;
+        font-size: 13px;
+        color: #0F172A;
+        background: white;
+        outline: none;
+        transition: border-color 0.15s;
+    }
+
+        .form-control:focus {
+            border-color: #0F172A;
+        }
+
+    .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 9px 18px;
+        background: #0F172A;
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: filter 0.15s;
+    }
+
+        .btn-primary:hover {
+            filter: brightness(1.15);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+    .summary-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+        margin-bottom: 24px;
+    }
+
+    .sum-card {
+        background: white;
+        border-radius: 14px;
+        border: 1px solid rgba(0,0,0,0.06);
+        padding: 18px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+
+    .sum-card-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: rgba(0,0,0,0.45);
+        margin-bottom: 4px;
+    }
+
+    .sum-card-val {
+        font-size: 24px;
+        font-weight: 800;
+        color: rgba(0,0,0,0.85);
+        font-family: 'DM Mono', monospace;
+    }
+
+        .sum-card-val.green {
+            color: #10b981;
+        }
+
+        .sum-card-val.amber {
+            color: #f59e0b;
+        }
+
+        .sum-card-val.red {
+            color: #ef4444;
+        }
+
+    .table-card {
+        background: white;
+        border-radius: 14px;
+        border: 1px solid rgba(0,0,0,0.06);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        overflow: hidden;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+        .data-table th {
+            padding: 12px 20px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 600;
+            color: rgba(0,0,0,0.45);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid rgba(0,0,0,0.06);
+        }
+
+        .data-table td {
+            padding: 12px 20px;
+            font-size: 13px;
+            color: rgba(0,0,0,0.65);
+            border-bottom: 1px solid rgba(0,0,0,0.04);
+            vertical-align: middle;
+        }
+
+        .data-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .data-table tbody tr:hover {
+            background: rgba(15,23,42,0.02);
+        }
+
+    .person-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .p-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background: rgba(15,23,42,0.06);
+        color: #0F172A;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 12px;
+    }
+
+    .p-name {
+        font-weight: 600;
+        color: #0F172A;
+        font-size: 13.5px;
+    }
+
+    .p-meta {
+        font-size: 11.5px;
+        color: rgba(0,0,0,0.45);
+    }
+
+    .toggle-group {
+        display: inline-flex;
+        background: rgba(0,0,0,0.04);
+        padding: 3px;
+        border-radius: 8px;
+        gap: 2px;
+    }
+
+    .toggle-btn {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        color: rgba(0,0,0,0.45);
+        cursor: pointer;
+        background: transparent;
+        transition: all 0.2s;
+    }
+
+        .toggle-btn:hover {
+            color: #0F172A;
+        }
+
+        .toggle-btn.present.active {
+            background: #10b981;
+            color: white;
+        }
+
+        .toggle-btn.late.active {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .toggle-btn.absent.active {
+            background: #ef4444;
+            color: white;
+        }
+
+        .toggle-btn.excused.active {
+            background: #6366f1;
+            color: white;
+        }
+
+    .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 9px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .pill-green {
+        background: #e8f5ee;
+        color: #1a7f52;
+    }
+
+    .pill-amber {
+        background: #fef3c7;
+        color: #b45309;
+    }
+
+    .pill-red {
+        background: #fdf0f2;
+        color: #C8102E;
+    }
+
+    .pill-purple {
+        background: #ede9fe;
+        color: #6366f1;
+    }
+
+    .empty-state {
+        padding: 60px 20px;
+        text-align: center;
+        color: rgba(0,0,0,0.35);
+        font-size: 14px;
+    }
+
+    .search-wrap {
+        position: relative;
+    }
+
+    .search-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid rgba(0,0,0,0.08);
+        border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        z-index: 50;
+        max-height: 240px;
+        overflow-y: auto;
+    }
+
+    .search-item {
+        padding: 10px 14px;
+        cursor: pointer;
+        font-size: 13px;
+        color: rgba(0,0,0,0.65);
+        border-bottom: 1px solid rgba(0,0,0,0.04);
+    }
+
+        .search-item:hover {
+            background: rgba(15,23,42,0.04);
+            color: #0F172A;
+        }
+
+        .search-item:last-child {
+            border-bottom: none;
+        }
+
+    .search-item-name {
+        font-weight: 600;
+        color: #0F172A;
+    }
+
+    .search-item-meta {
+        font-size: 11px;
+        color: rgba(0,0,0,0.45);
+    }
+
+    /* Overview aggregate cards */
+    .ov-hero {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        margin-bottom: 28px;
+    }
+
+    .attendance-hero {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .ov-hero-card {
+        background: white;
+        border-radius: 14px;
+        border: 1px solid rgba(0,0,0,0.06);
+        padding: 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+
+    .ov-hero-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 12px;
+    }
+
+    .ov-hero-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: rgba(0,0,0,0.45);
+        margin-bottom: 4px;
+    }
+
+    .ov-hero-val {
+        font-size: 28px;
+        font-weight: 800;
+        color: rgba(0,0,0,0.85);
+        font-family: 'DM Mono', monospace;
+    }
+
+    .ov-hero-sub {
+        font-size: 12px;
+        color: rgba(0,0,0,0.45);
+        margin-top: 4px;
+    }
+
+    .ov-breakdown {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+        margin-bottom: 28px;
+    }
+
+    .ov-break-card {
+        background: white;
+        border-radius: 14px;
+        border: 1px solid rgba(0,0,0,0.06);
+        padding: 20px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+
+    .ov-break-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #0F172A;
+        margin-bottom: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .ov-break-title-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+    }
+
+    .ov-stat-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(0,0,0,0.04);
+    }
+
+        .ov-stat-row:last-child {
+            border-bottom: none;
+        }
+
+    .ov-stat-label {
+        font-size: 13px;
+        color: rgba(0,0,0,0.65);
+    }
+
+    .ov-stat-val {
+        font-size: 14px;
+        font-weight: 700;
+        font-family: 'DM Mono', monospace;
+    }
+
+        .ov-stat-val.green {
+            color: #10b981;
+        }
+
+        .ov-stat-val.amber {
+            color: #f59e0b;
+        }
+
+        .ov-stat-val.red {
+            color: #ef4444;
+        }
+
+        .ov-stat-val.purple {
+            color: #6366f1;
+        }
+
+    .ov-bar-wrap {
+        height: 8px;
+        background: rgba(0,0,0,0.06);
+        border-radius: 4px;
+        overflow: hidden;
+        margin-top: 6px;
+    }
+
+    .ov-bar {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.4s ease;
+    }
+
+        .ov-bar.green {
+            background: #10b981;
+        }
+
+        .ov-bar.amber {
+            background: #f59e0b;
+        }
+
+        .ov-bar.red {
+            background: #ef4444;
+        }
+
+        .ov-bar.purple {
+            background: #6366f1;
+        }
+
+    .ov-rate {
+        font-size: 32px;
+        font-weight: 800;
+        font-family: 'DM Mono', monospace;
+    }
+
+    .ov-rate-label {
+        font-size: 12px;
+        color: rgba(0,0,0,0.45);
+        margin-top: 2px;
+    }
+
+    .class-attendance-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 28px;
+    }
+
+    .class-attendance-card {
+        background: white;
+        border-radius: 14px;
+        border: 1px solid rgba(0,0,0,0.06);
+        padding: 18px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+
+    .class-attendance-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .class-attendance-title {
+        font-size: 14px;
+        font-weight: 750;
+        color: #0F172A;
+    }
+
+    .class-attendance-meta {
+        font-size: 11px;
+        color: rgba(0,0,0,0.45);
+        margin-top: 3px;
+    }
+
+    .class-attendance-status {
+        font-size: 10px;
+        font-weight: 750;
+        text-transform: uppercase;
+        letter-spacing: .35px;
+        padding: 4px 8px;
+        border-radius: 999px;
+        white-space: nowrap;
+    }
+
+    .class-attendance-status.complete { color: #047857; background: #d1fae5; }
+    .class-attendance-status.pending { color: #b45309; background: #fef3c7; }
+
+    .class-bar {
+        height: 10px;
+        display: flex;
+        overflow: hidden;
+        border-radius: 999px;
+        background: #f1f5f9;
+        margin: 10px 0 12px;
+    }
+
+    .class-bar-present { background: #10b981; }
+    .class-bar-late { background: #f59e0b; }
+    .class-bar-absent { background: #ef4444; }
+    .class-bar-excused { background: #6366f1; }
+
+    .class-attendance-counts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 16px;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .class-attendance-counts span { display: inline-flex; gap: 4px; align-items: center; }
+    .class-attendance-counts .present { color: #059669; }
+    .class-attendance-counts .absent { color: #dc2626; }
+    .class-attendance-counts .pending { color: #b45309; }
+    .overview-content { display:flex; flex-direction:column; }
+    .overview-content .attendance-hero { order:1; }
+    .overview-content .ov-breakdown { order:2; }
+    .overview-content > .ov-break-title { order:3; }
+    .overview-content > .class-attendance-grid { order:4; }
+
+    @@media (max-width: 768px) {
+        .summary-row {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .sum-card {
+            padding: 14px;
+        }
+
+        .sum-card-val {
+            font-size: 20px;
+        }
+
+        .control-bar {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .tab-bar {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .toggle-group {
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .toggle-btn {
+            width: 100%;
+            padding: 8px 10px;
+        }
+
+        .ov-hero {
+            grid-template-columns: 1fr;
+        }
+
+        .attendance-hero {
+            grid-template-columns: 1fr;
+        }
+
+        .ov-breakdown {
+            grid-template-columns: 1fr;
+        }
+
+        .class-attendance-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .ov-hero-val {
+            font-size: 22px;
+        }
+
+        .ov-rate {
+            font-size: 26px;
+        }
+    }
+</style>
+
+<div class="page-wrap">
+    <div class="att-header">
+        <div>
+            <div class="att-title">Attendance Management</div>
+            <div class="att-sub">View and manage attendance across the school</div>
+        </div>
+    </div>
+
+    <div class="tab-bar">
+        <button class="tab-btn @(activeTab == "overview" ? "active" : "")" @onclick='() => SetTab("overview")'>Overview</button>
+        <button class="tab-btn @(activeTab == "school" ? "active" : "")" @onclick='() => SetTab("school")'>School</button>
+        <button class="tab-btn @(activeTab == "class" ? "active" : "")" @onclick='() => SetTab("class")'>Class</button>
+        <button class="tab-btn @(activeTab == "student" ? "active" : "")" @onclick='() => SetTab("student")'>Student</button>
+        <button class="tab-btn @(activeTab == "staff" ? "active" : "")" @onclick='() => SetTab("staff")'>Staff Register</button>
+    </div>
+
+    @* ── OVERVIEW ── *@
+    @if (activeTab == "overview")
+    {
+        <div class="control-bar">
+            <input class="form-control" type="date" @bind="overviewDate" style="width:180px;" />
+            <button class="btn-primary" @onclick="LoadOverviewData" disabled="@isLoadingOverview">
+                @(isLoadingOverview ? "Loading…" : "Load Overview")
+            </button>
+        </div>
+
+        @if (overviewData != null)
+        {
+            var d = overviewData;
+            // Measure presence against the whole enrolled school, not only
+            // the students whose class register has already been submitted.
+            var studentRate = d.StudentTotal > 0 ? (int)Math.Round((double)d.StudentPresent / d.StudentTotal * 100) : 0;
+            var staffRate = d.StaffTotal > 0 ? (int)Math.Round((double)d.StaffPresent / d.StaffTotal * 100) : 0;
+            var overallRate = studentRate;
+
+            <div class="overview-content">
+            <div class="ov-hero attendance-hero">
+                <div class="ov-hero-card">
+                    <div class="ov-hero-icon" style="background:#e8f5ee;color:#10b981;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                    </div>
+                    <div class="ov-hero-label">Total Students</div>
+                    <div class="ov-hero-val">@d.StudentTotal</div>
+                    <div class="ov-hero-sub">enrolled across @d.ClassSummaries.Count classes</div>
+                </div>
+                <div class="ov-hero-card">
+                    <div class="ov-hero-icon" style="background:#fef3c7;color:#f59e0b;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                    </div>
+                    <div class="ov-hero-label">Registers Completed</div>
+                    <div class="ov-hero-val">@d.StudentCompletedRegisters / @d.ClassSummaries.Count</div>
+                    <div class="ov-hero-sub">@d.StudentRecorded students marked</div>
+                </div>
+                <div class="ov-hero-card">
+                    <div class="ov-hero-icon" style="background:rgba(15,23,42,0.06);color:#0F172A;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
+                    </div>
+                    <div class="ov-hero-label">Registers Pending</div>
+                    <div class="ov-hero-val" style="color:@(d.StudentPendingRegisters > 0 ? "#f59e0b" : "#10b981")">@d.StudentPendingRegisters</div>
+                    <div class="ov-hero-sub">classes still to complete</div>
+                </div>
+                <div class="ov-hero-card">
+                    <div class="ov-hero-icon" style="background:rgba(15,23,42,0.06);color:#0F172A;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
+                    </div>
+                    <div class="ov-hero-label">Student Attendance</div>
+                    <div class="ov-rate" style="color:@(overallRate >= 80 ? "#10b981" : overallRate >= 60 ? "#f59e0b" : "#ef4444")">@overallRate%</div>
+                    <div class="ov-rate-label">of all enrolled students</div>
+                </div>
+            </div>
+
+            <div class="ov-break-title" style="margin:0 0 14px 2px;">
+                <div class="ov-break-title-dot" style="background:#6366f1;"></div> Class register progress
+            </div>
+            <div class="class-attendance-grid">
+                @foreach (var summary in d.ClassSummaries)
+                {
+                    var markedTotal = summary.Present + summary.Late + summary.Absent + summary.Excused;
+                    var denominator = Math.Max(summary.TotalStudents, 1);
+                    <div class="class-attendance-card">
+                        <div class="class-attendance-head">
+                            <div>
+                                <div class="class-attendance-title">@summary.ClassLabel</div>
+                                <div class="class-attendance-meta">@markedTotal of @summary.TotalStudents students marked</div>
+                            </div>
+                            <span class="class-attendance-status @(summary.IsComplete ? "complete" : "pending")">
+                                @(summary.IsComplete ? "Complete" : "Pending")
+                            </span>
+                        </div>
+                        <div class="class-bar" title="Present, late, absent, excused">
+                            <div class="class-bar-present" style="width:@((double)summary.Present / denominator * 100)%"></div>
+                            <div class="class-bar-late" style="width:@((double)summary.Late / denominator * 100)%"></div>
+                            <div class="class-bar-absent" style="width:@((double)summary.Absent / denominator * 100)%"></div>
+                            <div class="class-bar-excused" style="width:@((double)summary.Excused / denominator * 100)%"></div>
+                        </div>
+                        <div class="class-attendance-counts">
+                            <span class="present">Present @summary.Present</span>
+                            <span style="color:#f59e0b;">Late @summary.Late</span>
+                            <span class="absent">Absent @summary.Absent</span>
+                            @if (summary.Unmarked > 0) { <span class="pending">Unmarked @summary.Unmarked</span> }
+                        </div>
+                        @if (summary.IsComplete)
+                        {
+                            <button class="btn-ghost" style="width:100%;margin-top:12px;font-size:11px;padding:8px 10px;" @onclick="() => ViewCompletedRegister(summary)">
+                                View student register
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="ov-breakdown">
+                <div class="ov-break-card">
+                    <div class="ov-break-title"><div class="ov-break-title-dot" style="background:#10b981;"></div> Student Attendance</div>
+                    <div class="ov-stat-row">
+                        <span class="ov-stat-label">Present</span>
+                        <span class="ov-stat-val green">@d.StudentPresent</span>
+                    </div>
+                    <div class="ov-bar-wrap"><div class="ov-bar green" style="width:@(d.StudentTotal > 0 ? (double)d.StudentPresent / d.StudentTotal * 100 : 0)%"></div></div>
+                    <div class="ov-stat-row">
+                        <span class="ov-stat-label">Late</span>
+                        <span class="ov-stat-val amber">@d.StudentLate</span>
+                    </div>
+                    <div class="ov-bar-wrap"><div class="ov-bar amber" style="width:@(d.StudentTotal > 0 ? (double)d.StudentLate / d.StudentTotal * 100 : 0)%"></div></div>
+                    <div class="ov-stat-row">
+                        <span class="ov-stat-label">Absent</span>
+                        <span class="ov-stat-val red">@d.StudentAbsent</span>
+                    </div>
+                    <div class="ov-bar-wrap"><div class="ov-bar red" style="width:@(d.StudentTotal > 0 ? (double)d.StudentAbsent / d.StudentTotal * 100 : 0)%"></div></div>
+                    <div class="ov-stat-row">
+                        <span class="ov-stat-label">Excused</span>
+                        <span class="ov-stat-val purple">@d.StudentExcused</span>
+                    </div>
+                    <div class="ov-bar-wrap"><div class="ov-bar purple" style="width:@(d.StudentTotal > 0 ? (double)d.StudentExcused / d.StudentTotal * 100 : 0)%"></div></div>
+                    <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(0,0,0,0.06);display:flex;justify-content:space-between;align-items:center;">
+                        <span class="ov-stat-label" style="font-weight:600;">Student Rate</span>
+                        <span class="ov-stat-val" style="font-size:18px;color:@(studentRate >= 80 ? "#10b981" : studentRate >= 60 ? "#f59e0b" : "#ef4444")">@studentRate%</span>
+                    </div>
+                </div>
+
+                <div class="ov-break-card">
+                    <div class="ov-break-title"><div class="ov-break-title-dot" style="background:#6366f1;"></div> Staff Attendance</div>
+                    <div class="ov-stat-row">
+                        <span class="ov-stat-label">Present</span>
+                        <span class="ov-stat-val green">@d.StaffPresent</span>
+                    </div>
+                    <div class="ov-bar-wrap"><div class="ov-bar green" style="width:@(d.StaffTotal > 0 ? (double)d.StaffPresent / d.StaffTotal * 100 : 0)%"></div></div>
+                    <div class="ov-stat-row">
+                        <span class="ov-stat-label">Late</span>
+                        <span class="ov-stat-val amber">@d.StaffLate</span>
+                    </div>
+                    <div class="ov-bar-wrap"><div class="ov-bar amber" style="width:@(d.StaffTotal > 0 ? (double)d.StaffLate / d.StaffTotal * 100 : 0)%"></div></div>
+                    <div class="ov-stat-row">
+                        <span class="ov-stat-label">Absent</span>
+                        <span class="ov-stat-val red">@d.StaffAbsent</span>
+                    </div>
+                    <div class="ov-bar-wrap"><div class="ov-bar red" style="width:@(d.StaffTotal > 0 ? (double)d.StaffAbsent / d.StaffTotal * 100 : 0)%"></div></div>
+                    <div class="ov-stat-row">
+                        <span class="ov-stat-label">Excused</span>
+                        <span class="ov-stat-val purple">@d.StaffExcused</span>
+                    </div>
+                    <div class="ov-bar-wrap"><div class="ov-bar purple" style="width:@(d.StaffTotal > 0 ? (double)d.StaffExcused / d.StaffTotal * 100 : 0)%"></div></div>
+                    <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(0,0,0,0.06);display:flex;justify-content:space-between;align-items:center;">
+                        <span class="ov-stat-label" style="font-weight:600;">Staff Rate</span>
+                        <span class="ov-stat-val" style="font-size:18px;color:@(staffRate >= 80 ? "#10b981" : staffRate >= 60 ? "#f59e0b" : "#ef4444")">@staffRate%</span>
+                    </div>
+                </div>
+            </div>
+            </div>
+        }
+        else if (!isLoadingOverview)
+        {
+            <div class="table-card"><div class="empty-state">Select a date and click Load Overview to see aggregate attendance</div></div>
+        }
+    }
+
+    @* ── SCHOOL LEVEL ── *@
+    @if (activeTab == "school")
+    {
+        <div class="control-bar">
+            <input class="form-control" type="date" @bind="schoolDate" style="width:180px;" />
+            <button class="btn-primary" @onclick="LoadSchoolAttendance" disabled="@isLoadingSchool">
+                @(isLoadingSchool ? "Loading…" : "Load")
+            </button>
+        </div>
+
+        if (schoolSessions != null && schoolSessions.Any())
+        {
+            <div class="summary-row">
+                <div class="sum-card"><div class="sum-card-label">Sessions Today</div><div class="sum-card-val">@schoolSessions.Count</div></div>
+                <div class="sum-card"><div class="sum-card-label" style="color:#10b981;">Student Sessions</div><div class="sum-card-val green">@schoolSessions.Count(s => s.Type == "Student")</div></div>
+                <div class="sum-card"><div class="sum-card-label" style="color:#6366f1;">Staff Sessions</div><div class="sum-card-val" style="color:#6366f1;">@schoolSessions.Count(s => s.Type == "Staff")</div></div>
+                <div class="sum-card"><div class="sum-card-label">Total Records</div><div class="sum-card-val">@schoolSessions.Sum(s => s.Records?.Count ?? 0)</div></div>
+            </div>
+
+            <div class="table-card">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Session ID</th>
+                            <th>Type</th>
+                            <th>Reference</th>
+                            <th>Completed By</th>
+                            <th>Present</th>
+                            <th>Absent</th>
+                            <th>Late</th>
+                            <th>Excused</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var s in schoolSessions)
+                        {
+                            var recs = s.Records ?? new();
+                            <tr>
+                                <td style="font-family:'DM Mono',monospace;">#@s.Id</td>
+                                <td><span class="pill @(s.Type == "Student" ? "pill-green" : "pill-purple")">@s.Type</span></td>
+                                <td style="font-family:'DM Mono',monospace;">@s.ReferenceId</td>
+                                <td>@ResolveCreatedBy(s.CreatedBy)</td>
+                                <td style="color:#10b981;font-weight:600;">@recs.Count(r => r.Status == "Present")</td>
+                                <td style="color:#ef4444;font-weight:600;">@recs.Count(r => r.Status == "Absent")</td>
+                                <td style="color:#f59e0b;font-weight:600;">@recs.Count(r => r.Status == "Late")</td>
+                                <td style="color:#6366f1;font-weight:600;">@recs.Count(r => r.Status == "Excused")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else if (schoolSessions != null && !schoolSessions.Any())
+        {
+            <div class="table-card"><div class="empty-state">No attendance sessions found for @schoolDate.ToString("dd MMM yyyy")</div></div>
+        }
+    }
+
+    @* ── CLASS LEVEL ── *@
+    @if (activeTab == "class")
+    {
+        <div class="control-bar">
+            <select class="form-control" style="width:140px;" @onchange="OnClassFormChanged">
+                <option value="0">— Select Form —</option>
+                @for (var f = 1; f <= 6; f++)
+                {
+                    <option value="@f" selected="@(classForm == f)">Form @f</option>
+                }
+            </select>
+            @if (isLoadingClassNames)
+            {
+                <select class="form-control" style="width:160px;" disabled><option>Loading classes…</option></select>
+            }
+            else
+            {
+                <select class="form-control" style="width:160px;" @onchange="OnClassNameChanged">
+                    <option value="">— Select Class —</option>
+                    @foreach (var c in classAvailableClasses)
+                    {
+                        <option value="@c" selected="@(classroom == c)">@c</option>
+                    }
+                </select>
+            }
+            <input class="form-control" type="date" @bind="classDate" style="width:180px;" />
+            <button class="btn-primary" @onclick="LoadClassAttendance" disabled="@(classForm == 0 || string.IsNullOrEmpty(classroom))">
+                @(isLoadingClass ? "Loading…" : "Load")
+            </button>
+        </div>
+
+        if (classSession != null)
+        {
+            <div style="margin-bottom:12px;font-size:12px;color:rgba(0,0,0,0.45);">
+                Register completed by <strong style="color:#0F172A;">@ResolveCreatedBy(classSession.CreatedBy)</strong>
+            </div>
+        }
+
+        if (classRecords != null && classRecords.Any())
+        {
+            var presentCount = classRecords.Count(r => r.Status == "Present");
+            var absentCount = classRecords.Count(r => r.Status == "Absent");
+            var lateCount = classRecords.Count(r => r.Status == "Late");
+            <div class="summary-row">
+                <div class="sum-card"><div class="sum-card-label">Total</div><div class="sum-card-val">@classRecords.Count</div></div>
+                <div class="sum-card"><div class="sum-card-label" style="color:#10b981;">Present</div><div class="sum-card-val green">@presentCount</div></div>
+                <div class="sum-card"><div class="sum-card-label" style="color:#f59e0b;">Late</div><div class="sum-card-val amber">@lateCount</div></div>
+                <div class="sum-card"><div class="sum-card-label" style="color:#ef4444;">Absent</div><div class="sum-card-val red">@absentCount</div></div>
+            </div>
+
+            <div class="table-card">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th style="text-align:right;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in classRecords)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="person-info">
+                                        <div class="p-avatar">@ResolveInitials(r.PersonId)</div>
+                                        <div>
+                                            <div class="p-name">@ResolveStudentName(r.PersonId)</div>
+                                            <div class="p-meta">@r.Remarks</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td style="text-align:right;">
+                                    <div class="toggle-group">
+                                        <button class="toggle-btn present @(r.Status == "Present" ? "active" : "")" @onclick='() => UpdateClassRecord(r.Id, "Present")'>P</button>
+                                        <button class="toggle-btn late @(r.Status == "Late" ? "active" : "")" @onclick='() => UpdateClassRecord(r.Id, "Late")'>L</button>
+                                        <button class="toggle-btn absent @(r.Status == "Absent" ? "active" : "")" @onclick='() => UpdateClassRecord(r.Id, "Absent")'>A</button>
+                                        <button class="toggle-btn excused @(r.Status == "Excused" ? "active" : "")" @onclick='() => UpdateClassRecord(r.Id, "Excused")'>E</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else if (classRecords != null && !classRecords.Any())
+        {
+            <div class="table-card"><div class="empty-state">No attendance records found for Form @classForm @classroom on @classDate.ToString("dd MMM yyyy")</div></div>
+        }
+    }
+
+    @* ── STUDENT LEVEL ── *@
+    @if (activeTab == "student")
+    {
+        <div class="control-bar">
+            <select class="form-control" style="width:140px;" @onchange="OnStudentFormChanged">
+                <option value="0">— Select Form —</option>
+                @for (var f = 1; f <= 6; f++)
+                {
+                    <option value="@f" selected="@(studentForm == f)">Form @f</option>
+                }
+            </select>
+            @if (isLoadingStudentClassNames)
+            {
+                <select class="form-control" style="width:160px;" disabled><option>Loading classes…</option></select>
+            }
+            else
+            {
+                <select class="form-control" style="width:160px;" @onchange="OnStudentClassChanged">
+                    <option value="">— Select Class —</option>
+                    @foreach (var c in studentAvailableClasses)
+                    {
+                        <option value="@c" selected="@(studentClassroom == c)">@c</option>
+                    }
+                </select>
+            }
+            <select class="form-control" style="width:260px;" value="@studentLookupId" @onchange="OnStudentSelected" disabled="@(studentForm == 0)">
+                <option value="0">— Select Student —</option>
+                @foreach (var s in filteredStudents)
+                {
+                    <option value="@s.Id">@s.FirstName @s.LastName · Form @s.Form @s.Classroom</option>
+                }
+            </select>
+            <input class="form-control" type="date" @bind="studentStartDate" style="width:160px;" />
+            <input class="form-control" type="date" @bind="studentEndDate" style="width:160px;" />
+            <button class="btn-primary" @onclick="LoadStudentAttendance" disabled="@(studentLookupId <= 0)">
+                @(isLoadingStudent ? "Loading…" : "Load")
+            </button>
+        </div>
+
+        @if (selectedStudent != null)
+        {
+            <div style="margin-bottom:12px;font-size:13px;color:#0F172A;">
+                Viewing attendance for <strong>@selectedStudent.FirstName @selectedStudent.LastName</strong> (Form @selectedStudent.Form @selectedStudent.Classroom)
+            </div>
+        }
+
+        if (studentRecords != null && studentRecords.Any())
+        {
+            var presentCount = studentRecords.Count(r => r.Status == "Present");
+            var absentCount = studentRecords.Count(r => r.Status == "Absent");
+            var lateCount = studentRecords.Count(r => r.Status == "Late");
+            <div class="summary-row">
+                <div class="sum-card"><div class="sum-card-label">Total Days</div><div class="sum-card-val">@studentRecords.Count</div></div>
+                <div class="sum-card"><div class="sum-card-label" style="color:#10b981;">Present</div><div class="sum-card-val green">@presentCount</div></div>
+                <div class="sum-card"><div class="sum-card-label" style="color:#f59e0b;">Late</div><div class="sum-card-val amber">@lateCount</div></div>
+                <div class="sum-card"><div class="sum-card-label" style="color:#ef4444;">Absent</div><div class="sum-card-val red">@absentCount</div></div>
+            </div>
+
+            <div class="table-card">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Session ID</th>
+                            <th>Status</th>
+                            <th>Remarks</th>
+                            <th style="text-align:right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in studentRecords)
+                        {
+                            <tr>
+                                <td style="font-family:'DM Mono',monospace;">#@r.SessionId</td>
+                                <td><span class="pill @(r.Status == "Present" ? "pill-green" : r.Status == "Absent" ? "pill-red" : r.Status == "Late" ? "pill-amber" : "pill-purple")">@r.Status</span></td>
+                                <td>@(r.Remarks ?? "—")</td>
+                                <td style="text-align:right;">
+                                    <div class="toggle-group">
+                                        <button class="toggle-btn present @(r.Status == "Present" ? "active" : "")" @onclick='() => UpdateRecord(r.Id, "Present")'>P</button>
+                                        <button class="toggle-btn late @(r.Status == "Late" ? "active" : "")" @onclick='() => UpdateRecord(r.Id, "Late")'>L</button>
+                                        <button class="toggle-btn absent @(r.Status == "Absent" ? "active" : "")" @onclick='() => UpdateRecord(r.Id, "Absent")'>A</button>
+                                        <button class="toggle-btn excused @(r.Status == "Excused" ? "active" : "")" @onclick='() => UpdateRecord(r.Id, "Excused")'>E</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else if (studentRecords != null && !studentRecords.Any())
+        {
+            <div class="table-card"><div class="empty-state">No attendance records found for this student in the selected range</div></div>
+        }
+    }
+
+    @* ── STAFF REGISTER ── *@
+    @if (activeTab == "staff")
+    {
+        <div class="control-bar">
+            <input class="form-control" type="date" @bind="staffDate" style="width:180px;" />
+            <button class="btn-primary" @onclick="LoadStaffForRegister" disabled="@isLoadingStaff">
+                @(isLoadingStaff ? "Loading…" : "Load Staff")
+            </button>
+            <button class="btn-primary" style="margin-left:auto;background:#10b981;" @onclick="SaveStaffRegister" disabled="@(!staffMembers.Any() || isSavingStaff || staffLoadError != null)">
+                @(isSavingStaff ? "Saving…" : "Save Register")
+            </button>
+        </div>
+
+        @if (staffLoadError != null)
+        {
+            <div style="color:#ef4444;font-size:13px;margin-bottom:12px;padding:10px 14px;background:#fdf0f2;border-radius:10px;">
+                ⚠ @staffLoadError
+            </div>
+        }
+
+        @if (staffSession != null)
+        {
+            <div style="margin-bottom:12px;font-size:12px;color:rgba(0,0,0,0.45);">
+                Register completed by <strong style="color:#0F172A;">@ResolveCreatedBy(staffSession.CreatedBy)</strong>
+            </div>
+        }
+
+        if (staffMembers.Any())
+        {
+            var presentCount = staffMembers.Count(s => s.Status == "Present");
+            var absentCount = staffMembers.Count(s => s.Status == "Absent");
+            var lateCount = staffMembers.Count(s => s.Status == "Late");
+            <div class="summary-row">
+                <div class="sum-card"><div class="sum-card-label">Total Staff</div><div class="sum-card-val">@staffMembers.Count</div></div>
+                <div class="sum-card"><div class="sum-card-label" style="color:#10b981;">Present</div><div class="sum-card-val green">@presentCount</div></div>
+                <div class="sum-card"><div class="sum-card-label" style="color:#f59e0b;">Late</div><div class="sum-card-val amber">@lateCount</div></div>
+                <div class="sum-card"><div class="sum-card-label" style="color:#ef4444;">Absent</div><div class="sum-card-val red">@absentCount</div></div>
+            </div>
+
+            <div class="table-card">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Role</th>
+                            <th style="text-align:right;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var sm in staffMembers)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="person-info">
+                                        <div class="p-avatar">@(sm.Name.Length > 0 ? sm.Name[0] : '?')</div>
+                                        <div>
+                                            <div class="p-name">@sm.Name</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><span class="pill @(sm.Role == "Teacher" ? "pill-green" : "pill-amber")">@sm.Role</span></td>
+                                <td style="text-align:right;">
+                                    <div class="toggle-group">
+                                        <button class="toggle-btn present @(sm.Status == "Present" ? "active" : "")" @onclick='() => { sm.Status = "Present"; StateHasChanged(); }'>Present</button>
+                                        <button class="toggle-btn late @(sm.Status == "Late" ? "active" : "")" @onclick='() => { sm.Status = "Late"; StateHasChanged(); }'>Late</button>
+                                        <button class="toggle-btn absent @(sm.Status == "Absent" ? "active" : "")" @onclick='() => { sm.Status = "Absent"; StateHasChanged(); }'>Absent</button>
+                                        <button class="toggle-btn excused @(sm.Status == "Excused" ? "active" : "")" @onclick='() => { sm.Status = "Excused"; StateHasChanged(); }'>Excused</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private string activeTab = "overview";
+
+    // Overview tab
+    private DateOnly overviewDate = DateOnly.FromDateTime(DateTime.Now);
+    private OverviewData? overviewData;
+    private bool isLoadingOverview = false;
+
+    public class OverviewData
+    {
+        public int SessionCount { get; set; }
+        public int StudentSessionCount { get; set; }
+        public int StaffSessionCount { get; set; }
+        public int StudentTotal { get; set; }
+        public int StudentRecorded { get; set; }
+        public int StudentCompletedRegisters { get; set; }
+        public int StudentPendingRegisters { get; set; }
+        public int StudentPresent { get; set; }
+        public int StudentLate { get; set; }
+        public int StudentAbsent { get; set; }
+        public int StudentExcused { get; set; }
+        public int StaffTotal { get; set; }
+        public int StaffPresent { get; set; }
+        public int StaffLate { get; set; }
+        public int StaffAbsent { get; set; }
+        public int StaffExcused { get; set; }
+        public List<ClassAttendanceSummary> ClassSummaries { get; set; } = new();
+    }
+
+    public class ClassAttendanceSummary
+    {
+        public int Form { get; set; }
+        public string ClassName { get; set; } = "";
+        public string ClassLabel { get; set; } = "Unassigned class";
+        public int TotalStudents { get; set; }
+        public int Present { get; set; }
+        public int Late { get; set; }
+        public int Absent { get; set; }
+        public int Excused { get; set; }
+        public int Unmarked => Math.Max(0, TotalStudents - Present - Late - Absent - Excused);
+        public bool IsComplete => TotalStudents > 0 && Unmarked == 0;
+    }
+
+    // Lookups for name resolution
+    private Dictionary<long, string> createdByNames = new();
+    private Dictionary<long, string> studentNames = new();
+    private List<Student> allStudents = new();
+    private bool lookupsLoaded = false;
+
+    // School tab
+    private DateOnly schoolDate = DateOnly.FromDateTime(DateTime.Now);
+    private List<AttendanceSessionDto>? schoolSessions;
+    private bool isLoadingSchool = false;
+
+    // Class tab
+    private int classForm;
+    private string classroom = "";
+    private DateOnly classDate = DateOnly.FromDateTime(DateTime.Now);
+    private List<AttendanceRecordDto>? classRecords;
+    private AttendanceSessionDto? classSession;
+    private List<string> classAvailableClasses = new();
+    private bool isLoadingClassNames = false;
+    private bool isLoadingClass = false;
+
+    // Student tab
+    private int studentForm;
+    private string studentClassroom = "";
+    private string studentSearchTerm = "";
+    private long studentLookupId;
+    private Student? selectedStudent;
+    private DateOnly studentStartDate = DateOnly.FromDateTime(DateTime.Now.AddDays(-30));
+    private DateOnly studentEndDate = DateOnly.FromDateTime(DateTime.Now);
+    private List<AttendanceRecordDto>? studentRecords;
+    private List<string> studentAvailableClasses = new();
+    private bool isLoadingStudentClassNames = false;
+    private bool isLoadingStudent = false;
+
+    // Staff tab
+    private DateOnly staffDate = DateOnly.FromDateTime(DateTime.Now);
+    private AttendanceSessionDto? staffSession;
+    private List<StaffMember> staffMembers = new();
+    private bool isLoadingStaff = false;
+    private bool isSavingStaff = false;
+    private string? staffLoadError;
+
+    public class StaffMember
+    {
+        public long Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Role { get; set; } = "Teacher";
+        public string Status { get; set; } = "Present";
+    }
+
+    private IEnumerable<Student> filteredStudents
+    {
+        get
+        {
+            var term = (studentSearchTerm ?? "").Trim().ToLowerInvariant();
+            var pool = allStudents.AsEnumerable();
+            if (studentForm > 0) pool = pool.Where(s => s.Form == studentForm);
+            if (!string.IsNullOrEmpty(studentClassroom)) pool = pool.Where(s => s.Classroom == studentClassroom);
+            if (!string.IsNullOrWhiteSpace(term))
+                pool = pool.Where(s => (s.FirstName + " " + s.LastName).ToLowerInvariant().Contains(term));
+            return pool.Take(20);
+        }
+    }
+
+    private bool dataLoadAttempted;
+
+    protected override Task OnInitializedAsync()
+    {
+        return Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || dataLoadAttempted) return;
+        dataLoadAttempted = true;
+
+        await LoadLookups();
+        await LoadOverviewData();
+        StateHasChanged();
+    }
+
+    private async Task LoadLookups()
+    {
+        if (lookupsLoaded) return;
+        lookupsLoaded = true;
+
+        try
+        {
+            var teachers = await TeacherService.GetTeachersAsync();
+            if (teachers != null)
+                foreach (var t in teachers)
+                    createdByNames[t.Id] = $"{t.FirstName} {t.LastName}".Trim();
+
+            var bursers = await BurserService.GetBursersAsync();
+            if (bursers != null)
+                foreach (var b in bursers)
+                    createdByNames[b.Id] = $"{b.FirstName} {b.LastName}".Trim();
+
+            allStudents = await StudentService.GetStudentsAsync() ?? new();
+            if (allStudents != null)
+                foreach (var s in allStudents)
+                    studentNames[s.Id] = $"{s.FirstName} {s.LastName}".Trim();
+        }
+        catch (Exception)
+        {
+            Console.WriteLine($"[ADMIN ATTENDANCE] Lookup error");
+        }
+    }
+
+    private string ResolveCreatedBy(long createdBy)
+    {
+        if (createdByNames.TryGetValue(createdBy, out var name)) return name;
+        return $"User #{createdBy}";
+    }
+
+    private string ResolveStudentName(long personId)
+    {
+        if (studentNames.TryGetValue(personId, out var name)) return name;
+        return $"Student #{personId}";
+    }
+
+    private string ResolveInitials(long personId)
+    {
+        var name = ResolveStudentName(personId);
+        if (name.StartsWith("Student #")) return "?";
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return "?";
+        return string.Concat(parts.Select(p => char.ToUpper(p[0]))).Substring(0, Math.Min(2, parts.Length));
+    }
+
+    private string GetLevel(int form) => form switch
+    {
+        >= 1 and <= 4 => "form1to4",
+        >= 5 and <= 6 => "alevel",
+        _ => ""
+    };
+
+    private static string GetStudentClassKey(Student student)
+        => $"{student.Form.GetValueOrDefault()}|{(student.Classroom ?? "").Trim()}";
+
+    private static string FormatClassLabel(string key)
+    {
+        var parts = key.Split('|', 2);
+        return $"Form {parts[0]}{(parts.Length < 2 || string.IsNullOrWhiteSpace(parts[1]) ? " · No class" : $" · {parts[1]}")}";
+    }
+
+    private async Task LoadClassNamesAsync(int form, Action<List<string>> setter, Action<bool> loadingSetter)
+    {
+        setter(new());
+        if (form < 1 || form > 6) return;
+
+        loadingSetter(true);
+        StateHasChanged();
+        try
+        {
+            switch (GetLevel(form))
+            {
+                case "form1to4":
+                    var olevel = await OClassService.GetAllOlevelClassNamesAsync();
+                    setter(olevel.Select(c => c.ClassName ?? "").Where(c => !string.IsNullOrWhiteSpace(c)).Distinct().OrderBy(c => c).ToList());
+                    break;
+                case "alevel":
+                    var alevel = await AClassService.GetAllAlevelClassNamesAsync();
+                    setter(alevel.Select(c => c.ClassName ?? "").Where(c => !string.IsNullOrWhiteSpace(c)).OrderBy(c => c).ToList());
+                    break;
+            }
+        }
+        catch { setter(new()); }
+        finally { loadingSetter(false); StateHasChanged(); }
+    }
+
+    private void SetTab(string tab)
+    {
+        activeTab = tab;
+        StateHasChanged();
+    }
+
+    // ── Overview ──
+    private async Task LoadOverviewData()
+    {
+        isLoadingOverview = true;
+        overviewData = null;
+        StateHasChanged();
+        try
+        {
+            var sessions = await AttendanceService.GetSessionsByDateAsync(overviewDate);
+            var data = new OverviewData
+            {
+                StudentTotal = allStudents.Count,
+            };
+
+            var classGroups = allStudents
+                .Where(s => s.Form.GetValueOrDefault() > 0)
+                .GroupBy(GetStudentClassKey, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    g => g.Key,
+                     g => new ClassAttendanceSummary
+                     {
+                         Form = g.First().Form.GetValueOrDefault(),
+                         ClassName = (g.First().Classroom ?? "").Trim(),
+                         ClassLabel = FormatClassLabel(g.Key),
+                        TotalStudents = g.Count()
+                    },
+                    StringComparer.OrdinalIgnoreCase);
+
+            if (sessions != null)
+            {
+                data.SessionCount = sessions.Count;
+                data.StudentSessionCount = sessions.Count(s => s.Type == "Student");
+                data.StaffSessionCount = sessions.Count(s => s.Type == "Staff");
+
+                foreach (var session in sessions)
+                {
+                    // Session list doesn't include records — fetch per session
+                    var recs = await AttendanceService.GetRecordsBySessionAsync(session.Id);
+                    if (recs == null) recs = new();
+
+                    if (session.Type == "Student")
+                    {
+                        data.StudentRecorded += recs.Count;
+                        data.StudentPresent += recs.Count(r => r.Status == "Present");
+                        data.StudentLate += recs.Count(r => r.Status == "Late");
+                        data.StudentAbsent += recs.Count(r => r.Status == "Absent");
+                        data.StudentExcused += recs.Count(r => r.Status == "Excused");
+
+                        foreach (var groupEntry in classGroups)
+                        {
+                            var group = groupEntry.Value;
+                            var studentsInClass = allStudents
+                                .Where(s => string.Equals(GetStudentClassKey(s), groupEntry.Key, StringComparison.OrdinalIgnoreCase))
+                                .Select(s => (long)s.Id)
+                                .ToHashSet();
+                            var classRecords = recs.Where(r => studentsInClass.Contains(r.PersonId)).ToList();
+                            if (!classRecords.Any()) continue;
+                            group.Present = Math.Max(group.Present, classRecords.Count(r => r.Status == "Present"));
+                            group.Late = Math.Max(group.Late, classRecords.Count(r => r.Status == "Late"));
+                            group.Absent = Math.Max(group.Absent, classRecords.Count(r => r.Status == "Absent"));
+                            group.Excused = Math.Max(group.Excused, classRecords.Count(r => r.Status == "Excused"));
+                        }
+                    }
+                    else if (session.Type == "Staff")
+                    {
+                        data.StaffTotal += recs.Count;
+                        data.StaffPresent += recs.Count(r => r.Status == "Present");
+                        data.StaffLate += recs.Count(r => r.Status == "Late");
+                        data.StaffAbsent += recs.Count(r => r.Status == "Absent");
+                        data.StaffExcused += recs.Count(r => r.Status == "Excused");
+                    }
+                }
+            }
+
+            data.ClassSummaries = classGroups.Values.OrderBy(s => s.ClassLabel).ToList();
+            data.StudentCompletedRegisters = data.ClassSummaries.Count(s => s.IsComplete);
+            data.StudentPendingRegisters = data.ClassSummaries.Count(s => !s.IsComplete);
+
+            overviewData = data;
+        }
+        catch (Exception)
+        {
+            Console.WriteLine($"[ADMIN ATTENDANCE] Overview error");
+        }
+        finally { isLoadingOverview = false; StateHasChanged(); }
+    }
+
+    private async Task ViewCompletedRegister(ClassAttendanceSummary summary)
+    {
+        if (!summary.IsComplete || summary.Form <= 0 || string.IsNullOrWhiteSpace(summary.ClassName))
+            return;
+
+        activeTab = "class";
+        classForm = summary.Form;
+        classroom = summary.ClassName;
+        classDate = overviewDate;
+        classRecords = null;
+        classSession = null;
+        await LoadClassAttendance();
+    }
+
+    // ── School ──
+    private async Task LoadSchoolAttendance()
+    {
+        isLoadingSchool = true;
+        StateHasChanged();
+        try
+        {
+            var sessions = await AttendanceService.GetSessionsByDateAsync(schoolDate);
+            if (sessions != null)
+            {
+                foreach (var s in sessions)
+                {
+                    var records = await AttendanceService.GetRecordsBySessionAsync(s.Id);
+                    s.Records = records ?? new();
+                }
+            }
+            schoolSessions = sessions;
+        }
+        finally { isLoadingSchool = false; StateHasChanged(); }
+    }
+
+    // ── Class ──
+    private async Task OnClassFormChanged(ChangeEventArgs e)
+    {
+        classForm = int.TryParse(e.Value?.ToString(), out var f) ? f : 0;
+        classroom = "";
+        classRecords = null;
+        classSession = null;
+        await LoadClassNamesAsync(classForm, list => classAvailableClasses = list, loading => isLoadingClassNames = loading);
+    }
+
+    private void OnClassNameChanged(ChangeEventArgs e)
+    {
+        classroom = e.Value?.ToString() ?? "";
+        classRecords = null;
+        classSession = null;
+    }
+
+    private async Task LoadClassAttendance()
+    {
+        classSession = null;
+        classRecords = null;
+        isLoadingClass = true;
+        StateHasChanged();
+
+        try
+        {
+            var sessions = await AttendanceService.GetSessionsByDateAsync(classDate);
+            var classStudentIds = allStudents
+                .Where(s => s.Form == classForm && string.Equals(s.Classroom, classroom, StringComparison.OrdinalIgnoreCase))
+                .Select(s => (long)s.Id)
+                .ToHashSet();
+
+            AttendanceSessionDto? match = null;
+            if (sessions != null && classStudentIds.Count > 0)
+            {
+                foreach (var candidate in sessions.Where(s => s.Type == "Student"))
+                {
+                    var records = await AttendanceService.GetRecordsBySessionAsync(candidate.Id) ?? new();
+                    if (records.Any(r => classStudentIds.Contains(r.PersonId)))
+                    {
+                        candidate.Records = records;
+                        match = candidate;
+                        break;
+                    }
+                }
+            }
+
+            if (match != null)
+            {
+                classSession = match;
+                classRecords = (match.Records ?? new()).Where(r => classStudentIds.Contains(r.PersonId)).ToList();
+            }
+            else
+            {
+                classRecords = new();
+            }
+        }
+        finally { isLoadingClass = false; StateHasChanged(); }
+    }
+
+    private async Task UpdateClassRecord(long recordId, string status)
+    {
+        var updated = await AttendanceService.UpdateRecordStatusAsync(recordId, status);
+        if (updated != null && classRecords != null)
+        {
+            var idx = classRecords.FindIndex(r => r.Id == recordId);
+            if (idx >= 0) classRecords[idx] = updated;
+            StateHasChanged();
+        }
+    }
+
+    // ── Student ──
+    private async Task OnStudentFormChanged(ChangeEventArgs e)
+    {
+        studentForm = int.TryParse(e.Value?.ToString(), out var f) ? f : 0;
+        studentClassroom = "";
+        selectedStudent = null;
+        studentLookupId = 0;
+        studentSearchTerm = "";
+        studentRecords = null;
+        await LoadClassNamesAsync(studentForm, list => studentAvailableClasses = list, loading => isLoadingStudentClassNames = loading);
+    }
+
+    private void OnStudentClassChanged(ChangeEventArgs e)
+    {
+        studentClassroom = e.Value?.ToString() ?? "";
+        selectedStudent = null;
+        studentLookupId = 0;
+        studentSearchTerm = "";
+        studentRecords = null;
+    }
+
+    private void SelectStudent(Student s)
+    {
+        selectedStudent = s;
+        studentLookupId = s.Id;
+        studentSearchTerm = $"{s.FirstName} {s.LastName}";
+    }
+
+    private void OnStudentSelected(ChangeEventArgs e)
+    {
+        if (!long.TryParse(e.Value?.ToString(), out var studentId) || studentId <= 0)
+        {
+            selectedStudent = null;
+            studentLookupId = 0;
+            studentRecords = null;
+            return;
+        }
+
+        var student = allStudents.FirstOrDefault(s => s.Id == studentId);
+        if (student != null) SelectStudent(student);
+    }
+
+    private async Task LoadStudentAttendance()
+    {
+        if (studentLookupId <= 0) return;
+        isLoadingStudent = true;
+        StateHasChanged();
+        try
+        {
+            studentRecords = await AttendanceService.GetRecordsByPersonAndDateRangeAsync(studentLookupId, studentStartDate, studentEndDate);
+        }
+        finally { isLoadingStudent = false; StateHasChanged(); }
+    }
+
+    private async Task UpdateRecord(long recordId, string status)
+    {
+        var updated = await AttendanceService.UpdateRecordStatusAsync(recordId, status);
+        if (updated != null && studentRecords != null)
+        {
+            var idx = studentRecords.FindIndex(r => r.Id == recordId);
+            if (idx >= 0) studentRecords[idx] = updated;
+            StateHasChanged();
+        }
+    }
+
+    // ── Staff ──
+    private async Task LoadStaffForRegister()
+    {
+        staffMembers.Clear();
+        staffSession = null;
+        staffLoadError = null;
+        isLoadingStaff = true;
+        StateHasChanged();
+
+        try
+        {
+            var teachers = await TeacherService.GetTeachersAsync();
+            if (teachers != null)
+            {
+                foreach (var t in teachers)
+                {
+                    staffMembers.Add(new StaffMember
+                    {
+                        Id = t.Id,
+                        Name = $"{t.FirstName} {t.LastName}".Trim(),
+                        Role = "Teacher",
+                        Status = "Present"
+                    });
+                }
+            }
+
+            var bursers = await BurserService.GetBursersAsync();
+            if (bursers != null)
+            {
+                foreach (var b in bursers)
+                {
+                    staffMembers.Add(new StaffMember
+                    {
+                        Id = b.Id,
+                        Name = $"{b.FirstName} {b.LastName}".Trim(),
+                        Role = "Burser",
+                        Status = "Present"
+                    });
+                }
+            }
+        }
+        catch (Exception)
+        {
+            Console.WriteLine($"[ADMIN ATTENDANCE] Error loading staff");
+            staffLoadError = "Failed to load staff members. Please try again.";
+        }
+
+        // Check if session already exists
+        try
+        {
+            var existing = await AttendanceService.GetSessionsByDateAsync(staffDate);
+            var found = existing?.FirstOrDefault(s => s.Type == "Staff");
+            if (found != null)
+            {
+                staffSession = found;
+                var existingRecords = await AttendanceService.GetRecordsBySessionAsync(found.Id);
+                if (existingRecords != null)
+                {
+                    foreach (var r in existingRecords)
+                    {
+                        var member = staffMembers.FirstOrDefault(s => s.Id == r.PersonId);
+                        if (member != null) member.Status = r.Status;
+                    }
+                }
+            }
+        }
+        catch (Exception)
+        {
+            Console.WriteLine($"[ADMIN ATTENDANCE] Error loading existing staff session");
+        }
+
+        isLoadingStaff = false;
+        StateHasChanged();
+    }
+
+    private async Task SaveStaffRegister()
+    {
+        isSavingStaff = true;
+        StateHasChanged();
+
+        try
+        {
+            var userIdStr = await JS.InvokeAsync<string?>("sessionStorage.getItem", "primeappDemo.userId");
+            long.TryParse(userIdStr, out var adminId);
+
+            if (staffSession != null)
+            {
+                // Session exists - update individual records
+                var existingRecords = await AttendanceService.GetRecordsBySessionAsync(staffSession.Id);
+                foreach (var sm in staffMembers)
+                {
+                    var existing = existingRecords?.FirstOrDefault(r => r.PersonId == sm.Id);
+                    if (existing != null)
+                    {
+                        await AttendanceService.UpdateRecordStatusAsync(existing.Id, sm.Status);
+                    }
+                }
+            }
+            else
+            {
+                var dto = new CreateAttendanceSessionDto
+                {
+                    Date = staffDate,
+                    Type = "Staff",
+                    ReferenceId = 0,
+                    CreatedBy = adminId,
+                    Records = staffMembers.Select(s => new AttendanceRecordInputDto
+                    {
+                        PersonId = s.Id,
+                        PersonType = s.Role, // add this
+                        Status = s.Status,
+                        Remarks = null
+                    }).ToList()
+                };
+                var session = await AttendanceService.CreateSessionAsync(dto);
+                if (session != null)
+                {
+                    staffSession = session;
+                }
+            }
+        }
+        finally { isSavingStaff = false; StateHasChanged(); }
+    }
+}

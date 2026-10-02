@@ -1,0 +1,273 @@
+@using paa_frontend.Client.Services
+@using paa_frontend.Client.Services.Admin
+@using static paa_frontend.Shared.Models.Admin.SubjectsModel
+@using static paa_frontend.Shared.Models.Admin.OlevelClassesModel
+@using static paa_frontend.Shared.Models.StudentProfileModel
+@inject StudentSubjectServiceClient SubjectService
+@inject StudentProfileServiceClient StudentService
+@inject OlevelClassServiceClient OLevelClassService
+@inject NotificationService NotificationService
+
+<div class="space-y-5">
+    <div class="rounded-3xl border border-teal-100 bg-teal-50/70 p-5 md:p-6">
+        <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+            <div>
+                <div class="text-xs font-black uppercase tracking-widest text-teal-700">Forms 1–4 setup</div>
+                <h2 class="mt-1 text-xl font-black text-slate-900">Set subjects by class, then customise per student</h2>
+                <p class="mt-1 max-w-3xl text-sm font-medium text-slate-600">Start with the subjects a class offers. A student inherits that class list, but can opt out of individual subjects. Subjects outside the class offering cannot be added.</p>
+            </div>
+            <div class="rounded-2xl border border-teal-200 bg-white px-4 py-3 text-xs font-bold text-teal-800">@students.Count(s => s.Form is >= 1 and <= 4) students in Forms 1–4</div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 gap-5 xl:grid-cols-2">
+        <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+            <div class="mb-5 flex items-start justify-between gap-3">
+                <div><h3 class="text-lg font-black text-slate-900">1. Class subject offering</h3><p class="mt-1 text-xs font-medium text-slate-500">Choose a class and tick the subjects available to everyone in that class.</p></div>
+                <span class="rounded-xl bg-blue-50 px-3 py-2 text-xs font-black text-blue-700">Required first</span>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <label class="text-xs font-bold text-slate-600">Form
+                    <select class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold" @onchange="OnFormChanged">
+                        @for (int form = 1; form <= 4; form++) { <option value="@form" selected="@(selectedForm == form)">Form @form</option> }
+                    </select>
+                </label>
+                <label class="text-xs font-bold text-slate-600">Class
+                    <select class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold" @onchange="OnClassChanged">
+                        <option value="">Select class</option>
+                        @foreach (var classroom in ClassroomsForForm) { <option value="@classroom" selected="@(selectedClass == classroom)">@classroom</option> }
+                    </select>
+                </label>
+            </div>
+            <div class="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                @foreach (var subject in ClassSubjectCatalog)
+                {
+                    var subjectName = subject;
+                    <label class="flex cursor-pointer items-center gap-3 rounded-2xl border px-3 py-3 text-sm font-bold transition @(classSubjects.Contains(subjectName) ? "border-teal-300 bg-teal-50 text-teal-800" : "border-slate-200 bg-slate-50 text-slate-600")">
+                        <input type="checkbox" class="h-4 w-4 accent-teal-600" checked="@classSubjects.Contains(subjectName)" @onchange="e => ToggleClassSubject(subjectName, e)" />
+                        <span>@subjectName</span>
+                    </label>
+                }
+            </div>
+            <div class="mt-4 flex flex-col gap-2 sm:flex-row">
+                <input class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium" placeholder="Add a subject name" @bind="newSubjectName" @bind:event="oninput" />
+                <button type="button" class="rounded-xl border border-teal-200 bg-teal-50 px-4 py-2.5 text-sm font-black text-teal-800 disabled:opacity-50" disabled="@string.IsNullOrWhiteSpace(newSubjectName)" @onclick="AddSubjectToCatalog">Add subject</button>
+            </div>
+            @if (!ClassSubjectCatalog.Any()) { <p class="mt-4 rounded-2xl bg-amber-50 p-4 text-sm font-bold text-amber-800">No subjects are available for this form yet. Add them to the subject catalogue first.</p> }
+            <button class="mt-5 w-full rounded-xl bg-teal-700 px-4 py-3 text-sm font-black text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50" disabled="@(string.IsNullOrWhiteSpace(selectedClass) || isSaving)" @onclick="SaveClassSubjects">@(isSaving ? "Saving…" : "Save class subjects")</button>
+        </section>
+
+        <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+            <div class="mb-5 flex items-start justify-between gap-3">
+                <div><h3 class="text-lg font-black text-slate-900">2. Student subject choices</h3><p class="mt-1 text-xs font-medium text-slate-500">Select an individual student to remove subjects they do not take.</p></div>
+                <span class="rounded-xl bg-violet-50 px-3 py-2 text-xs font-black text-violet-700">Optional per student</span>
+            </div>
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <label class="text-xs font-bold text-slate-600">Form filter
+                    <select class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold" @bind="studentFormFilter">
+                        <option value="">All Forms</option>
+                        @for (var form = 1; form <= 4; form++)
+                        {
+                            <option value="@form">Form @form</option>
+                        }
+                    </select>
+                </label>
+                <label class="text-xs font-bold text-slate-600">Class filter
+                    <select class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold" @bind="studentClassFilter">
+                        <option value="">All classes</option>
+                        @foreach (var classroom in StudentClassrooms)
+                        {
+                            <option value="@classroom">@classroom</option>
+                        }
+                    </select>
+                </label>
+                <label class="text-xs font-bold text-slate-600">Search students
+                    <input class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium" placeholder="Name, ID or class" @bind="studentSearch" @bind:event="oninput" />
+                </label>
+            </div>
+            <label class="mt-3 block text-xs font-bold text-slate-600">Student
+                <select class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold" @onchange="OnStudentChanged">
+                    <option value="0">Select student</option>
+                    @foreach (var student in FilteredOLevelStudents)
+                    {
+                        <option value="@student.Id" selected="@(selectedStudentId == student.Id)">@student.FirstName @student.LastName · Form @student.Form · @student.Classroom</option>
+                    }
+                </select>
+            </label>
+            @if (selectedStudent is not null)
+            {
+                <div class="mt-4 rounded-2xl bg-slate-50 p-4">
+                    <div class="text-sm font-black text-slate-900">@selectedStudent.FirstName @selectedStudent.LastName</div>
+                    <div class="mt-1 text-xs font-medium text-slate-500">Form @selectedStudent.Form · @selectedStudent.Classroom</div>
+                </div>
+                <div class="mt-4 space-y-2">
+                    @foreach (var subject in studentClassSubjects)
+                    {
+                        var subjectName = subject;
+                        <label class="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-slate-200 px-3 py-3 text-sm font-bold text-slate-700">
+                            <span>@subjectName</span><input type="checkbox" class="h-4 w-4 accent-violet-600" checked="@studentSubjects.Contains(subjectName)" @onchange="e => ToggleStudentSubject(subjectName, e)" />
+                        </label>
+                    }
+                </div>
+                @if (!studentClassSubjects.Any()) { <p class="mt-4 rounded-2xl bg-amber-50 p-4 text-sm font-bold text-amber-800">Set the student’s class subjects first.</p> }
+                <button class="mt-5 w-full rounded-xl bg-violet-700 px-4 py-3 text-sm font-black text-white transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:opacity-50" disabled="@(isSaving || !studentClassSubjects.Any())" @onclick="SaveStudentSubjects">@(isSaving ? "Saving…" : "Save student choices")</button>
+            }
+            else
+            {
+                <div class="mt-5 rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm font-bold text-slate-500">Choose a student to review their enrolled subjects.</div>
+            }
+        </section>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(status)) { <div class="rounded-2xl border p-4 text-sm font-bold @(error ? "border-rose-200 bg-rose-50 text-rose-700" : "border-teal-200 bg-teal-50 text-teal-700")">@status</div> }
+</div>
+
+@code {
+    [Parameter] public int InitialForm { get; set; }
+    [Parameter] public string? InitialClass { get; set; }
+
+    private List<Student> students = new();
+    private List<Form3to4Subjects> form34Subjects = new();
+    private int selectedForm = 1;
+    private string selectedClass = string.Empty;
+    private int selectedStudentId;
+    private Student? selectedStudent;
+    private string studentClassFilter = string.Empty;
+    private int? studentFormFilter;
+    private string studentSearch = string.Empty;
+    private HashSet<string> classSubjects = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<string> studentSubjects = new(StringComparer.OrdinalIgnoreCase);
+    private List<string> studentClassSubjects = new();
+    private List<string> classNamesFromSetup = new();
+    private bool isSaving;
+    private string status = string.Empty;
+    private bool error;
+    private string newSubjectName = string.Empty;
+
+    private IEnumerable<Student> OLevelStudents => students.Where(s => s.Form is >= 1 and <= 4).OrderBy(s => s.Form).ThenBy(s => s.LastName).ThenBy(s => s.FirstName);
+    private IEnumerable<string> StudentClassrooms => OLevelStudents.Where(s => !string.IsNullOrWhiteSpace(s.Classroom))
+        .Select(s => s.Classroom!).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x);
+    private IEnumerable<Student> FilteredOLevelStudents => OLevelStudents.Where(s =>
+        (!studentFormFilter.HasValue || s.Form == studentFormFilter.Value)
+        &&
+        (string.IsNullOrWhiteSpace(studentClassFilter) || string.Equals(s.Classroom, studentClassFilter, StringComparison.OrdinalIgnoreCase))
+        && (string.IsNullOrWhiteSpace(studentSearch) || $"{s.FirstName} {s.LastName} {s.Id} {s.TempId} {s.Classroom}".Contains(studentSearch, StringComparison.OrdinalIgnoreCase)));
+    private IEnumerable<string> ClassroomsForForm => students.Where(s => s.Form == selectedForm && !string.IsNullOrWhiteSpace(s.Classroom)).Select(s => s.Classroom!)
+        .Concat(classNamesFromSetup).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x);
+    // One subject catalogue is shared by Forms 1–4. Fields do not determine
+    // which form can offer a subject.
+    private IEnumerable<string> ClassSubjectCatalog => form34Subjects
+        .Select(s => s.Subject)
+        .Where(s => !string.IsNullOrWhiteSpace(s))
+        .Cast<string>()
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(x => x);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            students = await StudentService.GetStudentsAsync();
+            var configuredClasses = await SubjectService.GetAllForm1to4ClassSubjectsAsync();
+            form34Subjects = configuredClasses
+                .SelectMany(c => c.Subjects ?? new List<string>())
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(s => new Form3to4Subjects { Subject = s.Trim() })
+                .ToList();
+            var oLevelClasses = await OLevelClassService.GetAllOlevelClassNamesAsync();
+            classNamesFromSetup = oLevelClasses.Select(c => c.ClassName)
+                .Where(c => !string.IsNullOrWhiteSpace(c)).Cast<string>().Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+            if (InitialForm is >= 1 and <= 4)
+                selectedForm = InitialForm;
+            if (!string.IsNullOrWhiteSpace(InitialClass))
+            {
+                selectedClass = ClassroomsForForm.FirstOrDefault(classroom =>
+                    string.Equals(classroom, InitialClass.Trim(), StringComparison.OrdinalIgnoreCase)) ?? InitialClass.Trim();
+                await LoadSelectedClassSubjectsAsync();
+            }
+        }
+        catch { SetStatus("We could not load the student or subject lists. Please refresh and try again.", true); }
+    }
+
+    private async Task OnFormChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var form)) selectedForm = Math.Clamp(form, 1, 4);
+        selectedClass = string.Empty; classSubjects.Clear(); await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnClassChanged(ChangeEventArgs e)
+    {
+        selectedClass = e.Value?.ToString() ?? string.Empty;
+        await LoadSelectedClassSubjectsAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadSelectedClassSubjectsAsync()
+    {
+        classSubjects = new(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(selectedClass))
+        {
+            var saved = await SubjectService.GetForm1to4ClassSubjectsAsync(selectedForm, selectedClass);
+            if (saved is not null) classSubjects = new(saved.Subjects ?? new(), StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    private async Task OnStudentChanged(ChangeEventArgs e)
+    {
+        int.TryParse(e.Value?.ToString(), out selectedStudentId);
+        selectedStudent = OLevelStudents.FirstOrDefault(s => s.Id == selectedStudentId);
+        studentSubjects = new(StringComparer.OrdinalIgnoreCase); studentClassSubjects = new();
+        if (selectedStudent is not null)
+        {
+            var classSetup = await SubjectService.GetForm1to4ClassSubjectsAsync(selectedStudent.Form ?? 0, selectedStudent.Classroom ?? string.Empty);
+            studentClassSubjects = classSetup?.Subjects?.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x).ToList() ?? new();
+            var choices = await SubjectService.GetForm1to4StudentSubjectsAsync(selectedStudent.Id);
+            studentSubjects = new((choices?.Subjects?.Any() == true ? choices.Subjects : studentClassSubjects), StringComparer.OrdinalIgnoreCase);
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleClassSubject(string subject, ChangeEventArgs e) { if (e.Value is bool value && value) classSubjects.Add(subject); else classSubjects.Remove(subject); }
+    private void ToggleStudentSubject(string subject, ChangeEventArgs e) { if (e.Value is bool value && value) studentSubjects.Add(subject); else studentSubjects.Remove(subject); }
+    private void AddSubjectToCatalog()
+    {
+        var subject = newSubjectName.Trim();
+        if (string.IsNullOrWhiteSpace(subject)) return;
+        form34Subjects.Add(new Form3to4Subjects { Subject = subject });
+        form34Subjects = form34Subjects
+            .Where(s => !string.IsNullOrWhiteSpace(s.Subject))
+            .GroupBy(s => s.Subject!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .OrderBy(s => s.Subject)
+            .ToList();
+        classSubjects.Add(subject);
+        newSubjectName = string.Empty;
+    }
+
+    private async Task SaveClassSubjects()
+    {
+        isSaving = true; ClearStatus();
+        var saved = await SubjectService.SetForm1to4ClassSubjectsAsync(new() { Form = selectedForm, ClassName = selectedClass, Subjects = classSubjects.OrderBy(x => x).ToList() });
+        isSaving = false;
+        if (saved is null)
+            SetStatus("The class subjects could not be saved.", true);
+        else
+        {
+            SetStatus($"Subjects saved for Form {selectedForm} {selectedClass}.");
+            NotificationService.ShowSuccess($"Subjects allocated to Form {selectedForm} {selectedClass}.");
+        }
+    }
+
+    private async Task SaveStudentSubjects()
+    {
+        isSaving = true; ClearStatus();
+        var saved = await SubjectService.UpdateForm1to4StudentSubjectsAsync(selectedStudentId, studentSubjects);
+        isSaving = false;
+        SetStatus(saved is null ? "The student choices could not be saved." : "Student subject choices saved.", saved is null);
+    }
+
+    private void ClearStatus() { status = string.Empty; error = false; }
+    private void SetStatus(string message, bool failed = false) { status = message; error = failed; }
+}

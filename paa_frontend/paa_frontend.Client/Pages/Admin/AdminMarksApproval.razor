@@ -1,0 +1,2547 @@
+@page "/admin/grades/approval"
+@namespace paa_frontend.Client.Pages.Admin
+@layout paa_frontend.Client.Layout.AdminPortalLayout
+@using paa_frontend.Client.Services
+@using paa_frontend.Client.Services.Admin
+@using paa_frontend.Client.Services.StaffPortal
+@using paa_frontend.Shared.Models
+@using static paa_frontend.Shared.Models.StudentProfileModel
+@inject AdminGradesServiceClient AdminGradesService
+@inject StudentProfileServiceClient StudentProfileService
+@inject StudentSubjectServiceClient SubjectService
+@inject OlevelClassServiceClient OlevelClassService
+@inject TeacherProfileServiceClient TeacherService
+@inject AssessmentServiceClient AssessmentService
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+@if (isLoadingCards || isLoadingSubmissions)
+{
+    <AdminLoadingSkeleton />
+}
+
+<style>
+    .hub-nav-link {
+        padding: 0.75rem 1.25rem;
+        font-weight: 700;
+        font-size: 0.875rem;
+        color: #64748b;
+        border-bottom: 2px solid transparent;
+        transition: all 0.15s ease-in-out;
+        text-decoration: none;
+    }
+
+        .hub-nav-link.active {
+            color: #4f46e5;
+            border-bottom-color: #4f46e5;
+        }
+
+        .hub-nav-link:hover {
+            color: #3730a3;
+        }
+
+    .hub-nav {
+        min-width: 0;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+        .hub-nav::-webkit-scrollbar {
+            display: none;
+        }
+
+    .approval-hero {
+        background: linear-gradient(135deg, #1e1b4b 0%, #312e81 45%, #4338ca 100%);
+        border-radius: 1.5rem;
+        padding: 1.75rem 2rem;
+        color: #fff;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+        .approval-hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 80% 50%, rgba(255,255,255,0.06) 0%, transparent 60%);
+            border-radius: inherit;
+        }
+
+    .metric-chip {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 1rem;
+        padding: 0.75rem 1.25rem;
+        backdrop-filter: blur(12px);
+        min-width: 130px;
+    }
+
+    .card {
+        background: #fff;
+        border-radius: 1.25rem;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        overflow: hidden;
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .marks-class-group {
+        border: 1px solid #e2e8f0;
+        border-radius: 0.9rem;
+        background: #fff;
+        overflow: hidden;
+    }
+
+        .marks-class-group > summary {
+            list-style: none;
+        }
+
+            .marks-class-group > summary::-webkit-details-marker {
+                display: none;
+            }
+
+        .marks-class-group[open] .class-chevron {
+            transform: rotate(180deg);
+        }
+
+    .class-chevron {
+        transition: transform 0.15s ease;
+        font-size: 1.1rem;
+        line-height: 1;
+    }
+
+    .summary-chip {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 0.35rem 0.65rem;
+        background: #eef2ff;
+        color: #4338ca;
+        white-space: nowrap;
+    }
+
+    .summary-chip-muted {
+        background: #f1f5f9;
+        color: #64748b;
+    }
+
+    .summary-chip-danger {
+        background: #fff1f2;
+        color: #be123c;
+    }
+
+    .summary-chip-warning {
+        background: #fff7ed;
+        color: #c2410c;
+    }
+
+    .form-label {
+        display: block;
+        font-size: 0.75rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #475569;
+        margin-bottom: 0.5rem;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1.5px solid #cbd5e1;
+        border-radius: 0.75rem;
+        font-size: 0.875rem;
+        color: #1e293b;
+        outline: none;
+        transition: all 0.15s ease-in-out;
+        background: #fff;
+    }
+
+        .form-control:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .form-control:disabled {
+            background: #f1f5f9;
+            color: #94a3b8;
+            cursor: not-allowed;
+            border-color: #e2e8f0;
+        }
+
+    .btn-indigo {
+        padding: 0.75rem 1.5rem;
+        background: #4f46e5;
+        color: #fff;
+        border: none;
+        border-radius: 0.75rem;
+        font-size: 0.875rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s ease-in-out;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+        .btn-indigo:hover:not(:disabled) {
+            background: #4338ca;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+        }
+
+        .btn-indigo:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+    .btn-outline {
+        padding: 0.75rem 1.25rem;
+        background: #fff;
+        color: #475569;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 0.75rem;
+        font-size: 0.875rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s ease-in-out;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+        .btn-outline:hover:not(:disabled) {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+            color: #0f172a;
+        }
+
+        .btn-outline:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+    .status-tab-btn {
+        padding: 1rem 1.25rem;
+        font-weight: 800;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-bottom: 2px solid transparent;
+        transition: all 0.15s ease-in-out;
+        white-space: nowrap;
+        background: transparent;
+        border-top: none;
+        border-left: none;
+        border-right: none;
+        cursor: pointer;
+    }
+
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.68rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .badge-ready {
+        background: #dcfce7;
+        color: #15803d;
+    }
+
+    .badge-partial {
+        background: #fef3c7;
+        color: #b45309;
+    }
+
+    .badge-none {
+        background: #fee2e2;
+        color: #b91c1c;
+    }
+
+    .badge-pending {
+        background: #f3e8ff;
+        color: #7e22ce;
+    }
+
+    .badge-approved {
+        background: #e0f2fe;
+        color: #0369a1;
+    }
+
+    .badge-setup {
+        background: #f1f5f9;
+        color: #475569;
+    }
+
+    .progress-bar-container {
+        width: 100%;
+        background-color: #f1f5f9;
+        border-radius: 9999px;
+        height: 6px;
+        overflow: hidden;
+    }
+
+    .progress-bar-fill {
+        height: 100%;
+        border-radius: 9999px;
+        transition: width 0.3s ease;
+    }
+
+    .subject-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.2rem 0.55rem;
+        border-radius: 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        background: #f1f5f9;
+        color: #334155;
+    }
+
+        .subject-pill.missing {
+            background: #fff1f2;
+            color: #e11d48;
+            border: 1px solid #ffe4e6;
+        }
+
+    .table-wrap {
+        overflow-x: auto;
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    thead th {
+        padding: 0.875rem 1.25rem;
+        font-size: 0.75rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        text-align: left;
+    }
+
+    tbody td {
+        padding: 1rem 1.25rem;
+        font-size: 0.875rem;
+        color: #334155;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+    }
+
+    tbody tr:hover {
+        background: rgba(79, 70, 229, 0.02);
+    }
+
+    .student-missing-details {
+        margin-top: 12px;
+        border: 1px solid #fecaca;
+        border-radius: 12px;
+        background: #fff7f7;
+        overflow: hidden;
+    }
+
+        .student-missing-details summary {
+            list-style: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 11px 13px;
+            color: #b91c1c;
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+            .student-missing-details summary::-webkit-details-marker {
+                display: none;
+            }
+
+            .student-missing-details summary::after {
+                content: '⌄';
+                font-size: 16px;
+                line-height: 1;
+                color: #ef4444;
+            }
+
+        .student-missing-details[open] summary::after {
+            content: '⌃';
+        }
+
+    .missing-mark-list {
+        border-top: 1px solid #fecaca;
+        padding: 10px 13px 12px;
+        display: grid;
+        gap: 7px;
+    }
+
+    .missing-mark-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 11px;
+        color: #7f1d1d;
+    }
+
+        .missing-mark-row strong {
+            color: #450a0a;
+        }
+
+    .missing-mark-type {
+        white-space: nowrap;
+        border-radius: 999px;
+        padding: 3px 8px;
+        background: #fee2e2;
+        color: #b91c1c;
+        font-size: 10px;
+        font-weight: 800;
+    }
+
+    .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+        z-index: 999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+    }
+
+    .modal-card {
+        background: #fff;
+        border-radius: 1.5rem;
+        width: 100%;
+        max-width: 500px;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        border: 1px solid #e2e8f0;
+        animation: scaleIn 0.2s ease-out;
+    }
+
+    @@keyframes scaleIn {
+        from {
+            transform: scale(0.95);
+            opacity: 0;
+        }
+
+        to {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+
+    @@media (max-width: 640px) {
+        .grid > *, .flex, .card, .approval-hero {
+            min-width: 0;
+            max-width: 100%;
+        }
+
+            .approval-hero .flex {
+                flex-wrap: wrap;
+            }
+
+            .approval-hero .metric-chip {
+                min-width: 0;
+            }
+
+        .hub-nav-link {
+            padding: 0.65rem 0.75rem;
+            font-size: 0.72rem;
+            white-space: nowrap;
+        }
+
+        .approval-hero {
+            padding: 1.25rem 1rem;
+            border-radius: 1rem;
+            margin-bottom: 1rem;
+        }
+
+            .approval-hero h1 {
+                font-size: 1.5rem;
+                line-height: 1.2;
+            }
+
+        .metric-chip {
+            flex: 1 1 calc(50% - 0.5rem);
+            min-width: 0;
+            padding: 0.65rem 0.5rem;
+        }
+
+        .card {
+            border-radius: 0.85rem;
+        }
+
+        .table-wrap {
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+        }
+
+            .table-wrap table {
+                min-width: 820px;
+            }
+
+            .table-wrap thead th,
+            .table-wrap tbody td {
+                padding: 0.7rem 0.75rem;
+            }
+
+        .status-tab-btn {
+            padding: 0.8rem 0.75rem;
+            font-size: 0.68rem;
+        }
+
+        .modal-backdrop {
+            padding: 0.5rem;
+            align-items: flex-end;
+        }
+
+        .modal-card {
+            max-height: calc(100vh - 1rem);
+            overflow-y: auto;
+            border-radius: 1rem;
+        }
+    }
+</style>
+
+<!-- Grades Hub Navigation Header -->
+<div class="hub-nav flex border-b border-slate-200 mb-6 gap-2">
+    <a href="/admin/grades/approval" class="hub-nav-link active">
+        1. Marks Review &amp; Generation
+    </a>
+    <a href="/admin/grades/reports" class="hub-nav-link">
+        2. Report Approval Queue
+    </a>
+</div>
+
+<!-- Hero Section -->
+<div class="approval-hero shadow-lg">
+    <div class="relative z-10">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div>
+                <span class="inline-block px-3 py-1 rounded-full bg-white/20 text-white text-[length:0.65rem] font-extrabold uppercase tracking-widest mb-3 border border-white/20">
+                    Admin Portal
+                </span>
+                <h1 class="text-3xl font-black tracking-tight mb-2 text-white">Marks Review &amp; Generation</h1>
+                <p class="text-white/80 text-sm font-medium max-w-xl">
+                    Check complete class grades. Review missing assignments, tests, or exams from teachers, generate draft report cards, and send them to the approval queue.
+                </p>
+            </div>
+
+            <div class="flex gap-3 flex-wrap">
+                <div class="metric-chip text-center">
+                    <div class="text-white/70 text-[length:0.6rem] font-bold uppercase tracking-wider mb-1">Ready to Generate</div>
+                    <div class="text-2xl font-black">@generationRoster.Count(r => r.Status == GenerationStatus.Ready)</div>
+                    <div class="text-white/60 text-[length:0.55rem] mt-0.5">Students complete</div>
+                </div>
+                <div class="metric-chip text-center">
+                    <div class="text-white/70 text-[length:0.6rem] font-bold uppercase tracking-wider mb-1">Missing Marks</div>
+                    <div class="text-2xl font-black">@generationRoster.Count(r => r.Status is GenerationStatus.Partial or GenerationStatus.NoMarks or GenerationStatus.NoSubjectSetup)</div>
+                    <div class="text-white/60 text-[length:0.55rem] mt-0.5">Action required</div>
+                </div>
+                <div class="metric-chip text-center">
+                    <div class="text-white/70 text-[length:0.6rem] font-bold uppercase tracking-wider mb-1">Draft Reports</div>
+                    <div class="text-2xl font-black">@allCards.Count(c => !c.AdminApproved)</div>
+                    <div class="text-white/60 text-[length:0.55rem] mt-0.5">Pending approval</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(statusMsg))
+{
+    <div class="mb-6 p-4 rounded-2xl text-sm font-bold border @(statusError ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-indigo-50 text-indigo-700 border-indigo-200")">
+        <div class="flex items-center gap-2">
+            @if (statusError)
+            {
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+            }
+            else
+            {
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+            }
+            <span>@statusMsg</span>
+        </div>
+    </div>
+}
+
+<div class="grid grid-cols-1 xl:grid-cols-4 gap-6 items-start">
+    <!-- Filters Panel -->
+    <div class="card p-5 xl:col-span-1">
+        <div class="border-b border-slate-100 pb-4 mb-4">
+            <h3 class="text-base font-extrabold text-slate-900">1. Select Target Class</h3>
+            <p class="text-xs text-slate-500 mt-1">Configure level and term parameters to review marks.</p>
+        </div>
+
+        <div class="space-y-4">
+            <div>
+                <label class="form-label">Form</label>
+                <select class="form-control" @bind="genForm" @bind:after="OnFormFilterChangedAsync">
+                    <option value="0">Select Form</option>
+                    @foreach (var form in AvailableForms)
+                    {
+                        <option value="@form">Form @form</option>
+                    }
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label">Class</label>
+                <select class="form-control" @bind="genClass" disabled="@(genForm <= 0)">
+                    <option value="">All Classes</option>
+                    @foreach (var className in AvailableClassesForForm)
+                    {
+                        <option value="@className">@className</option>
+                    }
+                </select>
+            </div>
+
+            @if (genLevel == "olevel")
+            {
+                <div>
+                    <label class="form-label">O-Level Field Filter</label>
+                    <select class="form-control" @bind="genField">
+                        <option value="">All Fields</option>
+                        @foreach (var f in olevelFields)
+                        {
+                            <option value="@f">@f</option>
+                        }
+                    </select>
+                </div>
+            }
+
+            <div>
+                <label class="form-label">Academic Term</label>
+                <select class="form-control" @bind="genTerm">
+                    <option value="Term 1">Term 1</option>
+                    <option value="Term 2">Term 2</option>
+                    <option value="Term 3">Term 3</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label">Academic Year</label>
+                <input class="form-control" type="number" @bind="genYear" min="2020" max="2035" />
+            </div>
+
+            <div>
+                <div class="flex justify-between items-center mb-1">
+                    <label class="form-label mb-0">Coursework Weight (%)</label>
+                    <span class="text-xs font-bold text-indigo-600">@genCwWeight% / @(100 - genCwWeight)% Exam</span>
+                </div>
+                <input class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" type="range" @bind="genCwWeight" @bind:after="PersistCourseworkWeight" min="0" max="100" step="5" />
+            </div>
+        </div>
+
+        <div class="mt-6 pt-5 border-t border-slate-100 flex flex-col gap-2">
+            <button class="btn-indigo w-full justify-center" disabled="@(string.IsNullOrEmpty(genLevel) || isAnalyzingRoster)" @onclick="RunGenerationRosterAsync">
+                @if (isAnalyzingRoster)
+                {
+                    <svg class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M21 12a9 9 0 1 1-6.22-8.56" /></svg>
+                    <span>Analyzing...</span>
+                }
+                else
+                {
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" /></svg>
+                    <span>Preview &amp; Fetch Queue</span>
+                }
+            </button>
+
+            @if (generationRoster.Any(r => r.Status == GenerationStatus.Ready))
+            {
+                <button class="btn-outline w-full justify-center !text-emerald-700 !border-emerald-200 hover:!bg-emerald-50"
+                        disabled="@(isGenerating)"
+                        @onclick="GenerateBulkAsync">
+                    @if (isGenerating)
+                    {
+                        <svg class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M21 12a9 9 0 1 1-6.22-8.56" /></svg>
+                        <span>Generating...</span>
+                    }
+                    else
+                    {
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>
+                        <span>Generate @generationRoster.Count(r => r.Status == GenerationStatus.Ready) Ready Reports</span>
+                    }
+                </button>
+            }
+        </div>
+    </div>
+
+    <!-- Student Queue / Workspace -->
+    <div class="card xl:col-span-3">
+        <!-- Roster Tabs & Search Bar -->
+        <div class="bg-slate-50 border-b border-slate-200 p-4 flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4">
+            <div class="flex border-b border-slate-200 overflow-x-auto flex-nowrap md:border-b-0">
+                <button class="status-tab-btn @(activeTab == "ready" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-900")"
+                        @onclick='() => SetActiveTabAsync("ready")'>
+                    Ready for Report (@generationRoster.Count(r => r.Status == GenerationStatus.Ready))
+                </button>
+                <button class="status-tab-btn @(activeTab == "missing" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-900")"
+                        @onclick='() => SetActiveTabAsync("missing")'>
+                    Missing Marks (@generationRoster.Count(r => r.Status is GenerationStatus.Partial or GenerationStatus.NoMarks or GenerationStatus.NoSubjectSetup))
+                </button>
+                <button class="status-tab-btn @(activeTab == "generated" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-900")"
+                        @onclick='() => SetActiveTabAsync("generated")'>
+                    Generated Drafts (@generationRoster.Count(r => r.Status is GenerationStatus.Pending or GenerationStatus.Approved))
+                </button>
+                <button class="status-tab-btn @(activeTab == "submissions" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-900")"
+                        @onclick='() => SetActiveTabAsync("submissions")'>
+                    Teacher Submissions (@FilteredSubmissions.Count())
+                </button>
+            </div>
+
+            <!-- Contextual Filters inside Queue -->
+            <div class="flex items-center gap-2 flex-1 md:flex-initial max-w-sm">
+                <svg class="text-slate-400 shrink-0 ml-1" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                <input class="form-control !py-1.5 !px-3 !text-xs" type="text"
+                       placeholder="@(activeTab == "submissions" ? "Search submissions by subject..." : "Search queue by student name...")"
+                       @bind="rosterSearch" @bind:event="oninput" />
+            </div>
+        </div>
+
+        @if (isAnalyzingRoster)
+        {
+            <div class="p-16 text-center">
+                <svg class="mx-auto mb-4 animate-spin text-indigo-600" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.22-8.56" /></svg>
+                <h4 class="text-base font-extrabold text-slate-900">Validating mark coverage...</h4>
+                <p class="text-xs text-slate-500 mt-1">Fetching coursework and exam scores, checking subject configurations, and identifying missing marks.</p>
+            </div>
+        }
+        else if (string.IsNullOrEmpty(genLevel))
+        {
+            <div class="p-16 text-center text-slate-400">
+                <svg class="mx-auto mb-4" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="9" x2="15" y2="9" /><line x1="9" y1="13" x2="15" y2="13" /><line x1="9" y1="17" x2="13" y2="17" /></svg>
+                <h4 class="text-base font-bold text-slate-700">No Academic Level Selected</h4>
+                <p class="text-xs text-slate-400 mt-1 max-w-md mx-auto">Please choose an Academic Level and Academic Year from the left panel to load the student marks queue.</p>
+            </div>
+        }
+        else
+        {
+            <!-- Tab Contents -->
+            <div class="table-wrap">
+                @if (activeTab == "ready")
+                {
+                    var readyRows = FilteredRoster.Where(r => r.Status == GenerationStatus.Ready).ToList();
+                    if (!readyRows.Any())
+                    {
+                        <div class="p-12 text-center text-slate-400">
+                            <svg class="mx-auto mb-3" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+                            <h5 class="text-sm font-extrabold text-slate-800">No Students Ready for Generation</h5>
+                            <p class="text-xs text-slate-500 mt-1">Either all report cards are already generated, or students are missing teacher marks.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="space-y-3 p-3 sm:p-4">
+                            @foreach (var classGroup in readyRows.GroupBy(GetClassLabel).OrderBy(g => g.Key))
+                            {
+                                <details class="marks-class-group">
+                                    <summary class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 cursor-pointer">
+                                        <div class="min-w-0">
+                                            <div class="flex items-center gap-2"><span class="class-chevron text-slate-400">⌄</span><span class="font-extrabold text-slate-900">@classGroup.Key</span></div>
+                                            <div class="text-xs text-slate-500 mt-1">@classGroup.Count() student@(classGroup.Count() == 1 ? "" : "s") ready for generation</div>
+                                        </div>
+                                        <div class="flex flex-wrap gap-2 text-xs font-bold">
+                                            <span class="summary-chip">@classGroup.Count() students</span>
+                                            <span class="summary-chip summary-chip-muted">0 missing marks</span>
+                                        </div>
+                                    </summary>
+                                    <div class="divide-y divide-slate-100 border-t border-slate-100">
+                                        @foreach (var row in classGroup)
+                                        {
+                                            <div class="flex flex-col lg:flex-row lg:items-center gap-3 p-4">
+                                                <div class="min-w-0 flex-1">
+                                                    <div class="font-bold text-slate-900 leading-tight">@row.Student.FirstName @row.Student.LastName</div>
+                                                    <div class="text-xs text-slate-400 mt-0.5">ID: #@row.Student.Id</div>
+                                                </div>
+                                                <div class="flex flex-wrap items-center gap-2 text-xs">
+                                                    @if (!string.IsNullOrWhiteSpace(row.FieldName))
+                                                    {
+                                                        <span class="summary-chip text-indigo-600">@row.FieldName</span>
+                                                    }
+                                                    <span class="badge" style="background:#f1f5f9;color:#334155;">@row.ExpectedSubjectCount subjects</span>
+                                                    <span class="badge badge-ready">Ready</span>
+                                                </div>
+                                                <button class="btn-indigo !py-1.5 !px-3 !text-xs w-full lg:w-auto" disabled="@isGenerating" @onclick="() => OnGenerateClick(row)">Generate Report</button>
+                                            </div>
+                                        }
+                                    </div>
+                                </details>
+                            }
+                        </div>
+                    }
+                }
+                else if (activeTab == "missing")
+                {
+                    var missingRows = FilteredRoster.Where(r => r.Status is GenerationStatus.Partial or GenerationStatus.NoMarks or GenerationStatus.NoSubjectSetup).ToList();
+                    if (!missingRows.Any())
+                    {
+                        <div class="p-12 text-center text-slate-400">
+                            <svg class="mx-auto mb-3" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" /></svg>
+                            <h5 class="text-sm font-extrabold text-slate-800">All Marks Complete!</h5>
+                            <p class="text-xs text-slate-500 mt-1">There are no students missing marks for this academic term.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="space-y-3 p-3 sm:p-4">
+                            @foreach (var classGroup in missingRows.GroupBy(GetClassLabel).OrderBy(g => g.Key))
+                            {
+                                var missingMarkStudents = classGroup.Count(HasMissingMarks);
+                                <details class="marks-class-group">
+                                    <summary class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 cursor-pointer">
+                                        <div class="min-w-0">
+                                            <div class="flex items-center gap-2"><span class="class-chevron text-slate-400">⌄</span><span class="font-extrabold text-slate-900">@classGroup.Key</span></div>
+                                            <div class="text-xs text-slate-500 mt-1">@classGroup.Count() student@(classGroup.Count() == 1 ? "" : "s") need attention</div>
+                                        </div>
+                                        <div class="flex flex-wrap gap-2 text-xs font-bold">
+                                            <span class="summary-chip">@classGroup.Count() students</span>
+                                            <span class="summary-chip @(missingMarkStudents > 0 ? "summary-chip-danger" : "summary-chip-muted")">@missingMarkStudents missing marks</span>
+                                        </div>
+                                    </summary>
+                                    <div class="divide-y divide-slate-100 border-t border-slate-100">
+                                        @foreach (var row in classGroup)
+                                        {
+                                            <div class="p-4">
+                                                <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                                                    <div class="min-w-0"><div class="font-bold text-slate-900 leading-tight">@row.Student.FirstName @row.Student.LastName</div><div class="text-xs text-slate-400 mt-0.5">ID: #@row.Student.Id</div></div>
+                                                    <div class="text-xs text-slate-500">
+                                                        @if (row.Status == GenerationStatus.NoSubjectSetup)
+                                                        {
+                                                            <span class="text-rose-500 font-bold">Subject setup missing</span>
+                                                        }
+                                                        else if (!string.IsNullOrWhiteSpace(row.FieldName))
+                                                        {
+
+                                                            <span class="text-indigo-600 font-semibold">@row.FieldName</span>
+                                                        }
+                                                    </div>
+                                                </div>
+                                                @if (row.Status == GenerationStatus.NoSubjectSetup)
+                                                {
+                                                    <p class="text-xs text-slate-500 font-medium mt-3">Please assign subjects to this student in academic settings first.</p>
+                                                }
+                                                else
+                                                {
+                                                    var missingMarks = row.SubjectCoverage.Where(s => !s.IsComplete).ToList();
+                                                    @if (missingMarks.Any())
+                                                    {
+                                                        <details class="student-missing-details">
+                                                            <summary>View @missingMarks.Count missing subject@(missingMarks.Count == 1 ? "" : "s") and marks</summary>
+                                                            <div class="missing-mark-list">
+                                                                @foreach (var missing in missingMarks)
+                                                                {
+                                                                    var missingParts = new List<string>();
+                                                                    if (!missing.HasCoursework) missingParts.Add("Coursework");
+                                                                    if (!missing.HasExam) missingParts.Add("Exam");
+                                                                    <div class="missing-mark-row"><strong>@missing.SubjectName</strong><span class="missing-mark-type">Missing: @string.Join(" + ", missingParts)</span></div>
+                                                                }
+                                                            </div>
+                                                        </details>
+                                                    }
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                </details>
+                            }
+                        </div>
+                    }
+                }
+                else if (activeTab == "generated")
+                {
+                    var generatedRows = FilteredRoster.Where(r => r.Status is GenerationStatus.Pending or GenerationStatus.Approved).ToList();
+                    if (!generatedRows.Any())
+                    {
+                        <div class="p-12 text-center text-slate-400">
+                            <svg class="mx-auto mb-3" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="9" x2="15" y2="9" /><line x1="9" y1="13" x2="15" y2="13" /><line x1="9" y1="17" x2="13" y2="17" /></svg>
+                            <h5 class="text-sm font-extrabold text-slate-800">No Reports Generated Yet</h5>
+                            <p class="text-xs text-slate-500 mt-1">Use the "Ready for Report" tab to generate report cards first.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Student Name</th>
+                                    <th>Class &amp; Level</th>
+                                    <th>Subjects</th>
+                                    <th>Average Score</th>
+                                    <th>Status</th>
+                                    <th style="text-align:right;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in generatedRows)
+                                {
+                                    var card = row.ExistingCard!;
+                                    var avg = card.Subjects?.Any() == true ? card.Subjects.Average(s => s.FinalMark) : 0;
+                                    var isFailing = avg < 50;
+
+                                    <tr>
+                                        <td>
+                                            <div class="font-bold text-slate-900 leading-tight">@row.Student.FirstName @row.Student.LastName</div>
+                                            <div class="text-xs text-slate-400 mt-0.5">ID: #@row.Student.Id</div>
+                                        </td>
+                                        <td>
+                                            <div class="font-semibold text-slate-700">Form @row.Student.Form @row.Student.Classroom</div>
+                                            <div class="text-xs text-slate-400 mt-0.5">@card.Term @card.TermYear</div>
+                                        </td>
+                                        <td>
+                                            <span class="badge" style="background:#ede9fe;color:#5b21b6;">@(card.Subjects?.Count ?? 0) subjects</span>
+                                        </td>
+                                        <td>
+                                            <span class="font-mono font-bold text-sm" style="color:@(isFailing ? "#dc2626" : "#16a34a")">
+                                                @avg.ToString("F1")%
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge @row.StatusClass">@row.StatusLabel</span>
+                                        </td>
+                                        <td style="text-align:right;">
+                                            <div class="flex gap-2 justify-end">
+                                                <span class="text-[length:0.68rem] font-bold text-slate-400" title="The current report-generation API does not replace existing report cards.">
+                                                    Existing report
+                                                </span>
+                                                @if (row.Status == GenerationStatus.Pending)
+                                                {
+                                                    <a href="/admin/grades/reports" class="btn-indigo !py-1 !px-2.5 !text-xs !bg-indigo-50 !text-indigo-600 border border-indigo-200 hover:!bg-indigo-100" style="text-decoration:none;">
+                                                        Review &amp; Approve &rarr;
+                                                    </a>
+                                                }
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                }
+                else if (activeTab == "submissions")
+                {
+                    if (!FilteredSubmissions.Any())
+                    {
+                        <div class="p-12 text-center text-slate-400">
+                            <svg class="mx-auto mb-3" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M9 17H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4" /><path d="M15 13h6v8H15z" /></svg>
+                            <h5 class="text-sm font-extrabold text-slate-800">No Teacher Submissions Found</h5>
+                            @if (string.IsNullOrWhiteSpace(genLevel))
+                            {
+                                <p class="text-xs text-slate-500 mt-1">Select a form and click <strong>Preview &amp; Fetch Queue</strong> first.</p>
+                            }
+                            else
+                            {
+                                <p class="text-xs text-slate-500 mt-1">No assessments match the selected form, field, term, and year.</p>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(submissionStatusMsg))
+                            {
+                                <p class="text-xs text-amber-600 mt-2 font-semibold">@submissionStatusMsg</p>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="flex flex-col gap-3 p-3 sm:p-4">
+                            @foreach (var teacherGroup in FilteredSubmissions
+                                .GroupBy(s => s.TeacherId?.ToString() ?? $"unassigned:{s.TeacherName}")
+                                .OrderBy(g => g.First().TeacherName))
+                            {
+                                var teacher = teacherGroup.First();
+                                var teacherSubjects = teacherGroup.Select(s => s.SubjectName).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(s => s).ToList();
+                                <details class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+                                    <summary class="cursor-pointer list-none px-4 py-3 flex items-center justify-between gap-3 hover:bg-slate-50">
+                                        <div class="min-w-0">
+                                            <div class="font-bold text-slate-900">@teacher.TeacherName</div>
+                                            <div class="text-xs text-slate-500 mt-1">@teacherGroup.Count() submission(s) · @teacherSubjects.Count subject(s) · click to view assessments</div>
+                                        </div>
+                                        <div class="flex flex-wrap justify-end gap-1.5">
+                                            @foreach (var subject in teacherSubjects)
+                                            {
+                                                <span class="badge" style="background:#eef2ff;color:#4338ca;">@subject</span>
+                                            }
+                                        </div>
+                                    </summary>
+                                    <div class="overflow-x-auto border-t border-slate-100">
+                                        <table>
+                                            <thead>
+                                                <tr>
+                                                    <th>Subject</th>
+                                                    <th>Assessment</th>
+                                                    <th>Type</th>
+                                                    <th>Weight</th>
+                                                    <th>Max Score</th>
+                                                    <th>Date</th>
+                                                    <th style="text-align:right;">Marks</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var sub in teacherGroup.OrderBy(s => s.SubjectName).ThenBy(s => s.Date))
+                                                {
+                                                    var typeBg = sub.Type switch
+                                                    {
+                                                        "Test" => "rgba(245, 158, 11, 0.1)",
+                                                        "Exam" => "rgba(139, 92, 246, 0.1)",
+                                                        _ => "rgba(59, 130, 246, 0.1)"
+                                                    };
+                                                    var typeFg = sub.Type switch
+                                                    {
+                                                        "Test" => "#d97706",
+                                                        "Exam" => "#7c3aed",
+                                                        _ => "#2563eb"
+                                                    };
+                                                    <tr>
+                                                        <td><div class="font-bold text-slate-900">@sub.SubjectName</div></td>
+                                                        <td><span class="font-semibold text-slate-800">@sub.Title</span></td>
+                                                        <td><span class="badge" style="background:@typeBg;color:@typeFg">@sub.Type</span></td>
+                                                        <td class="font-mono text-sm">@((sub.Weight * 100).ToString("F0"))%</td>
+                                                        <td class="font-mono text-sm font-bold">@sub.MaxScore pts</td>
+                                                        <td><span class="text-slate-500">@(sub.Date == default ? "Date unavailable" : sub.Date.ToString("dd MMM yyyy"))</span></td>
+                                                        <td style="text-align:right;">
+                                                            @if (sub.TeacherId.HasValue)
+                                                            {
+                                                                <a href="@GetTeacherAnalyticsUrl(sub)" class="btn-outline !py-1 !px-2.5 !text-xs" style="text-decoration:none;">View Marks</a>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="text-xs text-slate-400">No teacher</span>
+                                                            }
+                                                        </td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </details>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Regenerate Confirmation Modal -->
+@if (showRegenModal)
+{
+    <div class="modal-backdrop" @onclick="() => showRegenModal = false">
+        <div class="modal-card" @onclick:stopPropagation="true">
+            <div class="p-6">
+                <div class="flex items-center gap-3 text-amber-600 mb-3">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                    <h4 class="text-lg font-black text-slate-900">Regenerate Report Card?</h4>
+                </div>
+                <p class="text-sm text-slate-600 leading-relaxed">
+                    A report card already exists for <strong class="text-slate-900">@regenStudentName</strong> for <strong class="text-slate-900">@genTerm @genYear</strong>.
+                </p>
+                <p class="text-xs text-slate-500 mt-2 leading-relaxed bg-slate-50 border border-slate-100 p-2.5 rounded-xl">
+                    Regenerating will override the draft with the latest coursework and exam marks. Report comments are generated automatically.
+                </p>
+
+                <div class="mt-6 flex justify-end gap-3">
+                    <button class="btn-outline" @onclick="() => showRegenModal = false">Cancel</button>
+                    <button class="btn-indigo !bg-amber-600 hover:!bg-amber-700" @onclick="ConfirmRegenAsync">Confirm &amp; Overwrite</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private enum GenerationStatus { Ready, Partial, NoMarks, Pending, Approved, NoSubjectSetup }
+
+    private sealed class GenerationRosterRow
+    {
+        public Student Student { get; init; } = new();
+        public string FieldName { get; init; } = string.Empty;
+        public List<SubjectStatus> SubjectCoverage { get; init; } = new();
+        public int ExpectedSubjectCount => SubjectCoverage.Count;
+        public int CoveredSubjectCount => SubjectCoverage.Count(s => s.IsComplete);
+        public int CourseworkSubjectCount => SubjectCoverage.Count(s => s.HasCoursework);
+        public int ExamSubjectCount => SubjectCoverage.Count(s => s.HasExam);
+        public ReportCardModel? ExistingCard { get; init; }
+        public GenerationStatus Status { get; init; }
+        public string StatusLabel { get; init; } = string.Empty;
+        public string StatusClass { get; init; } = string.Empty;
+        public bool CanGenerate { get; init; }
+    }
+
+    public class SubjectStatus
+    {
+        public string SubjectName { get; init; } = string.Empty;
+        public bool HasCoursework { get; init; }
+        public bool HasExam { get; init; }
+        public bool IsComplete => HasCoursework || HasExam;
+    }
+
+    public class TeacherSubmissionItem
+    {
+        public long? TeacherId { get; init; }
+        public string TeacherName { get; init; } = "Unassigned teacher";
+        public string SubjectName { get; init; } = string.Empty;
+        public string Title { get; init; } = string.Empty;
+        public string Type { get; init; } = string.Empty; // "Assignment", "Test", "Exam"
+        public double Weight { get; init; }
+        public double MaxScore { get; init; }
+        public DateOnly Date { get; init; }
+    }
+
+    // Generation controls state
+    private string genLevel = "";
+    private string genField = "";
+    private string genClass = "";
+    private int genForm = 0;
+    private string genTerm = GetCurrentTerm();
+    private int genYear = DateTime.Now.Year;
+    private double genCwWeight = 30;
+    private long genStudentId = 0;
+    private string rosterSearch = "";
+    private string activeTab = "ready";
+
+    // Data
+    private List<ReportCardModel> allCards = new();
+    private List<Student> allStudents = new();
+    private List<Student> eligibleStudents = new();
+    private List<GenerationRosterRow> generationRoster = new();
+    private List<string> olevelFields = new();
+    private IEnumerable<string> AvailableClassesForForm => allStudents
+        .Where(s => genForm <= 0 || s.Form == genForm)
+        .Select(s => s.Classroom?.Trim())
+        .Where(c => !string.IsNullOrWhiteSpace(c))
+        .Select(c => c!)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(c => c);
+
+    private static readonly int[] AvailableForms = { 1, 2, 3, 4, 5, 6 };
+    private Dictionary<long, string> studentNames = new();
+    private Dictionary<long, string> olevelFieldCache = new();
+    private Dictionary<long, List<string>> alevelChoiceCache = new();
+    private Dictionary<long, string> teacherNames = new();
+    private System.Collections.Concurrent.ConcurrentDictionary<string, List<string>> expectedSubjectCache = new();
+
+    // Loading flags
+    private bool isLoadingCards = false;
+    private bool isGenerating = false;
+    private bool isAnalyzingRoster = false;
+    private string statusMsg = "";
+    private bool statusError;
+
+    // Regeneration confirm state
+    private bool showRegenModal = false;
+    private long regenStudentId = 0;
+    private string regenStudentName = "";
+
+    // Teacher Submissions Data
+    private List<TeacherSubmissionItem> teacherSubmissions = new();
+    private bool isLoadingSubmissions = false;
+    private string submissionStatusMsg = "";
+
+    private IEnumerable<GenerationRosterRow> FilteredRoster =>
+        generationRoster.Where(r =>
+            string.IsNullOrWhiteSpace(rosterSearch) ||
+            $"{r.Student.FirstName} {r.Student.LastName}".Contains(rosterSearch, StringComparison.OrdinalIgnoreCase) ||
+            (r.Student.Classroom ?? string.Empty).Contains(rosterSearch, StringComparison.OrdinalIgnoreCase));
+
+    private IEnumerable<TeacherSubmissionItem> FilteredSubmissions =>
+        teacherSubmissions.Where(s =>
+            string.IsNullOrWhiteSpace(rosterSearch) ||
+            s.TeacherName.Contains(rosterSearch, StringComparison.OrdinalIgnoreCase) ||
+            s.SubjectName.Contains(rosterSearch, StringComparison.OrdinalIgnoreCase) ||
+            s.Title.Contains(rosterSearch, StringComparison.OrdinalIgnoreCase));
+
+    private bool dataLoadAttempted;
+    private int queueLoadVersion;
+
+    private const string CourseworkWeightStorageKey = "paa.admin.courseworkWeightPercent";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var stored = await JS.InvokeAsync<string?>("localStorage.getItem", CourseworkWeightStorageKey);
+            if (double.TryParse(stored, out var savedWeight))
+                genCwWeight = Math.Clamp(savedWeight, 0, 100);
+        }
+        catch { }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || dataLoadAttempted) return;
+        dataLoadAttempted = true;
+
+        await Task.WhenAll(LoadStudentsAsync(), LoadFieldsAsync(), LoadAlevelChoicesAsync());
+        StateHasChanged();
+    }
+
+    private async Task LoadStudentsAsync()
+    {
+        try
+        {
+            allStudents = await StudentProfileService.GetStudentsAsync();
+            studentNames = allStudents
+                .GroupBy(s => (long)s.Id)
+                .ToDictionary(g => g.Key, g => $"{g.First().FirstName} {g.First().LastName}".Trim());
+        }
+        catch
+        {
+            allStudents = new();
+            studentNames = new();
+        }
+    }
+
+    private async Task PersistCourseworkWeight()
+    {
+        genCwWeight = Math.Clamp(genCwWeight, 0, 100);
+        await JS.InvokeVoidAsync("localStorage.setItem", CourseworkWeightStorageKey, genCwWeight.ToString());
+    }
+
+    private async Task LoadAlevelChoicesAsync()
+    {
+        try
+        {
+            var choices = await SubjectService.GetStudentALevelSubjectChoicesAsync();
+            alevelChoiceCache = choices
+                .GroupBy(c => c.StudentId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.SelectMany(c => c.Subjects ?? new List<string>())
+                          .Where(s => !string.IsNullOrWhiteSpace(s))
+                          .Distinct(StringComparer.OrdinalIgnoreCase)
+                          .ToList());
+        }
+        catch { alevelChoiceCache = new(); }
+    }
+
+    private async Task LoadFieldsAsync()
+    {
+        try
+        {
+            var fields = await OlevelClassService.GetAllOlevelFieldsAsync();
+            olevelFields = fields.Select(f => f.Field ?? "").Where(f => !string.IsNullOrWhiteSpace(f)).Distinct().OrderBy(f => f).ToList();
+        }
+        catch { olevelFields = new() { "Sciences", "Commercials", "Arts" }; }
+    }
+
+    private async Task OnLevelChangedAsync()
+    {
+        var requestVersion = ++queueLoadVersion;
+        genStudentId = 0;
+        generationRoster.Clear();
+        teacherSubmissions.Clear();
+        expectedSubjectCache.Clear();
+        genClass = "";
+        genForm = 0;
+        eligibleStudents = new();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnFormFilterChangedAsync()
+    {
+        // Class names can be reused between forms (for example Form 1 A2 and
+        // Form 2 A2), so a previous class selection is no longer unambiguous.
+        genLevel = genForm switch
+        {
+            >= 1 and <= 4 => "form1to4",
+            5 or 6 => "alevel",
+            _ => ""
+        };
+        genClass = "";
+        generationRoster.Clear();
+        teacherSubmissions.Clear();
+        expectedSubjectCache.Clear();
+        eligibleStudents = new();
+        statusMsg = "Select the remaining filters, then click Preview & Fetch Queue.";
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ReloadQueueAsync()
+    {
+        if (string.IsNullOrWhiteSpace(genLevel)) return;
+
+        var requestVersion = ++queueLoadVersion;
+        if (activeTab == "submissions")
+            await LoadTeacherSubmissionsAsync(requestVersion);
+        else
+            await BuildGenerationRosterAsync(requestVersion);
+    }
+
+    private async Task SetActiveTabAsync(string tab)
+    {
+        var requestVersion = ++queueLoadVersion;
+        activeTab = tab;
+        rosterSearch = "";
+        await InvokeAsync(StateHasChanged);
+
+        // Switching tabs must load its data. Previously the submissions tab
+        // only changed the active view, leaving teacherSubmissions empty until
+        // the user manually ran the queue fetch again.
+        if (tab == "submissions" && !string.IsNullOrWhiteSpace(genLevel))
+            await LoadTeacherSubmissionsAsync(requestVersion);
+    }
+
+    private Task RunGenerationRosterAsync()
+    {
+        var requestVersion = ++queueLoadVersion;
+        return BuildGenerationRosterAsync(requestVersion);
+    }
+
+    private static List<Student> FilterStudentsForLevel(IEnumerable<Student> students, string level) => level switch
+    {
+        "form1to4" => students.Where(s => s.Form is >= 1 and <= 4).ToList(),
+        "olevel" => students.Where(s => s.Form is 3 or 4).ToList(),
+        "alevel" => students.Where(s => s.Form is 5 or 6).ToList(),
+        _ => new()
+    };
+
+    private async Task BuildGenerationRosterAsync(int requestVersion = 0)
+    {
+        if (string.IsNullOrWhiteSpace(genLevel))
+            return;
+
+        expectedSubjectCache.Clear();
+
+        isAnalyzingRoster = true;
+        statusMsg = "";
+        generationRoster.Clear();
+        eligibleStudents = FilterStudentsForLevel(allStudents, genLevel);
+
+        if (!string.IsNullOrWhiteSpace(genClass))
+            eligibleStudents = eligibleStudents
+                .Where(s => string.Equals(s.Classroom, genClass, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+        if (genForm <= 0)
+            return;
+
+        eligibleStudents = eligibleStudents
+            .Where(s => s.Form == genForm)
+            .ToList();
+
+        // Filter by fields if olevel and field filter set
+        if (genLevel == "olevel" && !string.IsNullOrWhiteSpace(genField))
+        {
+            var fieldMatches = await Task.WhenAll(eligibleStudents.Select(async s =>
+                (Student: s, Field: await ResolveFieldForStudentAsync(s))));
+            eligibleStudents = fieldMatches
+                .Where(x => string.Equals(x.Field, genField, StringComparison.OrdinalIgnoreCase))
+                .Select(x => x.Student)
+                .ToList();
+        }
+
+        await WarmExpectedSubjectCacheAsync(eligibleStudents);
+
+        StateHasChanged();
+
+        try
+        {
+            await LoadCardsForStudentsAsync(eligibleStudents, requestVersion);
+
+            if (requestVersion != 0 && requestVersion != queueLoadVersion)
+                return;
+
+            var rows = await Task.WhenAll(eligibleStudents.Select(BuildRosterRowAsync));
+            if (requestVersion != 0 && requestVersion != queueLoadVersion)
+                return;
+            generationRoster = rows
+                .OrderBy(r => r.Status)
+                .ThenBy(r => r.Student.LastName)
+                .ThenBy(r => r.Student.FirstName)
+                .ToList();
+
+        }
+        catch (Exception ex)
+        {
+            statusMsg = $"Could not analyze the generation queue. ({ex.Message})";
+            statusError = true;
+        }
+        finally
+        {
+            isAnalyzingRoster = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadCardsForStudentsAsync(List<Student> students, int requestVersion = 0)
+    {
+        isLoadingCards = true;
+        StateHasChanged();
+        try
+        {
+            var pending = await AdminGradesService.GetPendingReportCardsAsync() ?? new();
+            var loadedCards = new List<ReportCardModel>(pending);
+
+            const int BatchSize = 10;
+            for (int i = 0; i < students.Count; i += BatchSize)
+            {
+                if (requestVersion != 0 && requestVersion != queueLoadVersion)
+                    return;
+
+                var batch = students.Skip(i).Take(BatchSize).ToList();
+                var tasks = batch.Select(async s =>
+                {
+                    try
+                    {
+                        return await AdminGradesService.GetStudentReportCardsAsync(s.Id);
+                    }
+                    catch
+                    {
+                        return null;
+                    }
+                });
+                var results = await Task.WhenAll(tasks);
+                foreach (var result in results)
+                {
+                    if (result != null)
+                    {
+                        foreach (var card in result)
+                        {
+                            if (!loadedCards.Any(c => c.Id == card.Id))
+                            {
+                                loadedCards.Add(card);
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (requestVersion == 0 || requestVersion == queueLoadVersion)
+                allCards = loadedCards;
+        }
+        catch
+        {
+            allCards = new();
+        }
+        finally
+        {
+            isLoadingCards = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task<GenerationRosterRow> BuildRosterRowAsync(Student student)
+    {
+        var field = await ResolveFieldForStudentAsync(student);
+        var expectedSubjects = await GetExpectedSubjectsAsync(student, field);
+        var (cwSubjects, examSubjects) = await GetMarkCoverageAsync(student, field);
+
+        // Start with expected subjects, then also include any subjects with marks recorded
+        var allSubjectNames = new List<string>(expectedSubjects);
+        foreach (var cw in cwSubjects)
+        {
+            if (!allSubjectNames.Any(s => SubjectMatches(s, cw)))
+                allSubjectNames.Add(cw);
+        }
+        foreach (var ex in examSubjects)
+        {
+            if (!allSubjectNames.Any(s => SubjectMatches(s, ex)))
+                allSubjectNames.Add(ex);
+        }
+
+        var subjectsStatus = new List<SubjectStatus>();
+        foreach (var subName in allSubjectNames)
+        {
+            subjectsStatus.Add(new SubjectStatus
+            {
+                SubjectName = subName,
+                HasCoursework = cwSubjects.Any(c => SubjectMatches(c, subName)),
+                HasExam = examSubjects.Any(e => SubjectMatches(e, subName))
+            });
+        }
+
+        var existingCard = allCards.FirstOrDefault(card =>
+            card.StudentId == student.Id &&
+            string.Equals(card.Term, genTerm, StringComparison.OrdinalIgnoreCase) &&
+            card.TermYear == genYear);
+
+        var status = GenerationStatus.NoMarks;
+        var label = "Missing Marks";
+        var statusClass = "badge-none";
+        var canGenerate = false;
+
+        int expectedCount = allSubjectNames.Count;
+        int coveredCount = subjectsStatus.Count(s => s.IsComplete);
+
+        if (existingCard?.AdminApproved == true)
+        {
+            status = GenerationStatus.Approved;
+            label = "Approved & Released";
+            statusClass = "badge-approved";
+            canGenerate = false;
+        }
+        else if (existingCard != null)
+        {
+            status = GenerationStatus.Pending;
+            label = "Pending Approval";
+            statusClass = "badge-pending";
+            canGenerate = true;
+        }
+        else if (expectedCount == 0)
+        {
+            status = GenerationStatus.NoSubjectSetup;
+            label = "No Subject Setup";
+            statusClass = "badge-setup";
+            canGenerate = false;
+        }
+        else if (coveredCount >= expectedCount)
+        {
+            status = GenerationStatus.Ready;
+            label = "Ready";
+            statusClass = "badge-ready";
+            canGenerate = true;
+        }
+        else if (coveredCount > 0 || subjectsStatus.Any(s => s.HasCoursework || s.HasExam))
+        {
+            status = GenerationStatus.Partial;
+            label = "Partial Marks";
+            statusClass = "badge-partial";
+            canGenerate = false;
+        }
+        else
+        {
+            status = GenerationStatus.NoMarks;
+            label = "No Marks";
+            statusClass = "badge-none";
+            canGenerate = false;
+        }
+
+        return new GenerationRosterRow
+        {
+            Student = student,
+            FieldName = field,
+            SubjectCoverage = subjectsStatus,
+            ExistingCard = existingCard,
+            Status = status,
+            StatusLabel = label,
+            StatusClass = statusClass,
+            CanGenerate = canGenerate
+        };
+    }
+
+    private async Task WarmExpectedSubjectCacheAsync(IEnumerable<Student> students)
+    {
+        // Forms 1–4 subjects are now resolved per student from the class
+        // offering and the student's opt-out choices. There is no global
+        // subject cache to warm for these forms.
+        await Task.CompletedTask;
+    }
+
+    private async Task<string> ResolveFieldForStudentAsync(Student student)
+    {
+        if (student.Form is not 3 and not 4)
+            return string.Empty;
+
+        if (olevelFieldCache.TryGetValue(student.Id, out var cached))
+            return cached;
+
+        try
+        {
+            var field = (await OlevelClassService.GetStudentOlevelFieldAsync(student.Id))?.Trim('"') ?? string.Empty;
+            olevelFieldCache[student.Id] = field;
+            return field;
+        }
+        catch { return string.Empty; }
+    }
+
+    private async Task<List<string>> GetExpectedSubjectsAsync(Student student, string field)
+    {
+        var cacheKey = student.Form is >= 1 and <= 4
+            ? $"form1to4:{student.Id}"
+            : string.Empty;
+
+        if (!string.IsNullOrEmpty(cacheKey) && expectedSubjectCache.TryGetValue(cacheKey, out var cached))
+            return cached;
+
+        try
+        {
+            if (student.Form is >= 1 and <= 4)
+            {
+                var choices = await SubjectService.GetForm1to4StudentSubjectsAsync(student.Id);
+                if (choices?.Subjects?.Any() == true)
+                {
+                    var result = choices.Subjects
+                        .Where(s => !string.IsNullOrWhiteSpace(s))
+                        .Select(s => s.Trim())
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                    expectedSubjectCache[cacheKey] = result;
+                    return result;
+                }
+
+                var classSetup = await SubjectService.GetForm1to4ClassSubjectsAsync(student.Form ?? 0, student.Classroom ?? string.Empty);
+                var fallback = classSetup?.Subjects?
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .Select(s => s.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList() ?? new();
+                if (fallback.Count == 0)
+                {
+                    var allClassSubjects = await SubjectService.GetAllForm1to4ClassSubjectsAsync();
+                    if (allClassSubjects?.Any() == true)
+                    {
+                        var matchedClass = allClassSubjects.FirstOrDefault(c =>
+                            c.Form == (student.Form ?? 0) &&
+                            ClassLabelsMatch(c.ClassName ?? string.Empty, student.Classroom ?? string.Empty, student.Form ?? 0));
+
+                        if (matchedClass?.Subjects?.Any() == true)
+                        {
+                            fallback = matchedClass.Subjects
+                                .Where(s => !string.IsNullOrWhiteSpace(s))
+                                .Select(s => s.Trim())
+                                .Distinct(StringComparer.OrdinalIgnoreCase)
+                                .ToList();
+                        }
+                    }
+                }
+
+                expectedSubjectCache[cacheKey] = fallback;
+                return fallback;
+            }
+
+            if (alevelChoiceCache.TryGetValue(student.Id, out var selected))
+                return selected.Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        }
+        catch { }
+
+        return new();
+    }
+
+    private async Task<(HashSet<string> CwSubjects, HashSet<string> ExamSubjects)> GetMarkCoverageAsync(Student student, string field)
+    {
+        var termNumber = ParseTermNumber(genTerm);
+
+        // Fields are optional in this system — a mark should count toward a
+        // student's subject coverage no matter which field value (if any) it
+        // was filed under on the backend. Query every plausible field variant
+        // instead of gating on one, and union whatever comes back, so coverage
+        // is decided purely by matching student → subject, not by field.
+        var fieldCandidates = new List<string> { "default", "" };
+        if (!string.IsNullOrWhiteSpace(field))
+            fieldCandidates.Add(field);
+        fieldCandidates = fieldCandidates.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+        var cwSubjects = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var examSubjects = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void AddCw(CourseworkMarksResponse? resp)
+        {
+            if (resp?.CourseMarks == null) return;
+            foreach (var entry in resp.CourseMarks)
+            {
+                if (!string.IsNullOrWhiteSpace(entry.Key) && entry.Value?.Any() == true)
+                    cwSubjects.Add(entry.Key.Trim());
+            }
+        }
+
+        void AddExam(ExamMarksResponse? resp)
+        {
+            if (resp?.MarksBySubject == null) return;
+            foreach (var entry in resp.MarksBySubject)
+            {
+                if (!string.IsNullOrWhiteSpace(entry.Key) && entry.Value?.Any() == true)
+                    examSubjects.Add(entry.Key.Trim());
+            }
+        }
+
+        // IMPORTANT: each field candidate is fetched independently, with its own
+        // try/catch. A backend failure for one field variant (e.g. an O-Level
+        // "field" value that a given endpoint doesn't support yet) must not
+        // discard marks that were successfully returned by the other variants
+        // ("default" / ""). Previously all candidate calls were awaited together
+        // via a single Task.WhenAll wrapped in one outer catch: if any single
+        // task faulted, the whole method fell into that catch and returned
+        // completely empty coverage sets, making subjects that genuinely had
+        // marks recorded show up as "missing" for O-Level students specifically
+        // (they're the only ones with a third, field-specific candidate).
+        var cwTasks = fieldCandidates.Select(async f =>
+        {
+            try { return await AdminGradesService.GetCourseworkMarksAsync(student.Id, termNumber, genYear, f); }
+            catch { return null; }
+        });
+        var examTasks = fieldCandidates.Select(async f =>
+        {
+            try { return await AdminGradesService.GetExamMarksAsync(student.Id, termNumber, genYear, f); }
+            catch { return null; }
+        });
+
+        var cwResults = await Task.WhenAll(cwTasks);
+        var examResults = await Task.WhenAll(examTasks);
+
+        foreach (var r in cwResults) AddCw(r);
+        foreach (var r in examResults) AddExam(r);
+
+        return (cwSubjects, examSubjects);
+    }
+
+    private static bool SubjectMatches(string? a, string? b)
+    {
+        if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b))
+            return false;
+
+        var cleanA = a.Trim();
+        var cleanB = b.Trim();
+
+        if (string.Equals(cleanA, cleanB, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        static string Normalize(string s)
+        {
+            var lower = s.ToLowerInvariant()
+                .Replace("-", " ")
+                .Replace("_", " ");
+            lower = System.Text.RegularExpressions.Regex.Replace(lower, @"\bmaths\b", "mathematics");
+            lower = System.Text.RegularExpressions.Regex.Replace(lower, @"\beng\b", "english");
+            lower = System.Text.RegularExpressions.Regex.Replace(lower, @"\beng\s+lang\b", "english language");
+            lower = System.Text.RegularExpressions.Regex.Replace(lower, @"\benglish\s+language\b", "english");
+            lower = System.Text.RegularExpressions.Regex.Replace(lower, @"\bgeog\b", "geography");
+            lower = System.Text.RegularExpressions.Regex.Replace(lower, @"\bhist\b", "history");
+            lower = System.Text.RegularExpressions.Regex.Replace(lower, @"\blit\b", "literature");
+            lower = System.Text.RegularExpressions.Regex.Replace(lower, @"\bliterature\s+in\s+english\b", "literature");
+            lower = System.Text.RegularExpressions.Regex.Replace(lower, @"\bscience\b", "combined science");
+            return System.Text.RegularExpressions.Regex.Replace(lower, @"\s+", "");
+        }
+
+        return string.Equals(Normalize(cleanA), Normalize(cleanB), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ClassLabelsMatch(string left, string right, int form)
+    {
+        static string Normalize(string value, int form)
+        {
+            var text = value.Trim().ToLowerInvariant()
+                .Replace("form", "").Replace("class", "")
+                .Replace("-", "").Replace("_", "").Replace(" ", "");
+            if (form > 0)
+                text = text.Replace(form.ToString(), "");
+            return text;
+        }
+
+        return string.Equals(left.Trim(), right.Trim(), StringComparison.OrdinalIgnoreCase) ||
+               Normalize(left, form) == Normalize(right, form);
+    }
+
+    private async Task LoadTeacherSubmissionsAsync(int requestVersion = 0)
+    {
+        if (string.IsNullOrEmpty(genLevel)) return;
+        var levelSnapshot = genLevel;
+        var fieldSnapshot = genField;
+        var termSnapshot = genTerm;
+        var yearSnapshot = genYear;
+        isLoadingSubmissions = true;
+        teacherSubmissions.Clear();
+        submissionStatusMsg = "";
+        StateHasChanged();
+
+        try
+        {
+            var teachersTask = TeacherService.GetTeachersAsync();
+
+            // O-Level assessment routes are field-aware. Keep the selected
+            // field in the request so the admin sees the same records as staff.
+            var assignmentsTask = AdminGradesService.GetAllAssignmentsForLevelAsync(levelSnapshot, field: fieldSnapshot);
+            var testsTask = AdminGradesService.GetAllTestsForLevelAsync(levelSnapshot, field: fieldSnapshot);
+            var examsTask = AdminGradesService.GetAllExamsForLevelAsync(levelSnapshot, field: fieldSnapshot);
+
+            await Task.WhenAll(teachersTask, assignmentsTask, testsTask, examsTask);
+
+            if (requestVersion != 0 && requestVersion != queueLoadVersion)
+                return;
+
+            teacherNames = teachersTask.Result
+                .ToDictionary(t => t.Id, t => $"{t.FirstName} {t.LastName}".Trim());
+
+            var assignments = assignmentsTask.Result ?? new();
+            var tests = testsTask.Result ?? new();
+            var exams = examsTask.Result ?? new();
+            var returnedCount = assignments.Count + tests.Count + exams.Count;
+
+            var (startMonth, endMonth) = GradeHelper.TermMonthRange(termSnapshot);
+
+            bool IsCalendarTermDate(DateOnly? date)
+                => date.HasValue
+                    && date.Value.Month >= startMonth
+                    && date.Value.Month <= endMonth
+                    && date.Value.Year == yearSnapshot;
+
+            var returnedDates = assignments.Select(a => a.DueDate)
+                .Concat(tests.Select(t => t.TestDate))
+                .Concat(exams.Select(e => e.ExamDate))
+                .Where(date => date.HasValue)
+                .ToList();
+            var showReturnedRecordsDespiteDateMismatch = returnedCount > 0
+                && returnedDates.Any()
+                && !returnedDates.Any(IsCalendarTermDate);
+
+            bool IsInTermRange(DateOnly? date)
+            {
+                // Older assessment records may not have a date populated. Keep them visible
+                // for review instead of silently treating them as another term.
+                if (!date.HasValue)
+                    return true;
+
+                return showReturnedRecordsDespiteDateMismatch || IsCalendarTermDate(date);
+            }
+
+            foreach (var a in assignments)
+            {
+                if (IsInTermRange(a.DueDate))
+                {
+                    teacherSubmissions.Add(new TeacherSubmissionItem
+                    {
+                        TeacherId = a.TeacherId,
+                        TeacherName = GetTeacherName(a.TeacherId),
+                        SubjectName = a.SubjectName ?? $"Subject #{a.SubjectId}",
+                        Title = a.Title ?? "Assignment",
+                        Type = "Assignment",
+                        Weight = a.Weight,
+                        MaxScore = a.MaxScore,
+                        Date = a.DueDate ?? default
+                    });
+                }
+            }
+
+            foreach (var t in tests)
+            {
+                if (IsInTermRange(t.TestDate))
+                {
+                    teacherSubmissions.Add(new TeacherSubmissionItem
+                    {
+                        TeacherId = t.TeacherId,
+                        TeacherName = GetTeacherName(t.TeacherId),
+                        SubjectName = t.SubjectName ?? $"Subject #{t.SubjectId}",
+                        Title = t.Title ?? "Test",
+                        Type = "Test",
+                        Weight = t.Weight,
+                        MaxScore = t.MaxScore,
+                        Date = t.TestDate ?? default
+                    });
+                }
+            }
+
+            foreach (var e in exams)
+            {
+                if (IsInTermRange(e.ExamDate))
+                {
+                    teacherSubmissions.Add(new TeacherSubmissionItem
+                    {
+                        TeacherId = e.TeacherId,
+                        TeacherName = GetTeacherName(e.TeacherId),
+                        SubjectName = e.SubjectName ?? $"Subject #{e.SubjectId}",
+                        Title = e.Title ?? "Exam",
+                        Type = "Exam",
+                        Weight = e.Weight,
+                        MaxScore = e.MaxScore,
+                        Date = e.ExamDate ?? default
+                    });
+                }
+            }
+
+            if (showReturnedRecordsDespiteDateMismatch)
+                submissionStatusMsg = $"The API returned {returnedCount} assessment(s), but their saved dates do not match {termSnapshot} {yearSnapshot}. They are shown for review; please verify the dates saved by the teacher.";
+            else if (teacherSubmissions.Count == 0 && returnedCount > 0)
+                submissionStatusMsg = $"The API returned {returnedCount} assessment(s), but none are dated within {termSnapshot} {yearSnapshot}. Check the assessment dates or term saved by the teacher.";
+            else if (returnedCount == 0)
+                submissionStatusMsg = "The assessment endpoints returned no assignments, tests, or exams for this level and field.";
+        }
+        catch
+        {
+            submissionStatusMsg = "The assessment request failed. Check the assessment endpoint response in the Railway logs.";
+        }
+        finally
+        {
+            isLoadingSubmissions = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetTeacherName(long? teacherId)
+    {
+        if (teacherId.HasValue && teacherNames.TryGetValue(teacherId.Value, out var name))
+            return name;
+
+        return "Unassigned teacher";
+    }
+
+    private string GetTeacherAnalyticsUrl(TeacherSubmissionItem submission)
+        => $"/admin/grades/teacher-analytics/{submission.TeacherId}?term={Uri.EscapeDataString(genTerm)}";
+
+    private void OnGenerateClick(GenerationRosterRow row)
+    {
+        if (row.ExistingCard != null)
+        {
+            regenStudentId = row.Student.Id;
+            regenStudentName = $"{row.Student.FirstName} {row.Student.LastName}";
+            showRegenModal = true;
+        }
+        else
+        {
+            _ = GenerateSingleAsync(row.Student.Id);
+        }
+    }
+
+    private async Task ConfirmRegenAsync()
+    {
+        showRegenModal = false;
+        if (regenStudentId > 0)
+        {
+            await GenerateSingleAsync(regenStudentId, forceRegenerate: true);
+        }
+    }
+
+    private async Task GenerateSingleAsync(long studentId, bool forceRegenerate = false)
+    {
+        genStudentId = studentId;
+        await GenerateAsync(forceRegenerate: forceRegenerate);
+    }
+
+    private async Task GenerateBulkAsync()
+    {
+        genStudentId = 0;
+        await GenerateAsync();
+    }
+
+    private async Task GenerateAsync(bool forceRegenerate = false)
+    {
+        if (string.IsNullOrWhiteSpace(genLevel))
+            return;
+
+        isGenerating = true;
+        statusMsg = "";
+        statusError = false;
+        StateHasChanged();
+
+        try
+        {
+            var cwWeight = genCwWeight / 100.0;
+
+            if (genStudentId > 0)
+            {
+                var student = eligibleStudents.FirstOrDefault(s => s.Id == genStudentId);
+                var field = student != null ? await ResolveFieldForStudentAsync(student) : "default";
+                if (string.IsNullOrWhiteSpace(field)) field = "default";
+
+                if (student != null)
+                    await EnsureAutomaticSubjectCommentsAsync(student, field, forceRegenerate);
+
+                if (forceRegenerate)
+                {
+                    try
+                    {
+                        var existingCard = generationRoster.FirstOrDefault(r => r.Student.Id == genStudentId)?.ExistingCard;
+                        if (existingCard?.Id.HasValue == true && existingCard.Id.Value > 0)
+                        {
+                            var deleted = await AdminGradesService.DeleteReportCardAsync(existingCard.Id.Value);
+                            if (!deleted)
+                                deleted = await AdminGradesService.DeleteReportCardByStudentTermAndYearAsync(genStudentId, genTerm, genYear);
+                            if (!deleted)
+                                throw new InvalidOperationException("The existing report card could not be removed.");
+                        }
+                        else if (!await AdminGradesService.DeleteReportCardByStudentTermAndYearAsync(genStudentId, genTerm, genYear))
+                            throw new InvalidOperationException("The existing report card could not be removed.");
+                    }
+                    catch (Exception delEx)
+                    {
+                        Console.WriteLine($"[REGEN] Pre-delete existing card before regen: {delEx.Message}");
+                    }
+                }
+
+                var req = new ReportCardRequest
+                {
+                    StudentId = genStudentId,
+                    Term = genTerm,
+                    TermYear = genYear,
+                    CourseworkWeight = cwWeight
+                };
+                var result = await AdminGradesService.GenerateReportCardAsync(req, field);
+                if (result != null)
+                {
+                    statusMsg = $"Report card successfully generated for {GetStudentName(genStudentId)}.";
+                }
+                else
+                {
+                    statusMsg = "Report card generation failed.";
+                    statusError = true;
+                }
+            }
+            else
+            {
+                var readyRows = generationRoster
+                    .Where(r => r.Status == GenerationStatus.Ready)
+                    .ToList();
+
+                if (!readyRows.Any())
+                {
+                    statusMsg = "No ready students in the queue to generate.";
+                    statusError = true;
+                }
+                else
+                {
+                    var commentTasks = readyRows.Select(async row =>
+                    {
+                        var field = await ResolveFieldForStudentAsync(row.Student);
+                        await EnsureAutomaticSubjectCommentsAsync(row.Student, field);
+                    });
+                    await Task.WhenAll(commentTasks);
+
+                    (int saved, int errors) = await AdminGradesService.BulkGenerateReportCardsAsync(
+                        readyRows.Select(r => (long)r.Student.Id).ToList(),
+                        genTerm,
+                        genYear,
+                        cwWeight,
+                        genLevel == "olevel" && !string.IsNullOrWhiteSpace(genField) ? genField : "default"
+                    );
+
+                    if (errors > 0)
+                    {
+                        statusMsg = $"Bulk generation complete: {saved} generated, {errors} failed.";
+                        statusError = true;
+                    }
+                    else
+                    {
+                        statusMsg = $"Bulk generation complete: {saved} report cards generated successfully.";
+                    }
+                }
+            }
+
+            await BuildGenerationRosterAsync();
+        }
+        catch (Exception ex)
+        {
+            statusMsg = $"Error: {ex.Message}";
+            statusError = true;
+        }
+        finally
+        {
+            isGenerating = false;
+            genStudentId = 0;
+            StateHasChanged();
+        }
+    }
+
+    private async Task EnsureAutomaticSubjectCommentsAsync(Student student, string field, bool forceRegenerate = false)
+    {
+        var expectedSubjects = await GetExpectedSubjectsAsync(student, field);
+        var termNumber = ParseTermNumber(genTerm);
+
+        // Fields are optional — union results across every plausible field
+        // variant rather than gating on one value (mirrors GetMarkCoverageAsync).
+        var fieldCandidates = new List<string> { "default", "" };
+        if (!string.IsNullOrWhiteSpace(field))
+            fieldCandidates.Add(field);
+        fieldCandidates = fieldCandidates.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+        // Per-candidate try/catch, same reasoning as GetMarkCoverageAsync: a
+        // failing field-specific call must not take the "default"/"" results
+        // down with it (previously this had no per-task isolation at all, so a
+        // single faulted task would throw out of Task.WhenAll and abort report
+        // generation for the whole student).
+        var cwTasks = fieldCandidates.Select(async f =>
+        {
+            try { return await AdminGradesService.GetCourseworkMarksAsync(student.Id, termNumber, genYear, f); }
+            catch { return null; }
+        });
+        var examTasks = fieldCandidates.Select(async f =>
+        {
+            try { return await AdminGradesService.GetExamMarksAsync(student.Id, termNumber, genYear, f); }
+            catch { return null; }
+        });
+
+        var cwResults = await Task.WhenAll(cwTasks);
+        var examResults = await Task.WhenAll(examTasks);
+
+        var coursework = new Dictionary<string, List<MarkEntry>>(StringComparer.OrdinalIgnoreCase);
+        void MergeCw(CourseworkMarksResponse? resp)
+        {
+            if (resp?.CourseMarks == null) return;
+            foreach (var kvp in resp.CourseMarks)
+            {
+                if (!coursework.ContainsKey(kvp.Key))
+                    coursework[kvp.Key] = kvp.Value ?? new();
+                else if (kvp.Value != null)
+                    coursework[kvp.Key].AddRange(kvp.Value);
+            }
+        }
+        foreach (var r in cwResults) MergeCw(r);
+
+        var exams = new Dictionary<string, List<ExamMarkDTO>>(StringComparer.OrdinalIgnoreCase);
+        void MergeExam(ExamMarksResponse? resp)
+        {
+            if (resp?.MarksBySubject == null) return;
+            foreach (var kvp in resp.MarksBySubject)
+            {
+                if (!exams.ContainsKey(kvp.Key))
+                    exams[kvp.Key] = kvp.Value ?? new();
+                else if (kvp.Value != null)
+                    exams[kvp.Key].AddRange(kvp.Value);
+            }
+        }
+        foreach (var r in examResults) MergeExam(r);
+
+        var subjectsToComment = new List<string>(expectedSubjects);
+        foreach (var k in coursework.Keys)
+        {
+            if (!subjectsToComment.Any(s => SubjectMatches(s, k)))
+                subjectsToComment.Add(k);
+        }
+        foreach (var k in exams.Keys)
+        {
+            if (!subjectsToComment.Any(s => SubjectMatches(s, k)))
+                subjectsToComment.Add(k);
+        }
+
+        // nonce shifts the comment pool index on each forced regen so the same
+        // student/subject/mark combination always produces a *different* comment.
+        // On normal generation the nonce stays 0 (deterministic first pick).
+        int regenNonce = forceRegenerate
+            ? Random.Shared.Next(1, 1000000)
+            : 0;
+
+        if (subjectsToComment.Count == 0) return;
+
+        var commentsToSave = new List<SubjectCommentDTO>();
+
+        foreach (var subject in subjectsToComment.Where(s => !string.IsNullOrWhiteSpace(s)))
+        {
+            var existing = await AssessmentService.GetSubjectCommentsAsync(
+                subject, student.Classroom ?? string.Empty, genTerm, genYear);
+
+            // When NOT regenerating: skip subjects that already have any comment.
+            // When regenerating: skip only subjects that have a TEACHER-written comment
+            //   (TeacherId != null), so real feedback is preserved.
+            //   Auto-generated comments (TeacherId == null) will be overwritten.
+            SubjectCommentDTO? existingAutoComment = null;
+            if (existing?.Any() == true)
+            {
+                var teacherWritten = existing.FirstOrDefault(c =>
+                    c.StudentId == student.Id &&
+                    !string.IsNullOrWhiteSpace(c.Comments) &&
+                    c.TeacherId != null);
+
+                if (teacherWritten != null)
+                    continue; // Always preserve real teacher feedback
+
+                if (!forceRegenerate)
+                {
+                    // Normal generation: skip if any comment exists
+                    if (existing.Any(c => c.StudentId == student.Id && !string.IsNullOrWhiteSpace(c.Comments)))
+                        continue;
+                }
+                else
+                {
+                    // Regeneration: track existing auto-comment so we can carry its Id for upsert
+                    existingAutoComment = existing.FirstOrDefault(c =>
+                        c.StudentId == student.Id && c.TeacherId == null);
+                }
+            }
+
+            var cwPair = coursework.FirstOrDefault(kv => SubjectMatches(kv.Key, subject));
+            var cwEntries = cwPair.Value;
+
+            var examPair = exams.FirstOrDefault(kv => SubjectMatches(kv.Key, subject));
+            var examEntries = examPair.Value;
+
+            var hasCw = cwEntries != null && cwEntries.Any(e => e != null);
+            var hasExam = examEntries != null && examEntries.Any(e => e != null);
+
+            var courseworkMark = hasCw ? cwEntries!.Where(e => e != null).Select(e => e.PercentageScore).DefaultIfEmpty(0).Average() : 0;
+            var examMark = hasExam ? examEntries!.Where(e => e != null).Select(e => e.Score ?? 0).DefaultIfEmpty(0).Average() : 0;
+            var courseworkWeight = genCwWeight / 100.0;
+
+            double finalMark;
+            if (hasCw && hasExam && courseworkMark > 0 && examMark > 0)
+            {
+                finalMark = (courseworkMark * courseworkWeight) + (examMark * (1 - courseworkWeight));
+            }
+            else if (hasExam && examMark > 0)
+            {
+                finalMark = examMark;
+            }
+            else if (hasCw && courseworkMark > 0)
+            {
+                finalMark = courseworkMark;
+            }
+            else
+            {
+                finalMark = Math.Max(courseworkMark, examMark);
+            }
+
+            var teacherFeedback = cwEntries?.Select(e => e.Feedback)
+                .FirstOrDefault(f => !string.IsNullOrWhiteSpace(f));
+
+            commentsToSave.Add(new SubjectCommentDTO
+            {
+                Id = existingAutoComment?.Id,   // carry Id on regen → upsert, not duplicate insert
+                StudentId = student.Id,
+                SubjectName = subject,
+                ClassName = student.Classroom ?? string.Empty,
+                Term = genTerm,
+                TermYear = genYear,
+                Comments = BuildAutomaticSubjectComment(subject, finalMark, courseworkMark, examMark, student.Id, teacherFeedback, regenNonce),
+                TeacherId = null
+            });
+        }
+
+        if (commentsToSave.Any())
+            await AssessmentService.SaveSubjectCommentsAsync(commentsToSave);
+    }
+
+    private static string BuildAutomaticSubjectComment(string subject, double finalMark, double courseworkMark, double examMark, long studentId, string? teacherFeedback, int regenNonce = 0)
+    {
+        var profile = finalMark switch
+        {
+            >= 90 => new[]
+            {
+                $"{subject} is an outstanding strength, with an exemplary overall performance and deep mastery of the work covered.",
+                $"The student has demonstrated superior command of {subject}, applying complex knowledge accurately and with great independence.",
+                $"Performance in {subject} is first-class, reflecting flawless preparation, sound reasoning, and thorough understanding of the syllabus.",
+                $"This is a remarkably strong result in {subject}, reflecting sustained effort and the ability to use learned ideas with distinction.",
+                $"The student continues to excel brilliantly in {subject}, combining comprehensive knowledge with insightful application across all assessed work.",
+                $"{subject} work is of the highest caliber, showing exceptional precision, analytical depth, and thorough mastery of all evaluated topics.",
+                $"An impressive academic achievement in {subject}; the student consistently exhibits intellectual rigor and sharp critical thinking.",
+                $"Outstanding dedication is evident in {subject}, resulting in sophisticated solutions and consistently high-level responses.",
+                $"The student has shown rare aptitude in {subject}, grasping advanced concepts effortlessly and articulating answers with clarity.",
+                $"Exemplary dedication and scholarly maturity define the student's exceptional progress and distinguished outcomes in {subject}.",
+                $"{subject} represents an area of true academic distinction; the student produces thorough, accurate, and insightful work.",
+                $"Consistently superior performance in {subject}, demonstrating remarkable mastery, discipline, and scholarly curiosity.",
+                $"The student has delivered exceptional quality throughout {subject}, setting a commendable benchmark in analytical precision.",
+                $"A truly stellar outcome in {subject}, underpinned by exhaustive preparation, intellectual curiosity, and fluent reasoning.",
+                $"The student shows comprehensive command of {subject}, confidently addressing the most intricate and challenging questions.",
+                $"Uncompromising accuracy and sophisticated reasoning are consistently demonstrated across all assessments in {subject}.",
+                $"A magnificent result in {subject}, reflecting profound subject appreciation and an exemplary work ethic.",
+                $"{subject} outcomes reflect outstanding academic capability; the student works with admirable initiative and independence.",
+                $"The student's performance in {subject} is outstanding in every regard, consistently exceeding expectations in depth and clarity.",
+                $"Superb academic standard in {subject}; the student synthesizes complex concepts with natural ease and poise."
+            },
+            >= 80 => new[]
+            {
+                $"{subject} is a clear strength, with an excellent overall performance and a confident grasp of the work covered.",
+                $"The student has demonstrated impressive command of {subject}, applying knowledge accurately and with growing independence.",
+                $"Performance in {subject} is highly encouraging, showing strong preparation, sound reasoning, and a reliable understanding of the assessed content.",
+                $"This is a particularly strong result in {subject}, reflecting sustained effort and the ability to use learned ideas effectively.",
+                $"The student continues to excel in {subject}, combining secure knowledge with thoughtful application across the assessed work.",
+                $"Work in {subject} has been consistently commendable, demonstrating sharp comprehension and dependable problem-solving ability.",
+                $"The student exhibits a proactive attitude in {subject}, producing high-quality work and engaging well with complex problems.",
+                $"A thoroughly impressive standard in {subject}, marked by diligent study habits and an articulate command of the syllabus.",
+                $"The student approaches {subject} with confidence and academic rigor, reliably producing thorough and accurate assessments.",
+                $"Very strong progress in {subject}; demonstrates a robust conceptual grasp and consistently delivers quality work.",
+                $"The student has consolidated key knowledge effectively in {subject}, achieving an admirable level of proficiency.",
+                $"Consistent diligence and intellectual engagement have resulted in this very commendable performance in {subject}.",
+                $"{subject} work shows impressive attention to detail, secure conceptual understanding, and fluent written responses.",
+                $"The student exhibits strong analytical ability in {subject}, navigating multi-step problems with clarity and poise.",
+                $"A highly praiseworthy standard in {subject}; continued commitment will comfortably sustain this high attainment.",
+                $"The student demonstrates thorough preparation in {subject}, with well-structured answers and sound academic discipline.",
+                $"Commendable mastery of core and extended concepts in {subject}, accompanied by a positive and determined approach.",
+                $"{subject} performance reflects strong self-motivation, solid subject engagement, and dependable assessment execution.",
+                $"The student has established an excellent foundation in {subject}, demonstrating confidence across all key syllabus areas.",
+                $"A very positive and rewarding term in {subject}; the student's high capability is clearly reflected in this result."
+            },
+            >= 70 => new[]
+            {
+                $"{subject} is progressing well, with a good overall result and a sound understanding of the main concepts assessed.",
+                $"The student is building a dependable understanding of {subject} and is beginning to apply the main ideas with increasing confidence.",
+                $"Work in {subject} is encouraging, with a positive grasp of the syllabus and clear capacity to push towards the highest grades.",
+                $"The result in {subject} reflects steady progress, sensible preparation, and a developing ability to explain and apply the material.",
+                $"The student has made good progress in {subject}; with a bit more precision in advanced questions, top-tier results are well within reach.",
+                $"A positive and constructive term in {subject}; the student demonstrates solid capability and should aim for distinction.",
+                $"The student demonstrates a reliable foundation in {subject} and possesses the potential to achieve even higher marks.",
+                $"Consistent effort in {subject} has yielded a solid performance; fine-tuning examination technique will unlock further gains.",
+                $"Demonstrates good analytical awareness in {subject}, with a clear capability to tackle core syllabus components successfully.",
+                $"Steady development is evident in {subject}; deepening explanations on higher-tariff questions will help bridge into top grades.",
+                $"The student approaches {subject} with a positive attitude, achieving commendable outcomes across the term's work.",
+                $"Sound achievement in {subject}; expanding depth in written analysis will help solidify top-grade potential.",
+                $"The student has demonstrated a secure command of key topics in {subject}; pushing for extra accuracy will lift future results.",
+                $"A very respectable performance in {subject}; continued diligence will ensure the student transitions into the top grade bracket.",
+                $"The student engages meaningfully with {subject}; strengthening confidence in complex problem sets will yield great rewards.",
+                $"Good academic standard in {subject}; the student grasps core principles well and is well positioned for further advancement.",
+                $"A commendable term in {subject}; reviewing finer syllabus details will assist in converting this solid grade into distinction.",
+                $"The student displays good competence across {subject}; sustained revision of challenging topics will elevate future performances.",
+                $"Constructive outcomes in {subject}; with refined examination focus and thorough revision, the student can achieve top honors.",
+                $"The student demonstrates good intellectual curiosity in {subject}; polishing analytical arguments will elevate overall attainment."
+            },
+            >= 60 => new[]
+            {
+                $"{subject} shows a fair and developing understanding, with core principles grasped but greater consistency needed.",
+                $"The student demonstrates competent knowledge in {subject}, though additional practice on complex topics will improve performance.",
+                $"Progress in {subject} is satisfactory; concentrating on thorough revision of challenging units will secure a stronger result.",
+                $"The result in {subject} reflects an acceptable grasp of basic material, but further revision is necessary to tackle demanding questions.",
+                $"The student has achieved a fair standard in {subject}; working on accuracy and detailed explanations will bring significant gains.",
+                $"Basic syllabus ideas in {subject} are understood, but the student should aim for greater precision under assessment conditions.",
+                $"The student shows useful potential in {subject}; eliminating careless slips and revising key formulas will boost future scores.",
+                $"A fair term's work in {subject}; consistent preparation and reviewing test corrections will help elevate this performance.",
+                $"{subject} work shows reasonable comprehension; regular practice on past exam questions will strengthen confidence.",
+                $"The student is working with reasonable commitment in {subject}; giving extra attention to complex problem areas is recommended.",
+                $"Performance in {subject} is competent; structured daily revision will help turn fair understanding into dependable proficiency.",
+                $"The student shows a satisfactory foundation in {subject}, though deeper conceptual review will help bridge gaps.",
+                $"Fair attainment in {subject}; prioritizing independent practice and asking questions when in doubt will support progress.",
+                $"The student demonstrates a workable understanding of {subject}, with opportunities to improve depth and clarity in assessments.",
+                $"Reasonable engagement in {subject}; maintaining focused revision habits will help avoid uneven assessment outcomes.",
+                $"The student exhibits fair capability in {subject}; dedicating more time to mastering complex topics will raise the overall standard.",
+                $"A competent performance in {subject}; refining answer structure and showing detailed steps will yield improved marks.",
+                $"The student has maintained a fair level of effort in {subject}; consistent follow-through on assignments will yield higher returns.",
+                $"Satisfactory engagement with {subject}; addressing areas of uncertainty promptly will help secure a more confident grade.",
+                $"{subject} results indicate a workable base; disciplined practice and targeted revision will foster continued improvement."
+            },
+            >= 50 => new[]
+            {
+                $"{subject} shows that essential concepts are beginning to take shape, though focused attention is required to prevent slipping.",
+                $"The student is passing {subject}, but several key areas require reinforcement and structured review to ensure stability.",
+                $"There is a basic foundation in {subject}; continued commitment and steady revision will help turn partial understanding into secure achievement.",
+                $"The result indicates developing competence in {subject}; regular practice is strongly advised to strengthen accuracy and retention.",
+                $"The student is engaging with {subject}, but more disciplined revision habits and timely homework completion are needed.",
+                $"Shows acceptable familiarity with basic ideas in {subject}, though assessment outcomes suggest the need for more thorough preparation.",
+                $"Fundamental ideas in {subject} are present; more regular practice will build the speed, precision, and confidence required.",
+                $"The student has achieved a passing standard in {subject}; establishing a structured study timetable will produce more dependable results.",
+                $"A modest outcome in {subject}; focusing on reviewing challenging topics before assessments will prevent grades from dropping.",
+                $"Developing competence is visible in {subject}; active class participation and clarifying doubts early will enhance performance.",
+                $"The student demonstrates an adequate grasp of basics in {subject}; consistent follow-through on teacher feedback is necessary.",
+                $"Steady application in {subject} has yielded a pass, but increased depth of revision will build much-needed confidence.",
+                $"{subject} requires closer attention; reviewing fundamental principles regularly will help solidify assessment performance.",
+                $"The student has met the passing threshold in {subject}; targeted practice is recommended to build a more resilient foundation.",
+                $"Basic ideas are understood in {subject}, though inconsistent revision limits the student's ability to tackle multi-step problems.",
+                $"The student should allocate more time to {subject}; regular review of class notes will help prevent misunderstandings from accumulating.",
+                $"A developing standard in {subject}; setting aside dedicated revision slots each week will help improve overall stability.",
+                $"The student demonstrates basic capability in {subject}; greater focus on retaining key concepts will bring firmer results.",
+                $"Adequate understanding in {subject}; the student is encouraged to seek timely clarification on topics that cause difficulty.",
+                $"{subject} reflects emerging understanding; structured homework routines and diligent review will help elevate performance."
+            },
+            _ => new[]
+            {
+                $"{subject} requires focused attention and support to reinforce foundational concepts and improve understanding.",
+                $"The student is encouraged to seek guidance and establish a structured revision routine to build confidence in {subject}.",
+                $"Additional practice and targeted support in {subject} will be essential to master key areas of the syllabus.",
+                $"The current result in {subject} highlights important gaps that should be addressed through regular practice and revision.",
+                $"With targeted intervention and renewed effort, the student can overcome current challenges in {subject} and make meaningful progress.",
+                $"The student should take advantage of teacher consultations and extra tutorials to consolidate essential principles in {subject}.",
+                $"Focusing on core topic mastery and step-by-step revision will be crucial for the student to improve performance in {subject}.",
+                $"A disciplined daily study routine and active review of past exercises will help overcome difficulties in {subject}.",
+                $"The student is capable of better results in {subject}; consistent attendance, prompt homework submission, and revision will help.",
+                $"Dedicated effort and structured practice on foundational concepts will help re-establish momentum in {subject}.",
+                $"The student should focus on strengthening basic terminology and core methods in {subject} over the coming term.",
+                $"Targeted assistance and careful correction of past assessment mistakes will enable the student to rebuild confidence in {subject}.",
+                $"Regular practice sessions with basic syllabus materials will help the student establish a more secure grasp of {subject}.",
+                $"The student will benefit greatly from one-on-one guidance and reviewing fundamental exercises in {subject}.",
+                $"Consistent attendance at support sessions and active review of core topics will be vital to making progress in {subject}.",
+                $"The student is encouraged to break revision into manageable daily segments to overcome current hurdles in {subject}.",
+                $"Rebuilding foundational confidence in {subject} through guided exercises and timely feedback will be key next term.",
+                $"With structured teacher guidance and steady application at home, the student can make positive strides in {subject}.",
+                $"The student should actively address difficult topics in {subject} with the teacher to turn current challenges into progress.",
+                $"A patient, methodical review of foundational syllabus topics will assist the student in raising achievement in {subject}."
+            }
+        };
+
+        var seed = regenNonce != 0
+            ? HashCode.Combine(studentId, subject.GetHashCode(), (int)Math.Round(finalMark * 10), regenNonce)
+            : HashCode.Combine(studentId, subject.GetHashCode(), (int)Math.Round(finalMark * 10), courseworkMark > 0, examMark > 0);
+        var variation = (int)((uint)seed % (uint)profile.Length);
+        var first = profile[variation];
+
+        string balance = string.Empty;
+        bool hasCw = courseworkMark > 0;
+        bool hasEx = examMark > 0;
+        var balanceSeed = (uint)(seed ^ (subject.Length * 37 + (int)Math.Round(finalMark) + regenNonce));
+
+        // The only time we balance coursework vs exam is when BOTH components genuinely exist and are non-zero.
+        // If coursework is 0 (e.g. school only uses exams), do NOT tell the student they need to work on coursework!
+        if (hasCw && hasEx)
+        {
+            if (finalMark >= 80)
+            {
+                var highBalanceOptions = new[]
+                {
+                    "Maintains commendable standards across both continuous assessment and examination components.",
+                    "Both coursework assignments and examination results reflect excellent preparation and sustained dedication.",
+                    "Work across all evaluated areas demonstrates high academic capability and dependable self-discipline.",
+                    "Performance is remarkably well rounded across both daily coursework and examination assessments.",
+                    "Exhibits exceptional academic consistency, performing with equal distinction in coursework tasks and examinations.",
+                    "A harmonious balance between daily assignment discipline and timed assessment performance is evident.",
+                    "The student demonstrates admirable versatility, achieving top marks in both continuous tasks and formal exams.",
+                    "Exemplary commitment is reflected consistently across all coursework projects and examination papers.",
+                    "Consistently high standards across both internal assignments and formal test papers reflect mature scholarship.",
+                    "Demonstrates superior balance, pairing daily diligence with sharp examination composure."
+                };
+                balance = highBalanceOptions[(int)(balanceSeed % (uint)highBalanceOptions.Length)];
+            }
+            else if (courseworkMark >= examMark)
+            {
+                var cwStrongerOptions = new[]
+                {
+                    "Coursework is currently the stronger indicator; carrying that same preparation into examinations should be the next focus.",
+                    "The coursework result is encouraging; more timed examination practice will help strengthen the overall result.",
+                    "Strong coursework habits are evident; applying them more consistently under examination conditions should lead to further gains.",
+                    "Continued coursework effort, together with focused examination revision, will be especially beneficial.",
+                    "The high standard of day-to-day work is pleasing; developing timed exam pacing will help match this in examinations.",
+                    "Coursework demonstrates clear understanding; practicing under exam time constraints will help translate this into test results.",
+                    "Diligence in coursework is a clear asset; focused preparation on exam technique will elevate the final outcome.",
+                    "The coursework foundation is solid; reinforcing exam recall and speed will produce a more balanced overall score.",
+                    "Good continuous assessment standards; practicing past papers under timed conditions will lift examination marks.",
+                    "Strong performance in daily coursework; focusing on structured exam revision will maximize future grades."
+                };
+                balance = cwStrongerOptions[(int)(balanceSeed % (uint)cwStrongerOptions.Length)];
+            }
+            else
+            {
+                var exStrongerOptions = new[]
+                {
+                    "Examination performance shows good potential; applying that understanding more consistently in coursework tasks will yield stronger results.",
+                    "The examination result is promising; regular coursework completion will help make overall achievement even more secure.",
+                    "Building on this examination result with greater attention to day-to-day coursework and assignments is recommended.",
+                    "The examination outcome highlights strong capability; bringing daily coursework to the same level will maximize progress.",
+                    "Strong exam insight is evident; ensuring all continuous assessment assignments are submitted punctually will lift results.",
+                    "The exam score reflects good subject grasp; aligning daily coursework engagement with this exam ability is the next step.",
+                    "Shows natural aptitude under examination conditions; consistent coursework completion will ensure sustained academic growth.",
+                    "The student performs well in tests; translating that ability into consistent everyday coursework will ensure top attainment.",
+                    "Encouraging examination marks; maintaining consistent effort in daily homework and projects will secure higher results.",
+                    "Good examination competence; giving equal diligence to class coursework and deadlines will ensure peak performance."
+                };
+                balance = exStrongerOptions[(int)(balanceSeed % (uint)exStrongerOptions.Length)];
+            }
+        }
+        else if (hasEx && !hasCw)
+        {
+            // Only examination was assessed (coursework is intentionally zero or not used)
+            if (finalMark >= 80)
+            {
+                var exHighOptions = new[]
+                {
+                    "Demonstrates commendable examination technique and thorough preparation under assessment conditions.",
+                    "Examination responses reflect deep understanding and clear, articulate reasoning throughout.",
+                    "The examination outcome confirms sustained effort and a mature grasp of the syllabus.",
+                    "Superb examination temperament, showing sharp accuracy and excellent analytical problem solving.",
+                    "Flawless composure and academic precision were demonstrated across the examination papers.",
+                    "The examination score reflects diligent revision and a high level of intellectual independence.",
+                    "Demonstrates exceptional fluency and authoritative mastery across all examination sections.",
+                    "Outstanding execution under examination conditions, reflecting comprehensive syllabus command."
+                };
+                balance = exHighOptions[(int)(balanceSeed % (uint)exHighOptions.Length)];
+            }
+            else if (finalMark >= 60)
+            {
+                var exMidOptions = new[]
+                {
+                    "Examination performance indicates a dependable foundation with positive scope for further advancement.",
+                    "Shows good engagement in assessments; targeted revision of complex topics will help raise marks further.",
+                    "A respectable examination result; consistent past paper practice will help consolidate knowledge.",
+                    "Demonstrates solid potential under exam conditions with steady progress across key topics.",
+                    "Sound test performance; refining answering techniques for higher-tariff questions will yield higher grades.",
+                    "The exam outcome shows good basic understanding; focused revision on challenging sections will assist progress.",
+                    "Steady examination execution; dedicating revision time to multi-part questions will yield stronger outcomes.",
+                    "Good performance under test conditions; practicing timed past papers will help bridge into top grades."
+                };
+                balance = exMidOptions[(int)(balanceSeed % (uint)exMidOptions.Length)];
+            }
+            else
+            {
+                var exLowOptions = new[]
+                {
+                    "Structured examination revision and regular past-paper practice are recommended to improve future assessment outcomes.",
+                    "Additional practice with examination-style questions will help develop confidence and exam technique.",
+                    "Targeted review of core topics and practicing under timed conditions will support examination readiness.",
+                    "Working through model examination answers and past papers will help clarify expectations and improve scores.",
+                    "Focusing on exam command words and foundational principles will assist in raising assessment marks.",
+                    "Regular revision sessions and completing practice tests will build the stamina and accuracy needed.",
+                    "The student is advised to practice answering past examination papers under timed conditions.",
+                    "Reviewing exam marking schemes and focusing on core topic revision will help lift assessment marks."
+                };
+                balance = exLowOptions[(int)(balanceSeed % (uint)exLowOptions.Length)];
+            }
+        }
+        else if (hasCw && !hasEx)
+        {
+            // Only coursework was assessed (exam is intentionally zero or not used)
+            if (finalMark >= 80)
+            {
+                var cwHighOptions = new[]
+                {
+                    "Coursework assignments have been completed to an exemplary standard, showing great initiative.",
+                    "Demonstrates sustained dedication and thoroughness across all continuous assessment tasks.",
+                    "Coursework submissions reflect high quality, analytical depth, and consistent academic effort.",
+                    "Produces consistently superior coursework, demonstrating thorough research and thoughtful execution.",
+                    "Daily engagement and continuous assessment work reflect commendable scholarship and pride in presentation.",
+                    "Exemplary dedication to continuous assessment; projects are consistently insightful and well documented.",
+                    "Consistently thorough coursework that showcases independent research and high-level academic diligence.",
+                    "The student demonstrates excellent self-discipline and scholarly thoroughness across all assignment submissions."
+                };
+                balance = cwHighOptions[(int)(balanceSeed % (uint)cwHighOptions.Length)];
+            }
+            else if (finalMark >= 60)
+            {
+                var cwMidOptions = new[]
+                {
+                    "Coursework tasks show positive engagement and a steady grasp of core subject material.",
+                    "Maintains consistent coursework participation; attention to detail in assignments will bring further gains.",
+                    "Steady coursework contributions throughout the term; deepening written explanations will enhance quality.",
+                    "Reliable completion of coursework projects; refining analytical detail will lead to even stronger scores.",
+                    "A dependable approach to continuous assessments; maintaining this focus will ensure good progress.",
+                    "Good coursework performance; focusing on comprehensive analysis in assignments will elevate marks further.",
+                    "Regular coursework completion is commendable; adding extra depth to research tasks will yield higher grades.",
+                    "Shows positive effort in continuous assessments; reviewing teacher guidance on drafts will bring additional gains."
+                };
+                balance = cwMidOptions[(int)(balanceSeed % (uint)cwMidOptions.Length)];
+            }
+            else
+            {
+                var cwLowOptions = new[]
+                {
+                    "More consistent coursework submission and active participation in class activities are advised.",
+                    "Regular completion of assignments and seeking timely help will support subject progress.",
+                    "Punctual submission of all coursework tasks and careful attention to guidelines will help lift grades.",
+                    "The student is urged to seek feedback on draft assignments to improve coursework quality.",
+                    "Dedication to completing every assigned project and task will build a stronger academic foundation.",
+                    "Closer adherence to assignment briefs and timely submission will help improve continuous assessment marks.",
+                    "Consistent effort on daily homework exercises and coursework projects will support academic recovery.",
+                    "The student should consult with the subject teacher regularly to ensure coursework meets expected standards."
+                };
+                balance = cwLowOptions[(int)(balanceSeed % (uint)cwLowOptions.Length)];
+            }
+        }
+
+        var feedbackSentence = string.IsNullOrWhiteSpace(teacherFeedback)
+            ? string.Empty
+            : $"The recorded Staff Marks feedback is also noted: {teacherFeedback.Trim().TrimEnd('.')}.";
+        return string.Join(" ", new[] { first, balance, feedbackSentence }.Where(s => !string.IsNullOrWhiteSpace(s)));
+    }
+
+    private static string GetCurrentTerm() => DateTime.Now.Month switch
+    {
+        <= 4 => "Term 1",
+        <= 8 => "Term 2",
+        _ => "Term 3"
+    };
+
+    private static int ParseTermNumber(string term) => term switch
+    {
+        "Term 1" => 1,
+        "Term 2" => 2,
+        "Term 3" => 3,
+        _ => 1
+    };
+
+    private string GetStudentName(long id)
+        => studentNames.TryGetValue(id, out var name) ? name : $"Student #{id}";
+
+    private static string GetClassLabel(GenerationRosterRow row)
+        => $"Form {row.Student.Form} {(string.IsNullOrWhiteSpace(row.Student.Classroom) ? "Unassigned class" : row.Student.Classroom.Trim())}";
+
+    private static bool HasMissingMarks(GenerationRosterRow row)
+        => row.Status is GenerationStatus.Partial or GenerationStatus.NoMarks or GenerationStatus.NoSubjectSetup
+            || row.SubjectCoverage.Any(s => !s.IsComplete);
+
+}

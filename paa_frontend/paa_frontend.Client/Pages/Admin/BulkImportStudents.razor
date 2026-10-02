@@ -1,0 +1,739 @@
+@page "/students/bulk-import"
+@namespace paa_frontend.Client.Pages.Admin
+@layout paa_frontend.Client.Layout.AdminPortalLayout
+@using System.ComponentModel.DataAnnotations
+@using System.Globalization
+@using System.IO
+@using System.Linq
+@using System.Text
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+@using paa_frontend.Client.Services
+@using paa_frontend.Client.Services.Admin
+@using paa_frontend.Shared.Models
+@using StudentRecord = paa_frontend.Shared.Models.StudentProfileModel.Student
+@using EmergencyContactRecord = paa_frontend.Shared.Models.StudentProfileModel.EmergencyContactDetails
+@inject StudentProfileServiceClient StudentService
+@inject NotificationService NotificationService
+@inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
+
+<style>
+    .import-dropzone {
+        border: 1.5px dashed rgba(79, 70, 229, 0.28);
+        background: linear-gradient(180deg, rgba(255,255,255,0.82), rgba(238,242,255,0.48));
+    }
+
+        .import-dropzone:focus-within {
+            border-color: rgba(79, 70, 229, 0.7);
+            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.08);
+        }
+
+    .preview-table th,
+    .preview-table td {
+        padding: 0.75rem 0.9rem;
+        border-bottom: 1px solid #e2e8f0;
+        vertical-align: top;
+    }
+
+    .preview-table th {
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #64748b;
+        font-weight: 800;
+        background: #f8fafc;
+    }
+
+    .preview-row-error {
+        color: #b91c1c;
+        font-size: 0.72rem;
+        line-height: 1.25rem;
+    }
+
+    .result-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 1rem;
+        background: rgba(255,255,255,0.8);
+    }
+
+    @@media (max-width: 768px) {
+        .preview-table {
+            min-width: 760px;
+        }
+    }
+</style>
+
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-2 text-sm text-slate-500 font-medium mb-1">
+            <a href="/students" class="hover:text-indigo-600 transition-colors">Students</a>
+            <span class="text-slate-300">&rsaquo;</span>
+            <span class="text-slate-800 font-bold">Bulk Import</span>
+        </div>
+        <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight mb-1">Bulk Student Import</h1>
+        <p class="text-sm font-medium text-slate-500">Paste rows from Excel or upload CSV, then review the preview before importing.</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+        <a href="/students/add?returnPortal=admin" class="px-4 py-2 bg-white/70 hover:bg-white backdrop-blur-sm border border-slate-200/70 rounded-full text-xs font-semibold text-slate-600 transition-colors shadow-sm">Single Add</a>
+        <button class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-full text-xs font-semibold transition-colors shadow-sm" @onclick="LoadSample">Use Sample Template</button>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+    <div class="xl:col-span-2 flex flex-col gap-5">
+        <div class="rounded-3xl border border-slate-200/70 bg-white/70 backdrop-blur-sm p-5 shadow-sm">
+            <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-4">
+                <div>
+                    <div class="text-base font-extrabold text-slate-900">Import Input</div>
+                    <div class="text-xs text-slate-500 mt-1">Paste tab-separated rows from Excel or drop a `.csv` file.</div>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button class="px-3 py-2 rounded-full border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50" @onclick="ParseInput">Preview Rows</button>
+                    <button class="px-3 py-2 rounded-full border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50" @onclick="ClearAll">Clear</button>
+                </div>
+            </div>
+
+            <div class="import-dropzone rounded-2xl p-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[0.8rem] font-bold text-slate-700">Paste rows here</label>
+                        <textarea class="w-full min-h-[18rem] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-mono outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 resize-y" placeholder="Paste Excel rows or CSV content here..." value="@rawInput" @oninput="HandleRawInputChanged"></textarea>
+                        <p class="text-xs text-slate-500">
+                            The first row must be headers. Tabs from Excel are accepted.
+                        </p>
+                    </div>
+
+                    <div class="flex flex-col gap-4">
+                        <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4">
+                            <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Upload CSV</div>
+                            <InputFile OnChange="HandleFileSelected" accept=".csv,text/csv" />
+                            <p class="text-xs text-slate-500 mt-3">
+                                Use a CSV file if you already exported from Excel. A preview is generated after upload.
+                            </p>
+                        </div>
+
+                        <div class="rounded-2xl bg-indigo-50 border border-indigo-100 p-4">
+                            <div class="text-xs font-bold text-indigo-600 uppercase tracking-widest mb-2">Required columns</div>
+                            <div class="text-xs text-slate-700 leading-6">
+                                <span class="font-bold">firstName</span>, <span class="font-bold">lastName</span>, <span class="font-bold">form</span>, <span class="font-bold">classroom</span>, <span class="font-bold">gender</span>, <span class="font-bold">status</span>
+                            </div>
+                            <div class="text-xs text-slate-500 mt-2 leading-6">
+                                Optional: <span class="font-semibold">phone</span>, <span class="font-semibold">dateOfBirth</span>, <span class="font-semibold">createdAt</span> (join date), <span class="font-semibold">religion</span>, <span class="font-semibold">nationalId</span>, <span class="font-semibold">tempId</span>, <span class="font-semibold">emergencyName</span>, <span class="font-semibold">emergencyPhone</span>, <span class="font-semibold">emergencyEmail</span>, <span class="font-semibold">emergencyRelationship</span>
+                            </div>
+                            <div class="text-xs text-slate-500 mt-2">
+                                `status` should usually be `Active`. `form` must be a number from `1` to `6`.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(parseMessage))
+        {
+            <div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 shadow-sm">
+                @parseMessage
+            </div>
+        }
+
+        <div class="rounded-3xl border border-slate-200/70 bg-white/70 backdrop-blur-sm shadow-sm overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                    <div class="text-base font-extrabold text-slate-900">Preview</div>
+                    <div class="text-xs text-slate-500 mt-1">@previewRows.Count total rows, @previewRows.Count(r => r.IsValid) valid, @previewRows.Count(r => !r.IsValid) invalid</div>
+                </div>
+                <button class="px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md disabled:opacity-50 disabled:cursor-not-allowed" disabled="@(!previewRows.Any(r => r.IsValid) || isSubmitting)" @onclick="ImportRows">
+                    @if (isSubmitting)
+                    {
+                        <span>Importing...</span>
+                    }
+                    else
+                    {
+                        <span>Import Valid Rows</span>
+                    }
+                </button>
+            </div>
+
+            @if (!previewRows.Any())
+            {
+                <div class="p-10 text-center text-slate-400">
+                    Paste or upload data to see a row-by-row preview.
+                </div>
+            }
+            else
+            {
+                <div class="overflow-x-auto">
+                    <table class="w-full preview-table min-w-[980px] text-left border-collapse">
+                        <thead>
+                            <tr>
+                                <th>Row</th>
+                                <th>Student</th>
+                                <th>Enrollment</th>
+                                <th>Contact</th>
+                                <th>Issues</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in previewRows)
+                            {
+                                <tr class="@(row.IsValid ? "" : "bg-rose-50/50")">
+                                    <td class="font-mono text-xs font-bold text-slate-500 align-top">#@row.RowNumber</td>
+                                    <td class="align-top">
+                                        <div class="font-bold text-slate-900">@row.Student.FirstName @row.Student.LastName</div>
+                                        <div class="text-xs text-slate-500 mt-1">@row.Student.Email</div>
+                                        <div class="text-xs text-slate-400 mt-1">@row.Student.NationalId</div>
+                                        <div class="text-xs text-slate-400 mt-1">@row.Student.TempId</div>
+                                    </td>
+                                    <td class="align-top">
+                                        <div class="text-sm font-semibold text-slate-700">Form @row.Student.Form</div>
+                                        <div class="text-xs text-slate-500 mt-1">@row.Student.Classroom</div>
+                                        <div class="text-xs text-slate-400 mt-1">@row.Student.Status</div>
+                                    </td>
+                                    <td class="align-top">
+                                        <div class="text-xs text-slate-600">@row.Student.Phone</div>
+                                        <div class="text-xs text-slate-500 mt-1">@row.Student.Address</div>
+                                    </td>
+                                    <td class="align-top">
+                                        @if (row.Errors.Any())
+                                        {
+                                            <ul class="space-y-1">
+                                                @foreach (var error in row.Errors)
+                                                {
+                                                    <li class="preview-row-error">• @error</li>
+                                                }
+                                            </ul>
+                                        }
+                                        else
+                                        {
+                                            <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[0.65rem] font-extrabold uppercase tracking-widest">Ready</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="flex flex-col gap-5">
+        <div class="result-card p-5 shadow-sm">
+            <div class="text-sm font-extrabold text-slate-900 mb-3">Quick Checklist</div>
+            <ul class="space-y-3 text-sm text-slate-600">
+                <li class="flex gap-2"><span class="text-emerald-600 font-black">1.</span> Put headers in the first row.</li>
+                <li class="flex gap-2"><span class="text-emerald-600 font-black">2.</span> Use one student per row.</li>
+                <li class="flex gap-2"><span class="text-emerald-600 font-black">3.</span> Keep `form`, `classroom`, `gender`, and `status` filled in.</li>
+                <li class="flex gap-2"><span class="text-emerald-600 font-black">4.</span> Paste from Excel directly if you do not want to save CSV first.</li>
+                <li class="flex gap-2"><span class="text-emerald-600 font-black">5.</span> Review errors before importing valid rows.</li>
+            </ul>
+        </div>
+
+        @if (importResponse != null)
+        {
+            <div class="result-card p-5 shadow-sm">
+                <div class="text-sm font-extrabold text-slate-900 mb-1">Import Result</div>
+                <div class="text-xs text-slate-500 mb-4">Processed @importResponse.TotalRequested rows in @importResponse.ProcessingTimeMs ms.</div>
+
+                <div class="grid grid-cols-3 gap-3 mb-4">
+                    <div class="rounded-2xl bg-emerald-50 border border-emerald-100 p-3">
+                        <div class="text-[0.65rem] font-bold text-emerald-600 uppercase tracking-widest mb-1">Success</div>
+                        <div class="text-2xl font-black text-emerald-700">@importResponse.SuccessCount</div>
+                    </div>
+                    <div class="rounded-2xl bg-rose-50 border border-rose-100 p-3">
+                        <div class="text-[0.65rem] font-bold text-rose-600 uppercase tracking-widest mb-1">Failed</div>
+                        <div class="text-2xl font-black text-rose-700">@importResponse.FailureCount</div>
+                    </div>
+                    <div class="rounded-2xl bg-slate-50 border border-slate-200 p-3">
+                        <div class="text-[0.65rem] font-bold text-slate-500 uppercase tracking-widest mb-1">Requested</div>
+                        <div class="text-2xl font-black text-slate-700">@importResponse.TotalRequested</div>
+                    </div>
+                </div>
+
+                @if (importResponse.SuccessfulStudents.Any())
+                {
+                    <div class="mb-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="text-xs font-bold text-slate-400 uppercase tracking-widest">Created Accounts</div>
+                            <button class="px-3 py-1.5 rounded-full bg-slate-900 hover:bg-slate-700 text-white text-[0.65rem] font-bold transition-colors flex items-center gap-1.5"
+                                    @onclick="DownloadCredentialsTxt">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                                Download .txt
+                            </button>
+                        </div>
+                        <div class="space-y-2 max-h-56 overflow-auto pr-1">
+                            @foreach (var item in importResponse.SuccessfulStudents)
+                            {
+                                // Look up the matching preview row to get form/classroom since the DTO may not carry them
+                                var matchedRow = sessionCredentials.FirstOrDefault(c =>
+                                    string.Equals(c.Username, item.Username, StringComparison.OrdinalIgnoreCase));
+
+                                <div class="rounded-xl border border-emerald-100 bg-emerald-50/80 p-3 text-sm">
+                                    <div class="font-bold text-slate-900">@item.FirstName @item.LastName</div>
+                                    @if (matchedRow != null)
+                                    {
+                                        <div class="text-[0.65rem] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                                            Form @matchedRow.Form @matchedRow.Classroom
+                                        </div>
+                                    }
+                                    <div class="text-xs text-slate-500 mt-1 font-mono">@item.Username / @item.Password</div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @if (importResponse.FailedStudents.Any())
+                {
+                    <div>
+                        <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Failed Rows</div>
+                        <div class="space-y-2 max-h-56 overflow-auto pr-1">
+                            @foreach (var item in importResponse.FailedStudents)
+                            {
+                                <div class="rounded-xl border border-rose-100 bg-rose-50/80 p-3 text-sm">
+                                    <div class="font-bold text-slate-900">Row @item.Index: @item.FirstName @item.LastName</div>
+                                    <div class="text-xs text-rose-700 mt-1">@item.Reason</div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private const string SampleTemplate =
+        "firstName,lastName,email,phone,address,form,classroom,gender,religion,nationalId,tempId,status,createdAt,emergencyName,emergencyPhone,emergencyEmail,emergencyRelationship\n" +
+        "Tinashe,Moyo,tinashe@example.com,0712345678,12 Main Street,1,1A,Male,Christian,12-3456789A12,TEMP-001,Active,,Sarah Moyo,0712345678,sarah@example.com,Mother";
+
+    private readonly string[] RequiredColumns = new[]
+    {
+        "firstname", "lastname", "form", "classroom", "gender", "status"
+    };
+
+    private string rawInput = string.Empty;
+    private string? parseMessage;
+    private bool isSubmitting;
+    private readonly List<ImportPreviewRow> previewRows = new();
+    private BulkCreationResponseDto? importResponse;
+    private string? detectedDelimiterHint;
+
+    // Holds form/classroom keyed by username for the current session only
+    private List<SessionCredentialMeta> sessionCredentials = new();
+
+    private sealed class SessionCredentialMeta
+    {
+        public string Username { get; set; } = string.Empty;
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public int? Form { get; set; }
+        public string Classroom { get; set; } = string.Empty;
+    }
+
+    private sealed class ImportPreviewRow
+    {
+        public int RowNumber { get; set; }
+        public StudentRecord Student { get; set; } = new();
+        public List<string> Errors { get; set; } = new();
+        public bool IsValid => Errors.Count == 0;
+    }
+
+    private void LoadSample()
+    {
+        rawInput = SampleTemplate;
+        ParseInput();
+    }
+
+    private void HandleRawInputChanged(ChangeEventArgs e)
+    {
+        rawInput = e.Value?.ToString() ?? string.Empty;
+        ParseInput();
+    }
+
+    private void ClearAll()
+    {
+        rawInput = string.Empty;
+        parseMessage = null;
+        detectedDelimiterHint = null;
+        previewRows.Clear();
+        importResponse = null;
+        sessionCredentials.Clear();
+    }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            using var reader = new StreamReader(stream, Encoding.UTF8, true, 1024, leaveOpen: false);
+            rawInput = await reader.ReadToEndAsync();
+            ParseInput();
+        }
+        catch (Exception ex)
+        {
+            parseMessage = $"Failed to load file: {ex.Message}";
+        }
+    }
+
+    private void ParseInput()
+    {
+        importResponse = null;
+        previewRows.Clear();
+        sessionCredentials.Clear();
+        parseMessage = null;
+        detectedDelimiterHint = null;
+
+        if (string.IsNullOrWhiteSpace(rawInput))
+        {
+            parseMessage = "Paste CSV or Excel data to begin.";
+            return;
+        }
+
+        var lines = rawInput
+            .Replace("\r\n", "\n")
+            .Replace('\r', '\n')
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .ToList();
+
+        if (lines.Count == 0)
+        {
+            parseMessage = "No rows were found in the input.";
+            return;
+        }
+
+        char delimiter = DetectDelimiter(lines[0]);
+        detectedDelimiterHint = delimiter == '\t' ? "tab" : delimiter == ';' ? "semicolon" : "comma";
+
+        var headerCells = ParseDelimitedLine(lines[0], delimiter);
+        var headers = headerCells.Select(NormalizeHeader).ToList();
+
+        var missingColumns = RequiredColumns.Where(required => !headers.Contains(required, StringComparer.OrdinalIgnoreCase)).ToList();
+        if (missingColumns.Any())
+        {
+            parseMessage = $"Missing required columns: {string.Join(", ", missingColumns)}";
+        }
+
+        for (int i = 1; i < lines.Count; i++)
+        {
+            var cells = ParseDelimitedLine(lines[i], delimiter);
+            var rowMap = BuildRowMap(headers, cells);
+            var previewRow = BuildPreviewRow(i + 1, rowMap);
+            previewRows.Add(previewRow);
+        }
+
+        if (!previewRows.Any())
+        {
+            parseMessage ??= "No data rows were found after the header.";
+        }
+    }
+
+    private async Task ImportRows()
+    {
+        var rowsToImport = previewRows.Where(r => r.IsValid).Select(r => r.Student).ToList();
+        if (!rowsToImport.Any())
+        {
+            NotificationService.ShowError("There are no valid rows to import.");
+            return;
+        }
+
+        isSubmitting = true;
+        try
+        {
+            var request = new BulkStudentCreationDto
+            {
+                Students = rowsToImport,
+                StopOnError = false
+            };
+
+            var response = await StudentService.BulkCreateStudentsAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                importResponse = await response.Content.ReadFromJsonAsync<BulkCreationResponseDto>();
+                if (importResponse != null)
+                {
+                    // Build session metadata from the valid preview rows so we have
+                    // form/classroom available without touching the backend DTO.
+                    sessionCredentials = previewRows
+                        .Where(r => r.IsValid)
+                        .Select(r => new SessionCredentialMeta
+                        {
+                            // Username is typically derived from first+last; we match on name below
+                            // but store first/last so we can fall back to name matching too.
+                            FirstName = r.Student.FirstName ?? string.Empty,
+                            LastName = r.Student.LastName ?? string.Empty,
+                            Form = r.Student.Form,
+                            Classroom = r.Student.Classroom ?? string.Empty
+                        })
+                        .ToList();
+
+                    // Once the API returns, try to match returned usernames back to our session list
+                    // by pairing them in order (API preserves insertion order for successes).
+                    var successList = importResponse.SuccessfulStudents.ToList();
+                    for (int i = 0; i < successList.Count && i < sessionCredentials.Count; i++)
+                    {
+                        sessionCredentials[i].Username = successList[i].Username ?? string.Empty;
+                    }
+
+                    NotificationService.ShowSuccess($"Imported {importResponse.SuccessCount} students successfully.");
+                }
+                else
+                {
+                    NotificationService.ShowSuccess("Import completed.");
+                }
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                NotificationService.ShowError(string.IsNullOrWhiteSpace(error) ? "Bulk import failed." : error);
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.ShowError($"Bulk import failed: {ex.Message}");
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private async Task DownloadCredentialsTxt()
+    {
+        if (importResponse?.SuccessfulStudents == null || !importResponse.SuccessfulStudents.Any())
+            return;
+
+        var sb = new StringBuilder();
+        sb.AppendLine("BULK IMPORT — STUDENT CREDENTIALS");
+        sb.AppendLine($"Generated : {DateTime.Now:dd MMM yyyy HH:mm}");
+        sb.AppendLine($"Total     : {importResponse.SuccessCount} student(s)");
+        sb.AppendLine(new string('-', 48));
+        sb.AppendLine();
+
+        var successList = importResponse.SuccessfulStudents.ToList();
+        for (int i = 0; i < successList.Count; i++)
+        {
+            var item = successList[i];
+            var meta = sessionCredentials.FirstOrDefault(c =>
+                string.Equals(c.Username, item.Username, StringComparison.OrdinalIgnoreCase));
+
+            sb.AppendLine($"Name     : {item.FirstName} {item.LastName}");
+
+            if (meta != null)
+                sb.AppendLine($"Class    : Form {meta.Form} {meta.Classroom}");
+
+            sb.AppendLine($"Username : {item.Username}");
+            sb.AppendLine($"Password : {item.Password}");
+            sb.AppendLine();
+        }
+
+        var base64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(sb.ToString()));
+        var fileName = $"credentials_{DateTime.Now:yyyyMMdd_HHmm}.txt";
+
+        await JSRuntime.InvokeVoidAsync("eval", $@"
+            const a = document.createElement('a');
+            a.href = 'data:text/plain;base64,{base64}';
+            a.download = '{fileName}';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        ");
+    }
+
+    private static ImportPreviewRow BuildPreviewRow(int rowNumber, Dictionary<string, string> rowMap)
+    {
+        var rawForm = GetValue(rowMap, "form");
+        var student = new StudentRecord
+        {
+            FirstName = GetValue(rowMap, "firstname"),
+            LastName = GetValue(rowMap, "lastname"),
+            Email = GetValue(rowMap, "email"),
+            Phone = GetValue(rowMap, "phone"),
+            Address = GetValue(rowMap, "address"),
+            Form = int.TryParse(rawForm, out var formValue) ? formValue : null,
+            Classroom = GetValue(rowMap, "classroom"),
+            Gender = string.IsNullOrWhiteSpace(GetValue(rowMap, "gender")) ? "Other" : GetValue(rowMap, "gender"),
+            Religion = GetValue(rowMap, "religion"),
+            NationalId = GetValue(rowMap, "nationalid"),
+            TempId = GetValue(rowMap, "tempid"),
+            Status = string.IsNullOrWhiteSpace(GetValue(rowMap, "status")) ? "Active" : GetValue(rowMap, "status"),
+            EmergencyContactDetails = new EmergencyContactRecord
+            {
+                Name = GetValue(rowMap, "emergencyname"),
+                Phone = GetValue(rowMap, "emergencyphone"),
+                Email = GetValue(rowMap, "emergencyemail"),
+                Relationship = GetValue(rowMap, "emergencyrelationship")
+            }
+        };
+
+        var errors = new List<string>();
+
+        ValidateRequired(student.FirstName, "First name is required.", errors);
+        ValidateRequired(student.LastName, "Last name is required.", errors);
+        ValidateRequired(student.Classroom, "Classroom is required.", errors);
+
+        if (!student.Form.HasValue || student.Form.Value < 1 || student.Form.Value > 6)
+        {
+            errors.Add("Form must be a number from 1 to 6.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(student.Email) && !new EmailAddressAttribute().IsValid(student.Email))
+        {
+            errors.Add("Email format is invalid.");
+        }
+
+        var dobText = GetValue(rowMap, "dateofbirth");
+        DateTime? parsedDob = null;
+
+        if (!string.IsNullOrWhiteSpace(dobText) &&
+            !TryParseDate(dobText, out parsedDob))
+        {
+            errors.Add("Date of birth could not be parsed. Use yyyy-MM-dd or dd/MM/yyyy.");
+        }
+        else if (!string.IsNullOrWhiteSpace(dobText))
+        {
+            student.DateOfBirth = parsedDob;
+        }
+
+        var createdAtText = GetValue(rowMap, "createdat");
+        if (string.IsNullOrWhiteSpace(createdAtText))
+            createdAtText = GetValue(rowMap, "joindate");
+
+        DateTime? parsedCreatedAt = null;
+        if (!string.IsNullOrWhiteSpace(createdAtText) &&
+            !TryParseDate(createdAtText, out parsedCreatedAt))
+        {
+            errors.Add("Join date could not be parsed. Use yyyy-MM-dd or dd/MM/yyyy.");
+        }
+        else if (!string.IsNullOrWhiteSpace(createdAtText))
+        {
+            student.CreatedAt = parsedCreatedAt;
+        }
+
+        return new ImportPreviewRow
+        {
+            RowNumber = rowNumber,
+            Student = student,
+            Errors = errors
+        };
+    }
+
+    private static void ValidateRequired(string? value, string message, List<string> errors)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            errors.Add(message);
+        }
+    }
+
+    private static bool TryParseDate(string value, out DateTime? date)
+    {
+        var formats = new[]
+        {
+            "yyyy-MM-dd",
+            "dd/MM/yyyy",
+            "MM/dd/yyyy",
+            "dd-MM-yyyy",
+            "yyyy/MM/dd"
+        };
+
+        if (DateTime.TryParseExact(value, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
+        {
+            date = parsed;
+            return true;
+        }
+
+        if (DateTime.TryParse(value, CultureInfo.CurrentCulture, DateTimeStyles.AssumeLocal, out parsed))
+        {
+            date = parsed;
+            return true;
+        }
+
+        date = null;
+        return false;
+    }
+
+    private static Dictionary<string, string> BuildRowMap(List<string> headers, List<string> values)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < headers.Count; i++)
+        {
+            var key = headers[i];
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                continue;
+            }
+
+            var value = i < values.Count ? values[i].Trim() : string.Empty;
+            map[key] = value;
+        }
+
+        return map;
+    }
+
+    private static string GetValue(Dictionary<string, string> map, string key)
+        => map.TryGetValue(NormalizeHeader(key), out var value) ? value : string.Empty;
+
+    private static char DetectDelimiter(string headerLine)
+    {
+        if (headerLine.Contains('\t'))
+        {
+            return '\t';
+        }
+
+        var commaCount = headerLine.Count(c => c == ',');
+        var semiCount = headerLine.Count(c => c == ';');
+        return semiCount > commaCount ? ';' : ',';
+    }
+
+    private static List<string> ParseDelimitedLine(string line, char delimiter)
+    {
+        var values = new List<string>();
+        var current = new StringBuilder();
+        bool inQuotes = false;
+
+        for (int i = 0; i < line.Length; i++)
+        {
+            var ch = line[i];
+            if (ch == '"')
+            {
+                if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
+                {
+                    current.Append('"');
+                    i++;
+                }
+                else
+                {
+                    inQuotes = !inQuotes;
+                }
+            }
+            else if (ch == delimiter && !inQuotes)
+            {
+                values.Add(current.ToString());
+                current.Clear();
+            }
+            else
+            {
+                current.Append(ch);
+            }
+        }
+
+        values.Add(current.ToString());
+        return values;
+    }
+
+    private static string NormalizeHeader(string? header)
+    {
+        if (string.IsNullOrWhiteSpace(header))
+        {
+            return string.Empty;
+        }
+
+        var cleaned = new string(header.Where(char.IsLetterOrDigit).ToArray());
+        return cleaned.ToLowerInvariant();
+    }
+}

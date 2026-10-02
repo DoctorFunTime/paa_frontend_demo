@@ -1,0 +1,3089 @@
+@page "/portal/results"
+@namespace paa_frontend.Client.Pages.Portal
+@layout paa_frontend.Client.Layout.StudentPortalLayout
+@using paa_frontend.Shared.Models
+@using paa_frontend.Client.Services.StaffPortal
+@using paa_frontend.Client.Services.Admin
+@using static paa_frontend.Shared.Models.StudentProfileModel
+@inject AssessmentServiceClient AssessmentService
+@inject GradesServiceClient GradesService
+@inject FinanceServiceClient FinanceService
+@inject StudentProfileServiceClient StudentService
+@inject StudentSubjectServiceClient SubjectService
+@inject OlevelClassServiceClient OlevelClassService
+@inject AttendanceServiceClient AttendanceService
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+@{
+    var pageTitle = "Results";
+}
+<CascadingValue Name="PageTitle" Value="@pageTitle">
+
+    <style>
+            /* ─── RESULTS GRID & FLAT UI ─── */
+            .portal-grid {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr);
+                gap: 30px;
+                padding: 0 28px 40px;
+                margin-top: 18px;
+            }
+
+            .col-8 {
+                grid-column: 1 / -1;
+                order: 2;
+            }
+
+            .col-4 {
+                grid-column: 1 / -1;
+                order: 1;
+            }
+
+            .portal-grid, .col-8, .col-4 {
+                min-width: 0;
+            }
+
+            /* ─── BANNER OVERRIDES (Specific for Results) ─── */
+            .banner-outer {
+                background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #4338ca 100%);
+                border: 0;
+                box-shadow: 0 12px 28px rgba(15,23,42,0.16);
+                color: #fff;
+                padding: 24px 32px 32px;
+                position: relative;
+                overflow: hidden;
+                border-radius: 28px;
+                margin: 16px 16px 0;
+            }
+
+                .banner-outer::before {
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    right: 0;
+                    width: 450px;
+                    height: 100%;
+                    background-image: url("data:image/svg+xml,%3Csvg width='32' height='55' viewBox='0 0 32 55' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cpath d='M16 9.613L32 18.846v18.468l-16 9.233-16-9.233V18.846zm0 1.155l-15 8.658v17.316l15 8.658 15-8.658V19.426zM15 48.24l-14-8.08V23.84l14-8.08v32.48zm2-32.48l14 8.08v16.32l-14 8.08V15.76z' fill='%23000000' fill-opacity='0.05'/%3E%3C/g%3E%3C/svg%3E");
+                    -webkit-mask-image: linear-gradient(to left, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%);
+                    mask-image: linear-gradient(to left, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%);
+                    pointer-events: none;
+                }
+
+            .banner-inner {
+                position: relative;
+                z-index: 1;
+                display: flex;
+                align-items: center;
+                gap: 24px;
+                max-width: 1400px;
+                margin: 0 auto;
+            }
+
+            .banner-avatar {
+                width: 80px;
+                height: 80px;
+                background: rgba(255,255,255,0.1);
+                border: 2px solid rgba(255,255,255,0.2);
+                border-radius: 20px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 28px;
+                font-weight: 800;
+                color: #fff;
+            }
+
+            .banner-name {
+                font-size: 32px;
+                font-weight: 800;
+                letter-spacing: -1px;
+                margin-bottom: 4px;
+                color: #fff;
+            }
+
+            .banner-meta {
+                display: flex;
+                gap: 16px;
+                margin-bottom: 12px;
+            }
+
+            .banner-meta-item {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 13px;
+                color: rgba(255,255,255,0.82);
+                font-weight: 600;
+            }
+
+            .banner-badges {
+                display: flex;
+                gap: 8px;
+            }
+
+            .banner-badge {
+                padding: 4px 10px;
+                border-radius: 8px;
+                font-size: 11px;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+            .top-level-tabs {
+                margin: 28px 28px 0;
+            }
+
+            .col-8.glass-card {
+                padding: 26px !important;
+            }
+
+            .banner-stats {
+                margin-left: auto;
+                display: flex;
+                gap: 40px;
+            }
+
+            .banner-stat {
+                text-align: right;
+            }
+
+            .banner-stat-label {
+                font-size: 11px;
+                font-weight: 800;
+                color: rgba(255,255,255,0.68);
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin-bottom: 6px;
+            }
+
+            .banner-stat-val {
+                font-size: 32px;
+                font-weight: 800;
+                font-family: 'DM Mono', monospace;
+                line-height: 1;
+            }
+
+            /* ─── DE-BOXED SECTIONS ─── */
+            .section-label {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 11px;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: 1.5px;
+                color: var(--ink3);
+                margin-bottom: 20px;
+            }
+
+            .section-divider {
+                height: 1px;
+                background: #f0f0f0;
+                margin: 40px 0;
+            }
+
+            /* ─── TAB NAV (FLAT) ─── */
+            .tab-row {
+                display: flex;
+                gap: 24px;
+                border-bottom: 2px solid #f0f0f0;
+                margin-bottom: 32px;
+            }
+
+            .tab-link {
+                padding: 12px 4px;
+                font-size: 14px;
+                font-weight: 700;
+                color: var(--ink3);
+                cursor: pointer;
+                border-bottom: 2px solid transparent;
+                transition: all 0.2s;
+                margin-bottom: -2px;
+            }
+
+                .tab-link:hover {
+                    color: var(--ink);
+                }
+
+                .tab-link.active {
+                    color: var(--red);
+                    border-bottom-color: var(--red);
+                }
+
+            .skeleton {
+                display: block;
+                background: linear-gradient(90deg, rgba(226,232,240,.72) 25%, rgba(248,250,252,.98) 50%, rgba(226,232,240,.72) 75%);
+                background-size: 200% 100%;
+                animation: results-skeleton 1.25s ease-in-out infinite;
+            }
+
+            .results-initial-loading { padding: 28px 16px; display:flex; flex-direction:column; gap:14px; max-width:680px; margin:0 auto; }
+            .results-loading-welcome { display:flex; align-items:center; gap:12px; padding:16px 18px; background:#fff; border:1px solid rgba(148,163,184,.2); border-radius:18px; box-shadow:0 8px 24px rgba(15,23,42,.05); color:var(--ink); }
+            .results-loading-welcome strong { display:block; font-size:15px; }
+            .results-loading-welcome small { display:block; margin-top:3px; color:var(--ink3); font-size:12px; }
+            .results-spinner { width:22px; height:22px; flex:0 0 22px; border:3px solid #e2e8f0; border-top-color:var(--red); border-radius:50%; animation:results-spin .8s linear infinite; }
+            @@keyframes results-spin { to { transform:rotate(360deg); } }
+
+            .results-loading-card {
+                min-height: 240px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                gap: 14px;
+                padding: 28px;
+                border: 1px solid rgba(148,163,184,.18);
+                border-radius: 20px;
+                background: rgba(255,255,255,.58);
+            }
+
+            .results-loading-label {
+                color: rgba(255,255,255,0.72);
+                font-size: 13px;
+                font-weight: 700;
+                text-align: center;
+            }
+
+            .results-filter-grid {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 18px;
+            }
+
+            .results-filter-fields {
+                display: grid;
+                grid-template-columns: minmax(150px, 1fr) 120px;
+                gap: 10px;
+                width: min(100%, 430px);
+            }
+
+            .results-year-input {
+                appearance: textfield;
+            }
+
+            @@keyframes results-skeleton {
+                from {
+                    background-position: 200% 0;
+                }
+
+                to {
+                    background-position: -200% 0;
+                }
+            }
+
+            /* ─── FLAT DATA TABLES ─── */
+            .flat-table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+
+                .flat-table th {
+                    padding: 12px 10px;
+                    text-align: left;
+                    font-size: 11px;
+                    font-weight: 800;
+                    color: var(--ink3);
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                    border-bottom: 2px solid #f0f0f0;
+                }
+
+                .flat-table td {
+                    padding: 16px 10px;
+                    border-bottom: 1px solid #f8f8f8;
+                    font-size: 14px;
+                    color: var(--ink2);
+                    vertical-align: middle;
+                }
+
+                .flat-table tr:last-child td {
+                    border-bottom: none;
+                }
+
+            .grade-pill {
+                padding: 4px 12px;
+                border-radius: 8px;
+                font-family: 'DM Mono', monospace;
+                font-size: 16px;
+                font-weight: 800;
+            }
+
+            .mark-display {
+                font-family: 'DM Mono', monospace;
+                font-weight: 700;
+                font-size: 15px;
+            }
+
+            /* ─── PERFORMANCE BOX (RIGHT SIDE) ─── */
+            .perf-box {
+                background: transparent;
+                padding: 0px;
+            }
+
+            .metric-item {
+                margin-bottom: 28px;
+            }
+
+                .metric-item:last-child {
+                    margin-bottom: 0;
+                }
+
+            .metric-label {
+                font-size: 11px;
+                font-weight: 800;
+                color: rgba(255,255,255,0.72);
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin-bottom: 10px;
+                display: block;
+            }
+
+            .metric-val {
+                font-size: 28px;
+                font-weight: 800;
+                color: var(--ink);
+                font-family: 'DM Mono', monospace;
+                line-height: 1;
+            }
+
+            .metric-sub {
+                font-size: 12px;
+                font-weight: 600;
+                color: var(--ink3);
+                margin-top: 6px;
+            }
+
+            .history-card {
+                display: flex;
+                align-items: center;
+                padding: 24px;
+                background: rgba(255,255,255,0.3);
+                border-radius: 16px;
+                border: 1px solid rgba(255,255,255,0.4);
+                gap: 20px;
+            }
+
+            .history-icon {
+                width: 48px;
+                height: 48px;
+                background: rgba(255,255,255,0.5);
+                border: 1px solid rgba(255,255,255,0.5);
+                border-radius: 12px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: var(--red);
+                flex-shrink: 0;
+            }
+
+            .history-copy {
+                flex: 1;
+                min-width: 0;
+            }
+
+            .history-stats {
+                text-align: right;
+                flex-shrink: 0;
+            }
+
+            /* ─── ACTION INPUTS ─── */
+            .flat-select {
+                width: 100%;
+                padding: 14px 18px;
+                background: rgba(255,255,255,0.45);
+                border: 1px solid rgba(255,255,255,0.4);
+                border-radius: 12px;
+                font-size: 14px;
+                font-weight: 700;
+                color: var(--ink);
+                outline: none;
+                appearance: none;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+
+                .flat-select:focus {
+                    border-color: var(--red);
+                    box-shadow: 0 0 0 4px rgba(200,16,46,0.05);
+                }
+
+            /* ─── BUTTONS ─── */
+            .primary-btn {
+                width: 100%;
+                padding: 16px;
+                background: var(--red);
+                color: white;
+                border: none;
+                border-radius: 14px;
+                font-size: 15px;
+                font-weight: 800;
+                cursor: pointer;
+                transition: all 0.2s;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+                box-shadow: 0 8px 24px rgba(200,16,46,0.15);
+            }
+
+                .primary-btn:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 12px 32px rgba(200,16,46,0.25);
+                }
+
+                .primary-btn:disabled {
+                    opacity: 0.6;
+                    cursor: not-allowed;
+                    transform: none;
+                }
+
+            /* ─── MOBILE ─── */
+            @@media (max-width: 1100px) {
+                .portal-grid {
+                    grid-template-columns: 1fr;
+                    padding: 0 14px 24px;
+                    gap: 16px;
+                    margin-top: 0;
+                }
+
+                .col-8, .col-4 {
+                    grid-column: span 1;
+                }
+
+                .banner-outer {
+                    margin: 12px 12px 0;
+                    padding: 20px;
+                    border-radius: 22px;
+                }
+
+                .banner-inner {
+                    flex-direction: column;
+                    text-align: center;
+                    gap: 16px;
+                }
+
+                .banner-meta, .banner-badges {
+                    justify-content: center;
+                    flex-wrap: wrap;
+                }
+
+                .banner-stats {
+                    margin-left: 0;
+                    justify-content: center;
+                    width: 100%;
+                    margin-top: 24px;
+                }
+
+                .banner-avatar {
+                    margin: 0 auto;
+                }
+
+                .portal-grid > .glass-card {
+                    margin-top: 0 !important;
+                    width: 100%;
+                    overflow: hidden;
+                    padding: 18px !important;
+                }
+
+                .portal-grid {
+                    gap: 24px;
+                }
+
+                .tab-row {
+                    gap: 8px;
+                    overflow-x: auto;
+                    padding-bottom: 6px;
+                    scrollbar-width: none;
+                }
+
+                    .tab-row::-webkit-scrollbar {
+                        display: none;
+                    }
+
+                .tab-link {
+                    white-space: nowrap;
+                    font-size: 12px;
+                    padding: 10px 2px;
+                    flex: 0 0 auto;
+                }
+
+                .perf-box {
+                    position: static !important;
+                }
+
+                .metric-val {
+                    font-size: 22px;
+                    overflow-wrap: anywhere;
+                }
+
+                .flat-table {
+                    display: block;
+                    width: 100%;
+                    overflow-x: auto;
+                    white-space: nowrap;
+                }
+
+                .history-card {
+                    flex-direction: column;
+                    align-items: flex-start;
+                    padding: 18px;
+                    gap: 14px;
+                }
+
+                .history-stats {
+                    text-align: left;
+                }
+            }
+
+            @@media (max-width: 640px) {
+                .results-filter-grid {
+                    align-items: stretch;
+                    flex-direction: column;
+                    gap: 8px;
+                }
+
+                .results-filter-fields {
+                    width: 100%;
+                    grid-template-columns: minmax(0, 1fr) 112px;
+                }
+
+                .portal-grid {
+                    padding-left: 10px;
+                    padding-right: 10px;
+                }
+
+                    .portal-grid > .glass-card {
+                        padding: 14px !important;
+                        border-radius: 20px;
+                    }
+
+                .banner-name {
+                    font-size: 26px;
+                }
+
+                .banner-stats {
+                    gap: 20px;
+                }
+
+                .banner-stat-val {
+                    font-size: 24px;
+                }
+
+                .banner-meta-item {
+                    font-size: 12px;
+                }
+            }
+    </style>
+
+    <style>
+            .print-area {
+                position: relative;
+                width: 100%;
+                margin: 0 auto;
+            }
+
+            .report-a4-wrapper {
+                position: relative;
+                z-index: 1;
+                display: flex;
+                justify-content: center;
+                width: 100%;
+                overflow-x: auto;
+            }
+
+            .report-a4 {
+                width: 100%;
+                max-width: 100%;
+                background: transparent;
+                color: var(--ink);
+                position: relative;
+                margin: 0 auto;
+            }
+
+            .report-watermark {
+                position: absolute;
+                inset: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                opacity: 0.10;
+                pointer-events: none;
+                z-index: 0;
+            }
+
+                .report-watermark img {
+                    width: 95%;
+                    max-width: 220mm;
+                    height: auto;
+                    filter: grayscale(1);
+                }
+
+            .report-header {
+                display: flex;
+                align-items: center;
+                gap: 18px;
+            }
+
+            .report-logo {
+                width: 84px;
+                height: auto;
+                object-fit: contain;
+            }
+
+            .report-title {
+                font-size: 20px;
+                font-weight: 800;
+            }
+
+            .report-meta {
+                margin-left: auto;
+                text-align: right;
+                font-size: 12px;
+                color: var(--ink3);
+            }
+
+            .report-summary-grid {
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0,1fr));
+                gap: 12px;
+                margin-bottom: 24px;
+            }
+
+            .report-summary-card {
+                padding: 12px 14px;
+                background: rgba(249,249,249,0.72);
+                border: 1px solid rgba(255,255,255,0.55);
+                border-radius: 10px;
+                backdrop-filter: blur(2px);
+            }
+
+            .report-totals-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0,1fr));
+                gap: 12px;
+                margin-top: 24px;
+            }
+
+            .report-comment-box {
+                margin-top: 40px;
+                padding: 16px;
+                background: rgba(249,249,249,0.72);
+                border: 1px solid rgba(255,255,255,0.55);
+                border-radius: 8px;
+                font-size: 13px;
+                backdrop-filter: blur(2px);
+            }
+
+            .report-table-wrap {
+                width: 100%;
+                overflow-x: auto;
+            }
+
+                .report-table-wrap .flat-table {
+                    min-width: 640px;
+                }
+
+            @@media (max-width: 900px) {
+                .print-area {
+                    transform-origin: top left;
+                    transform: none;
+                    width: 100%;
+                    margin-bottom: 0;
+                }
+
+                .report-header {
+                    flex-direction: column;
+                    align-items: flex-start;
+                    gap: 12px;
+                }
+
+                .report-meta {
+                    margin-left: 0;
+                    text-align: left;
+                }
+
+                .report-summary-grid {
+                    grid-template-columns: 1fr 1fr;
+                }
+
+                .report-totals-grid {
+                    grid-template-columns: 1fr;
+                }
+
+                .report-header > div:first-of-type {
+                    width: 100%;
+                }
+            }
+
+            @@media (max-width: 640px) {
+                .print-area {
+                    transform: none;
+                    width: 100%;
+                    margin-bottom: 0;
+                }
+
+                .report-a4-wrapper {
+                    justify-content: flex-start;
+                    overflow-x: hidden;
+                    padding-bottom: 8px;
+                }
+
+                .report-a4 {
+                    width: 100%;
+                    max-width: 100%;
+                    padding: 10px 0;
+                }
+
+                .report-summary-grid {
+                    grid-template-columns: 1fr 1fr;
+                    gap: 8px;
+                }
+
+                .report-logo {
+                    width: 64px;
+                }
+
+                .flat-table th, .flat-table td {
+                    font-size: 12px;
+                }
+
+                .report-watermark img {
+                    width: 85%;
+                }
+
+                /* ── Report card cert frame on mobile (screen only) ── */
+                .cert-border-wrap {
+                    border-radius: 0;
+                }
+
+                .cert-frame {
+                    padding: 14px 12px 10px;
+                    outline-offset: -8px;
+                    border-radius: 4px;
+                }
+
+                .cert-corner {
+                    width: 32px;
+                    height: 32px;
+                }
+
+                /* ── Report table: horizontal scroll on mobile ── */
+                .report-table-wrap {
+                    overflow-x: auto;
+                    -webkit-overflow-scrolling: touch;
+                    margin: 0 -4px;
+                    padding: 0 4px 6px;
+                }
+
+                .report-table-wrap .flat-table {
+                    min-width: 480px;
+                    font-size: 11px;
+                }
+
+                .report-table-wrap .flat-table th,
+                .report-table-wrap .flat-table td {
+                    padding: 10px 6px;
+                    font-size: 11px;
+                }
+
+                /* ── Report summary/totals strips ── */
+                .report-totals-grid {
+                    grid-template-columns: 1fr 1fr;
+                    gap: 8px;
+                }
+
+                .report-summary-card {
+                    padding: 10px 12px;
+                }
+
+                /* ── Report comment box ── */
+                .report-comment-box {
+                    margin-top: 16px;
+                    padding: 12px;
+                    font-size: 12px;
+                }
+
+                /* ── Cert title block ── */
+                .cert-title-block {
+                    padding-bottom: 10px !important;
+                    margin-bottom: 2px !important;
+                }
+
+                /* ── Filter card ── */
+                .report-filter-card {
+                    padding: 14px 14px;
+                }
+
+                .results-filter-fields {
+                    grid-template-columns: 1fr 88px;
+                    width: 100%;
+                }
+
+                .flat-select {
+                    padding: 12px 14px;
+                    font-size: 13px;
+                }
+
+                /* ── Print button ── */
+                .primary-btn {
+                    font-size: 13px;
+                    padding: 13px;
+                }
+            }
+
+
+            /* (Cleaned up legacy print block 2) */
+    </style>
+
+    <style>
+            /* === CERTIFICATE BORDER === */
+            .cert-border-wrap {
+                position: relative;
+                background: white;
+            }
+
+            .cert-corner {
+                position: absolute;
+                width: 46px;
+                height: 46px;
+                pointer-events: none;
+            }
+
+                .cert-corner svg {
+                    width: 100%;
+                    height: 100%;
+                }
+
+                .cert-corner.tl {
+                    top: 4px;
+                    left: 4px;
+                }
+
+                .cert-corner.tr {
+                    top: 4px;
+                    right: 4px;
+                    transform: scaleX(-1);
+                }
+
+                .cert-corner.bl {
+                    bottom: 4px;
+                    left: 4px;
+                    transform: scaleY(-1);
+                }
+
+                .cert-corner.br {
+                    bottom: 4px;
+                    right: 4px;
+                    transform: scale(-1,-1);
+                }
+
+            .cert-frame {
+                border: 2px solid #1a7f52;
+                outline: 5px solid rgba(26,127,82,0.15);
+                outline-offset: -12px;
+                border-radius: 4px;
+                padding: 18px 20px 14px;
+                position: relative;
+                background: white;
+            }
+
+            .cert-footer {
+                margin-top: 16px;
+                padding-top: 10px;
+                border-top: 1px dashed rgba(26,127,82,0.35);
+                text-align: center;
+                font-size: 9px;
+                color: #9ca3af;
+                letter-spacing: 0.6px;
+                text-transform: uppercase;
+                line-height: 1.8;
+            }
+            /* Analytics charts */
+            .chart-bar-wrap {
+                width: 100%;
+                overflow-x: hidden;
+            }
+
+                .chart-bar-wrap svg {
+                    width: 100%;
+                    display: block;
+                }
+
+            .subj-bar-row {
+                display: grid;
+                grid-template-columns: minmax(90px, 1.4fr) 1fr 44px;
+                gap: 8px;
+                align-items: center;
+                margin-bottom: 10px;
+            }
+
+                .subj-bar-row:last-child {
+                    margin-bottom: 0;
+                }
+
+            .subj-bar-label {
+                font-size: 11px;
+                font-weight: 700;
+                color: var(--ink);
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .subj-bar-track {
+                background: #eef2f7;
+                height: 9px;
+                border-radius: 99px;
+                overflow: hidden;
+                position: relative;
+            }
+
+            .subj-bar-fill {
+                height: 100%;
+                border-radius: 99px;
+            }
+
+            .subj-bar-val {
+                font-size: 11px;
+                font-weight: 800;
+                font-family: 'DM Mono', monospace;
+                text-align: right;
+            }
+
+            .grade-dist-row {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 7px;
+                font-size: 11px;
+            }
+
+            .grade-dist-badge {
+                width: 26px;
+                height: 26px;
+                border-radius: 6px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 800;
+                font-size: 12px;
+                flex-shrink: 0;
+            }
+
+            .grade-dist-bar-track {
+                flex: 1;
+                background: #eef2f7;
+                height: 9px;
+                border-radius: 99px;
+                overflow: hidden;
+            }
+
+            .grade-dist-bar-fill {
+                height: 100%;
+                border-radius: 99px;
+            }
+
+            .grade-dist-count {
+                width: 30px;
+                text-align: right;
+                font-weight: 700;
+                color: var(--ink2);
+                font-family: 'DM Mono', monospace;
+            }
+
+            .analytics-print-btn {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                padding: 10px 20px;
+                border-radius: 10px;
+                background: var(--green);
+                color: white;
+                font-weight: 700;
+                font-size: 13px;
+                border: none;
+                cursor: pointer;
+            }
+
+                .analytics-print-btn:hover {
+                    opacity: 0.88;
+                }
+
+            @@media print {
+                .report-watermark {
+                    opacity: 0.08 !important;
+                }
+
+                .cert-frame {
+                    border-color: #1a7f52 !important;
+                    outline-color: rgba(26,127,82,0.2) !important;
+                }
+
+                .cert-footer {
+                    color: #555 !important;
+                }
+
+                .analytics-stat {
+                    break-inside: avoid;
+                }
+
+                .analytics-card {
+                    break-inside: avoid;
+                }
+            }
+
+            @@media (max-width: 640px) {
+                .subj-bar-row {
+                    grid-template-columns: 1fr 44px;
+                    gap: 4px 8px;
+                }
+
+                .subj-bar-label {
+                    grid-column: 1 / -1;
+                }
+
+                .subj-bar-track {
+                    grid-column: 1;
+                }
+
+                .subj-bar-val {
+                    grid-column: 2;
+                }
+
+                .analytics-stat-grid {
+                    grid-template-columns: 1fr 1fr !important;
+                }
+
+                .cert-frame {
+                    padding: 12px 10px 10px;
+                    outline-offset: -6px;
+                }
+
+                .cert-corner {
+                    width: 32px;
+                    height: 32px;
+                }
+
+                .term-summary-strip {
+                    grid-template-columns: repeat(2, 1fr) !important;
+                    gap: 8px;
+                }
+
+                .report-totals-grid.report-summary-strip {
+                    grid-template-columns: 1fr !important;
+                }
+            }
+    </style>
+
+
+    <style>
+            /* --- UNIFIED PRINT ISOLATION --- */
+            @@media print {
+                /* Hide UI chrome */
+                header, footer, aside, .sidebar, img.fixed, div.fixed, .no-print,
+                .report-filter-card, .tab-row, .banner-outer, .status-banner {
+                    display: none !important;
+                }
+
+                body, html {
+                    background: white !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    height: auto !important;
+                    overflow: visible !important;
+                    font-size: 11px !important;
+                }
+
+                main {
+                    padding: 0 !important;
+                    margin: 0 auto !important;
+                    max-width: 100% !important;
+                    width: 100% !important;
+                    background: white !important;
+                    position: static !important;
+                }
+
+                .results-page-wrap {
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    display: block !important;
+                }
+
+                    /* When printing Report Card: hide analytics shell */
+                    .results-page-wrap.print-report-active .analytics-print-shell {
+                        display: none !important;
+                    }
+                    /* When printing Analytics: hide report card shell */
+                    .results-page-wrap.print-analytics-active .report-card-print-shell {
+                        display: none !important;
+                    }
+
+                .results-main-wrapper, .glass-card, .results-page-wrap, .sp-page-wrap {
+                    background: white !important;
+                    border: none !important;
+                    box-shadow: none !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    backdrop-filter: none !important;
+                }
+
+                /* Print shell fills page */
+                .report-card-print-shell,
+                .analytics-print-shell {
+                    display: block !important;
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    height: 278mm !important;
+                    max-height: 278mm !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    background: white !important;
+                    box-shadow: none !important;
+                    border: none !important;
+                    page-break-inside: avoid !important;
+                    break-inside: avoid !important;
+                    page-break-after: avoid !important;
+                    break-after: avoid !important;
+                    overflow: hidden !important;
+                }
+
+                .print-area {
+                    display: block !important;
+                    width: 100% !important;
+                    height: 278mm !important;
+                    max-height: 278mm !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    background: white !important;
+                    box-shadow: none !important;
+                    border: none !important;
+                    transform: none !important;
+                }
+
+                .print-area .report-a4-wrapper {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    height: 278mm !important;
+                    max-height: 278mm !important;
+                    overflow: hidden !important;
+                    justify-content: stretch !important;
+                    display: block !important;
+                }
+
+                .print-area .cert-border-wrap {
+                    width: 100% !important;
+                    height: 278mm !important;
+                    min-height: 278mm !important;
+                    max-height: 278mm !important;
+                    box-sizing: border-box !important;
+                    position: relative !important;
+                    display: flex !important;
+                    flex-direction: column !important;
+                }
+
+                .print-area .report-a4 {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    padding: 0 !important;
+                    flex: 1 1 auto !important;
+                    display: flex !important;
+                    flex-direction: column !important;
+                    position: relative !important;
+                }
+
+                /* Certificate border - frames entire A4 page */
+                .cert-frame {
+                    border: 2px solid #1a7f52 !important;
+                    outline: 3px solid rgba(26,127,82,0.18) !important;
+                    outline-offset: -8px !important;
+                    padding: 10px 14px 6px !important;
+                    background: white !important;
+                    height: 100% !important;
+                    min-height: 100% !important;
+                    box-sizing: border-box !important;
+                    display: flex !important;
+                    flex-direction: column !important;
+                    justify-content: space-between !important;
+                    position: relative !important;
+                }
+
+                .cert-corner {
+                    position: absolute !important;
+                    width: 44px !important;
+                    height: 44px !important;
+                    pointer-events: none !important;
+                    z-index: 5 !important;
+                }
+                .cert-corner.tl { top: 4px !important; left: 4px !important; }
+                .cert-corner.tr { top: 4px !important; right: 4px !important; transform: scaleX(-1) !important; }
+                .cert-corner.bl { bottom: 4px !important; left: 4px !important; transform: scaleY(-1) !important; }
+                .cert-corner.br { bottom: 4px !important; right: 4px !important; }
+
+                /* Watermark behind everything - large & centered across the page */
+                .report-watermark {
+                    position: absolute !important;
+                    inset: 0 !important;
+                    z-index: 0 !important;
+                    opacity: 0.12 !important;
+                    pointer-events: none !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                }
+
+                .report-watermark img,
+                .report-watermark .watermark-logo-img {
+                    width: 140mm !important;
+                    max-width: 75% !important;
+                    height: auto !important;
+                    max-height: 160mm !important;
+                    object-fit: contain !important;
+                    filter: grayscale(1) !important;
+                }
+
+                /* Report header: centred, meta right-aligned */
+                .report-header {
+                    display: flex !important;
+                    flex-direction: row !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    gap: 12px !important;
+                    margin-bottom: 6px !important;
+                }
+
+                .report-meta {
+                    margin-left: auto !important;
+                    text-align: right !important;
+                    font-size: 10px !important;
+                }
+
+                /* Summary cards: 3-column grid */
+                .report-summary-grid {
+                    display: grid !important;
+                    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+                    gap: 6px !important;
+                    margin-bottom: 8px !important;
+                }
+
+                .report-summary-card {
+                    padding: 6px 8px !important;
+                    background: rgba(249,249,249,0.9) !important;
+                    border: 1px solid rgba(0,0,0,0.08) !important;
+                    border-radius: 6px !important;
+                    backdrop-filter: none !important;
+                }
+
+                .report-summary-card > div:first-child {
+                    font-size: 9px !important;
+                    margin-bottom: 2px !important;
+                }
+
+                .report-summary-card > div:last-child {
+                    font-size: 12px !important;
+                }
+
+                /* Totals right-aligned */
+                .report-totals-grid {
+                    display: grid !important;
+                    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+                    gap: 6px !important;
+                    margin-top: 8px !important;
+                }
+
+                /* Subject table: no overflow, comments wrap */
+                .report-table-wrap {
+                    overflow: visible !important;
+                    width: 100% !important;
+                }
+
+                .report-table-wrap .flat-table {
+                    min-width: 0 !important;
+                    width: 100% !important;
+                    table-layout: fixed !important;
+                }
+
+                /* Fixed column widths for A4 landscape */
+                .flat-table th:nth-child(1), .flat-table td:nth-child(1) { width: 22% !important; }
+                .flat-table th:nth-child(2), .flat-table td:nth-child(2) { width: 8% !important; }
+                .flat-table th:nth-child(3), .flat-table td:nth-child(3) { width: 8% !important; }
+                .flat-table th:nth-child(4), .flat-table td:nth-child(4) { width: 9% !important; }
+                .flat-table th:nth-child(5), .flat-table td:nth-child(5) { width: 9% !important; }
+                .flat-table th:nth-child(6), .flat-table td:nth-child(6) { width: 44% !important; }
+
+                .flat-table th, .flat-table td {
+                    font-size: 10px !important;
+                    padding: 5px 6px !important;
+                    white-space: normal !important;
+                    word-wrap: break-word !important;
+                    overflow-wrap: break-word !important;
+                    vertical-align: top !important;
+                }
+
+                /* Comment cell always wraps */
+                .flat-table td:last-child {
+                    white-space: normal !important;
+                    word-wrap: break-word !important;
+                    overflow-wrap: break-word !important;
+                    font-size: 10px !important;
+                    line-height: 1.4 !important;
+                    font-style: italic !important;
+                }
+
+                /* Hide expand arrows and mini progress bar in print */
+                .flat-table td:first-child span:first-child { display: none !important; }
+                .flat-table td:first-child > div > div > div { display: none !important; }
+
+                /* Grade pill smaller */
+                .grade-pill {
+                    font-size: 10px !important;
+                    padding: 2px 6px !important;
+                }
+
+                /* Footer */
+                .cert-footer {
+                    color: #475569 !important;
+                    font-size: 9px !important;
+                    margin-top: 6px !important;
+                    padding-top: 6px !important;
+                }
+
+                /* Headmaster's Remarks box in print */
+                .report-comment-box {
+                    display: block !important;
+                    margin-top: 5px !important;
+                    padding: 5px 8px !important;
+                    background: rgba(248, 250, 252, 0.95) !important;
+                    border: 1px solid rgba(26, 127, 82, 0.25) !important;
+                    border-left: 3px solid #1a7f52 !important;
+                    border-radius: 5px !important;
+                    box-sizing: border-box !important;
+                }
+
+                .report-comment-box > div:last-child {
+                    font-size: 8.5px !important;
+                    line-height: 1.35 !important;
+                    color: #334155 !important;
+                }
+
+                .analytics-print-header {
+                    display: block !important;
+                }
+
+                /* A4 landscape, tight margins */
+                /* â”€â”€ Kill spacer divs, shrink totals to fit one page â”€â”€ */
+                [style*="height:12px"], [style*="height: 12px"] {
+                    display: none !important;
+                }
+
+                /* Reduce report-summary-card inner font sizes for totals strips */
+                .report-totals-grid .report-summary-card > div {
+                    font-size: 10px !important;
+                    margin-bottom: 2px !important;
+                    line-height: 1.3 !important;
+                }
+
+                /* Override inline font-size:18px on totals values */
+                .report-totals-grid .report-summary-card [style*="font-size:18px"],
+                .report-totals-grid .report-summary-card [style*="font-size: 18px"] {
+                    font-size: 13px !important;
+                }
+
+                /* Reduce totals grid top margin */
+                .report-totals-grid {
+                    margin-top: 4px !important;
+                    gap: 4px !important;
+                }
+
+                /* Reduce the second totals strip margin */
+                .report-totals-grid[style*="margin-top:10px"],
+                .report-totals-grid[style*="margin-top: 10px"] {
+                    margin-top: 4px !important;
+                }
+
+                /* Reduce header logo size */
+                .cert-title-block .print-logo,
+                .cert-title-block img {
+                    width: 44px !important;
+                    height: 44px !important;
+                }
+
+                /* Reduce title block bottom padding */
+                [style*="padding-bottom:16px"] {
+                    padding-bottom: 6px !important;
+                    margin-bottom: 2px !important;
+                }
+
+                /* College name smaller */
+                [style*="font-size:1.45rem"] {
+                    font-size: 1.1rem !important;
+                }
+
+                /* School subtitle smaller */
+                [style*="font-size:0.72rem"] {
+                    font-size: 0.65rem !important;
+                    margin-top: 2px !important;
+                }
+
+                /* Academic Performance Report heading */
+                .text-lg { font-size: 0.9rem !important; }
+                @@page {
+                    size: A4 portrait;
+                    margin: 8mm 6mm !important;
+                }
+            }
+    </style>
+
+    @if (isLoading)
+    {
+        <div class="results-initial-loading" role="status" aria-live="polite">
+            <div class="results-loading-welcome"><span class="results-spinner"></span><div><strong>Preparing your results</strong><small>We’re securely loading your latest approved report card…</small></div></div>
+            <!-- Banner shimmer -->
+            <div class="skeleton" style="height:110px; border-radius:20px;"></div>
+            <!-- Tab bar shimmer -->
+            <div style="display:flex; gap:10px;">
+                <div class="skeleton" style="height:38px; border-radius:99px; flex:0 0 110px;"></div>
+                <div class="skeleton" style="height:38px; border-radius:99px; flex:0 0 90px;"></div>
+            </div>
+            <!-- Cards shimmer -->
+            <div class="skeleton" style="height:80px; border-radius:16px;"></div>
+            <div class="skeleton" style="height:160px; border-radius:16px;"></div>
+            <div class="skeleton" style="height:120px; border-radius:16px;"></div>
+            <div class="skeleton" style="height:80px; border-radius:16px;"></div>
+        </div>
+    }
+    <div class="results-page-wrap @(isPrintingReport ? "print-report-active" : "") @(isPrintingAnalytics ? "print-analytics-active" : "")" style="display:@(isLoading ? "none" : "");">
+
+        <!-- 1. STUDENT BANNER (HEADER ANCHOR) -->
+        <div class="banner-outer no-print">
+            <div class="banner-glow"></div>
+            <div class="banner-inner a1">
+                <div class="banner-avatar">@StudentInitials</div>
+                <div class="banner-info">
+                    <div class="banner-name">@Me.FirstName @Me.LastName</div>
+                    <div class="banner-meta">
+                        <span class="banner-meta-item">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19V5a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v14" /><line x1="6" y1="11" x2="6" y2="11" /><line x1="10" y1="11" x2="10" y2="11" /><line x1="14" y1="11" x2="14" y2="11" /></svg>
+                            Academic Results · @SelectedTermLabel
+                        </span>
+                        <span class="banner-meta-item">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                            @FormatClassroom(Me.Form, Me.Classroom)
+                        </span>
+                    </div>
+                    <div class="banner-badges">
+                        <span class="banner-badge" style="background:rgba(248,113,113,0.22);color:#ffe4e6;">Performance: @(AvgMark >= 75 ? "EXCELLENT" : AvgMark >= 50 ? "SATISFACTORY" : "UNSATISFACTORY")</span>
+                        <span class="banner-badge" style="background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.86);">ID @Me.Id</span>
+                    </div>
+                </div>
+
+                <div class="banner-stats">
+                    <div class="banner-stat">
+                        <div class="banner-stat-label">Average Mark</div>
+                        <div class="banner-stat-val" style="color:@(AvgMark >= 50 ? "#6ee7b7" : "#ff8a8a");">
+                            @AvgMark.ToString("F0")%
+                        </div>
+                    </div>
+                    <div class="banner-stat">
+                        <div class="banner-stat-label">Pass Count</div>
+                        <div class="banner-stat-val" style="color:#fff;">
+                            @(CurrentCard?.Subjects?.Count(s => s.FinalMark >= 50) ?? 0)
+                            <span style="font-size:14px;color:rgba(255,255,255,0.68);vertical-align:middle;margin-left:4px;">/ @(CurrentCard?.Subjects?.Count ?? 0)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(loadError))
+        {
+            <div class="status-banner error a1" style="margin: 20px 40px -20px 40px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                <span class="status-banner-text">@loadError</span>
+                <button class="status-banner-close" @onclick="() => loadError = string.Empty">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                </button>
+            </div>
+        }
+
+        <div class="tab-row no-print top-level-tabs">
+            <div class="tab-link @(activeTab == "reportcard" ? "active" : "")" @onclick='async () => await OnTabSelected("reportcard")'>Official Report Card</div>
+            <div class="tab-link @(activeTab == "analytics" ? "active" : "")" @onclick='async () => await OnTabSelected("analytics")'>Analytics</div>
+        </div>
+
+        <div class="results-main-wrapper a2 glass-card" style="margin-top:28px;">
+
+            <!-- TAB CONTENT -->
+            @if (activeTab == "marks")
+            {
+                <div class="section-label">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><line x1="10" y1="9" x2="8" y2="9" /></svg>
+                    Current Term Performance
+                </div>
+
+                @if (isLoading)
+                {
+                    <div class="results-loading-card">
+                        @for (int i = 0; i < 6; i++)
+                        {
+                            <div class="skeleton" style="height:54px;border-radius:12px;"></div>
+                        }
+                        <div class="results-loading-label">Loading your approved marks…</div>
+                    </div>
+                }
+                else if (CurrentCard?.Subjects == null || !CurrentCard.Subjects.Any())
+                {
+                    <div style="padding:60px 40px;text-align:center;background:#fcfcfc;border-radius:24px;">
+                        <div style="font-size:14px;font-weight:700;color:var(--ink2);margin-bottom:8px;">No approved marks yet for this term</div>
+                        <div style="font-size:12.5px;color:var(--ink3);line-height:1.6;">Marks become visible here once your teacher has submitted them and the admin has reviewed and approved the report.</div>
+                    </div>
+                }
+                else
+                {
+                    <!-- Term summary strip -->
+                    <div class="term-summary-strip" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px;">
+                        @{
+                            double termAvg = CurrentCard.Subjects.Average(s => s.FinalMark);
+                            int termPassed = CurrentCard.Subjects.Count(s => s.FinalMark >= 50);
+                            int termTotal = CurrentCard.Subjects.Count;
+                            var termBest = CurrentCard.Subjects.MaxBy(s => s.FinalMark);
+                            var termWorst = CurrentCard.Subjects.MinBy(s => s.FinalMark);
+                            string termWorstLabel = termWorst?.FinalMark >= 80 ? "Growth Focus" : (termWorst?.FinalMark >= 60 ? "Room for Growth" : "Needs Work");
+                            string termWorstColor = termWorst?.FinalMark >= 80 ? "var(--green)" : (termWorst?.FinalMark >= 60 ? "#d97706" : "var(--red)");
+                        }
+                        <div style="background:rgba(26,79,255,0.05);border:1px solid rgba(26,79,255,0.1);border-radius:12px;padding:12px 14px;">
+                            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--ink3);margin-bottom:4px;">Term Average</div>
+                            <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace;color:@(termAvg >= 50 ? "var(--green)" : "var(--red)");">@termAvg.ToString("F1")%</div>
+                        </div>
+                        <div style="background:rgba(0,182,122,0.05);border:1px solid rgba(0,182,122,0.12);border-radius:12px;padding:12px 14px;">
+                            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--ink3);margin-bottom:4px;">Passed</div>
+                            <div style="font-size:22px;font-weight:800;font-family:'DM Mono',monospace;color:var(--green);">@termPassed <span style="font-size:13px;color:var(--ink3);font-weight:600;">/ @termTotal</span></div>
+                        </div>
+                        <div style="background:rgba(0,0,0,0.02);border:1px solid rgba(0,0,0,0.06);border-radius:12px;padding:12px 14px;">
+                            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--ink3);margin-bottom:4px;">Best Subject</div>
+                            <div style="font-size:13px;font-weight:800;color:var(--ink);line-height:1.3;">@termBest?.SubjectName</div>
+                            <div style="font-size:11px;color:var(--green);font-weight:700;font-family:'DM Mono',monospace;">@termBest?.FinalMark.ToString("F1")%</div>
+                        </div>
+                        <div style="background:rgba(0,0,0,0.02);border:1px solid rgba(0,0,0,0.06);border-radius:12px;padding:12px 14px;">
+                            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--ink3);margin-bottom:4px;">@termWorstLabel</div>
+                            <div style="font-size:13px;font-weight:800;color:var(--ink);line-height:1.3;">@termWorst?.SubjectName</div>
+                            <div style="font-size:11px;color:@termWorstColor;font-weight:700;font-family:'DM Mono',monospace;">@termWorst?.FinalMark.ToString("F1")%</div>
+                        </div>
+                    </div>
+
+                    <table class="flat-table">
+                        <thead>
+                            <tr>
+                                <th>Course Subject</th>
+                                <th style="text-align:center;">CW (%)</th>
+                                <th style="text-align:center;">Exam (%)</th>
+                                <th style="text-align:right;">Final (%)</th>
+                                <th style="text-align:center;">Grade</th>
+                                <th style="text-align:left;">Comment</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in CurrentCard.Subjects)
+                            {
+                                string grade = GradeHelper.ToGrade(r.FinalMark);
+                                string gColor = (r.FinalMark >= 50 ? "var(--green)" : "var(--red)");
+                                bool isExpanded = expandedSubjects.Contains(r.SubjectName ?? string.Empty);
+                                bool hasExams = examFeedbackBySubject.TryGetValue(r.SubjectName ?? string.Empty, out var subjectExams) && subjectExams.Any();
+                                // ── CHANGED: now List<MarkEntry> ──
+                                bool hasCw = courseworkMarksBySubject.TryGetValue(r.SubjectName ?? string.Empty, out var subjectCw) && subjectCw.Any();
+
+                                <tr @onclick="() => ToggleSubject(r.SubjectName ?? string.Empty)" style="cursor:pointer;transition:background 0.15s;" hover="background:rgba(0,0,0,0.02);">
+                                    <td style="font-weight:700;color:var(--ink);">
+                                        <div style="display:flex;align-items:center;gap:8px;">
+                                            <span style="font-size:10px;display:inline-block;transition:transform 0.15s;transform:@(isExpanded ? "rotate(90deg)" : "rotate(0deg)");color:var(--ink3);">▶</span>
+                                            <div>
+                                                @r.SubjectName
+                                                <div style="margin-top:5px;height:3px;width:100px;background:rgba(0,0,0,0.07);border-radius:4px;overflow:hidden;">
+                                                    <div style="height:100%;width:@(Math.Min(r.FinalMark, 100).ToString("F0"))%;background:@(r.FinalMark >= 50 ? "var(--green)" : "var(--red)");border-radius:4px;transition:width 0.4s;"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td style="text-align:center;font-family:'DM Mono',monospace;color:var(--ink3);">@r.CourseworkMark.ToString("F0")%</td>
+                                    <td style="text-align:center;font-family:'DM Mono',monospace;color:var(--ink3);">@r.ExamMark.ToString("F0")%</td>
+                                    <td style="text-align:right;font-family:'DM Mono',monospace;font-weight:800;color:var(--ink);font-size:16px;">@r.FinalMark.ToString("F0")%</td>
+                                    <td style="text-align:center;">
+                                        <span class="grade-pill" style="background:@(r.FinalMark >= 50 ? "rgba(26,127,82,0.1)" : "rgba(200,16,46,0.1)");color:@gColor;">@grade</span>
+                                    </td>
+                                    <td style="font-size:12.5px;color:var(--ink2);font-style:italic;">
+                                        @(string.IsNullOrEmpty(r.Comments) ? "—" : r.Comments)
+                                    </td>
+                                </tr>
+
+                                @if (isExpanded)
+                                {
+                                    <tr class="no-print">
+                                        <td colspan="6" style="background:rgba(26,79,255,0.015);padding:20px 20px 24px;border-bottom:1px solid rgba(0,0,0,0.04);">
+
+                                            <!-- ─── EXAMS ─── -->
+                                            <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--ink3);letter-spacing:0.5px;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
+                                                Exam Papers
+                                            </div>
+                                            @if (hasExams)
+                                            {
+                                                <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+                                                    @foreach (var ex in subjectExams!)
+                                                    {
+                                                        <div style="background:white;border:1px solid rgba(0,0,0,0.06);border-radius:10px;padding:12px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;box-shadow:0 2px 8px rgba(0,0,0,0.02);">
+                                                            <div style="flex:1;min-width:0;">
+                                                                <div style="display:flex;align-items:center;gap:6px;">
+                                                                    <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:white;background:var(--blue);padding:2px 7px;border-radius:5px;">EXAM</span>
+                                                                    <span style="font-size:13px;font-weight:700;color:var(--ink);">@(ex.ExamTitle ?? "Term Exam")</span>
+                                                                </div>
+                                                                @if (!string.IsNullOrWhiteSpace(ex.Feedback))
+                                                                {
+                                                                    <div style="font-size:12.5px;color:var(--ink2);margin-top:6px;font-style:italic;background:#f8fafc;padding:8px 12px;border-radius:8px;border-left:3px solid var(--blue);line-height:1.5;">
+                                                                        @ex.Feedback
+                                                                    </div>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <div style="font-size:11.5px;color:var(--ink3);margin-top:5px;font-style:italic;">No feedback provided.</div>
+                                                                }
+                                                            </div>
+                                                            <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:800;color:var(--blue);white-space:nowrap;background:rgba(26,79,255,0.06);padding:4px 10px;border-radius:7px;">
+                                                                @((ex.Score ?? 0).ToString("F1"))%
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <div style="font-size:12.5px;color:var(--ink3);font-style:italic;padding:4px 0 16px;">No exam papers recorded for this subject.</div>
+                                            }
+
+                                            <!-- ─── COURSEWORK ─── -->
+                                            <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--ink3);letter-spacing:0.5px;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="9" x2="15" y2="9" /><line x1="9" y1="13" x2="15" y2="13" /><line x1="9" y1="17" x2="12" y2="17" /></svg>
+                                                Coursework (Assignments &amp; Tests)
+                                            </div>
+                                            @if (hasCw)
+                                            {
+                                                <div style="display:flex;flex-direction:column;gap:8px;">
+                                                    @foreach (var (entry, i) in subjectCw!.Select((s, idx) => (s, idx + 1)))
+                                                    {
+                                                        <div style="background:white;border:1px solid rgba(0,0,0,0.06);border-radius:10px;padding:12px;display:flex;justify-content:space-between;align-items:center;gap:16px;box-shadow:0 2px 8px rgba(0,0,0,0.02);">
+                                                            <div style="font-size:13px;font-weight:700;color:var(--ink);">Coursework Item @i</div>
+                                                            <div style="display:flex;align-items:center;gap:8px;">
+                                                                <span style="font-size:11px;color:var(--ink3);font-weight:600;">@entry.ActualMark.ToString("F1") / @entry.MaxScore.ToString("F1")</span>
+                                                                <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:800;color:#7c3aed;white-space:nowrap;background:rgba(124,58,237,0.06);padding:4px 10px;border-radius:7px;">
+                                                                    @entry.PercentageScore.ToString("F1")%
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <div style="font-size:12.5px;color:var(--ink3);font-style:italic;padding:4px 0;">No coursework recorded for this subject.</div>
+                                            }
+
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                }
+            }
+
+            <!-- REPORT CARD -->
+            @if (activeTab == "reportcard")
+            {
+                <div class="report-filter-card no-print">
+                    <div>
+                        <div class="report-filter-title">Choose a report</div>
+                        <div class="report-filter-help">Select the term and year you want to view or print.</div>
+                    </div>
+                    <div class="results-filter-fields">
+                        <select class="flat-select" @bind="selectedTerm" @bind:after="OnTermChanged" aria-label="Report term">
+                            <option>Term 1</option>
+                            <option>Term 2</option>
+                            <option>Term 3</option>
+                        </select>
+                        <input class="flat-select results-year-input" type="number" min="2000" max="2100" @bind="selectedTermYear" @bind:after="OnTermChanged" aria-label="Report year" />
+                    </div>
+                </div>
+                @if (isLoading)
+                {
+                    <div class="results-loading-card">
+                        @for (int i = 0; i < 4; i++)
+                        {
+                            <div class="skeleton" style="height:96px;border-radius:16px;"></div>
+                        }
+                        <div class="results-loading-label">Loading your report card…</div>
+                    </div>
+                }
+                else if (CurrentCard?.Subjects != null)
+                {
+                    <div class="no-print" style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+                        <button class="primary-btn" @onclick="PrintReport" style="width:auto;padding-left:24px;padding-right:24px;">Print Report</button>
+                    </div>
+
+                    <div class="report-card-print-shell print-area">
+                        <div class="report-a4-wrapper">
+                            <div class="cert-border-wrap">
+                                <!-- Certificate corner ornaments -->
+                                <div class="cert-corner tl"><svg viewBox="0 0 48 48" fill="none"><path d="M2 46V12C2 6.48 6.48 2 12 2H46" stroke="#1a7f52" stroke-width="2.5" stroke-linecap="round" /><circle cx="8" cy="8" r="3" fill="#1a7f52" opacity=".6" /></svg></div>
+                                <div class="cert-corner tr"><svg viewBox="0 0 48 48" fill="none"><path d="M2 46V12C2 6.48 6.48 2 12 2H46" stroke="#1a7f52" stroke-width="2.5" stroke-linecap="round" /><circle cx="8" cy="8" r="3" fill="#1a7f52" opacity=".6" /></svg></div>
+                                <div class="cert-corner bl"><svg viewBox="0 0 48 48" fill="none"><path d="M2 46V12C2 6.48 6.48 2 12 2H46" stroke="#1a7f52" stroke-width="2.5" stroke-linecap="round" /><circle cx="8" cy="8" r="3" fill="#1a7f52" opacity=".6" /></svg></div>
+                                <div class="cert-corner br"><svg viewBox="0 0 48 48" fill="none"><path d="M2 46V12C2 6.48 6.48 2 12 2H46" stroke="#1a7f52" stroke-width="2.5" stroke-linecap="round" /><circle cx="8" cy="8" r="3" fill="#1a7f52" opacity=".6" /></svg></div>
+                                <div class="cert-frame">
+                                    <div class="report-a4">
+                                        <div class="report-watermark">
+                                            <img src="/images/demo-logo.svg" alt="PrimeApp Demo" class="watermark-logo-img" />
+                                        </div>
+
+                                        <div class="cert-title-block" style="text-align:center;padding-bottom:16px;margin-bottom:4px;border-bottom:1px dashed rgba(26,127,82,0.35);">
+                                            <img src="/images/demo-logo.svg" alt="PrimeApp Demo" class="print-logo" style="width:60px;height:60px;object-fit:contain;margin:0 auto 10px;" />
+                                            <div style="font-size:1.45rem;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;color:#0f172a;">PrimeApp Demo</div>
+                                            <div style="font-size:0.72rem;font-weight:600;color:#64748b;margin-top:5px;letter-spacing:0.5px;">Equipping youngsters to compete internationally</div>
+                                        </div>
+
+                                        <div class="text-center w-full py-2 mb-2">
+                                            <h3 class="text-lg font-black text-emerald-700 uppercase tracking-widest">Academic Performance Report</h3>
+                                            <div class="text-[10px] text-slate-500 mt-1">@SelectedTermLabel &nbsp;•&nbsp; Issued @DateTime.Now.ToString("dd MMM yyyy")</div>
+                                        </div>
+
+                                        <div style="height:12px"></div>
+
+                                        <div class="report-summary-grid">
+                                            <div class="report-summary-card">
+                                                <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);margin-bottom:6px;">Student</div>
+                                                <div style="font-size:13px;font-weight:800;color:var(--ink);">@CurrentCard.StudentFirstName @CurrentCard.StudentLastName</div>
+                                            </div>
+                                            <div class="report-summary-card">
+                                                <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);margin-bottom:6px;">Form &amp; Class</div>
+                                                <div style="font-size:14px;font-weight:800;color:var(--ink);">@CurrentStudentFormLabel</div>
+                                            </div>
+                                            <div class="report-summary-card">
+                                                <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);margin-bottom:6px;">Term</div>
+                                                <div style="font-size:14px;font-weight:800;color:var(--ink);">@SelectedTermLabel</div>
+                                            </div>
+                                            <div class="report-summary-card">
+                                                <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);margin-bottom:6px;">Position In Form</div>
+                                                <div style="font-size:14px;font-weight:800;color:var(--ink);">@(positionInForm.HasValue ? $"{positionInForm.Value}{OrdinalSuffix(positionInForm.Value)}" : "Not available")</div>
+                                            </div>
+                                            <div class="report-summary-card">
+                                                <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);margin-bottom:6px;">Attendance</div>
+                                                <div style="font-size:14px;font-weight:800;color:var(--ink);">@(attendanceTotal > 0 ? $"{attendancePercent}% ({attendancePresent}/{attendanceTotal})" : "Not available")</div>
+                                            </div>
+                                            <div class="report-summary-card">
+                                                <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);margin-bottom:6px;">CW / Exam Weight</div>
+                                                <div style="font-size:14px;font-weight:800;color:var(--ink);">@((CurrentCard.CourseworkWeight ?? 0.3) * 100)% / @((1 - (CurrentCard.CourseworkWeight ?? 0.3)) * 100)%</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="report-table-wrap">
+                                            <table class="flat-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Subject</th>
+                                                        <th style="text-align:center;">CW (%)</th>
+                                                        <th style="text-align:center;">Exam (%)</th>
+                                                        <th style="text-align:center;">Final (%)</th>
+                                                        <th style="text-align:center;">Grade</th>
+                                                        <th style="text-align:left;">Comments</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach (var r in CurrentCard.Subjects)
+                                                    {
+                                                        string g = GradeHelper.ToGrade(r.FinalMark);
+                                                        string gc = (r.FinalMark >= 50 ? "var(--green)" : "var(--red)");
+                                                        <tr>
+                                                            <td style="font-weight:700;color:var(--ink);">@r.SubjectName</td>
+                                                            <td style="text-align:center;color:var(--ink3);font-family:'DM Mono',monospace;">@r.CourseworkMark.ToString("F1")</td>
+                                                            <td style="text-align:center;color:var(--ink3);font-family:'DM Mono',monospace;">@r.ExamMark.ToString("F1")</td>
+                                                            <td style="text-align:center;font-weight:800;color:var(--ink);font-family:'DM Mono',monospace;font-size:15px;">@r.FinalMark.ToString("F1")</td>
+                                                            <td style="text-align:center;"><span class="grade-pill" style="background:@(r.FinalMark >= 50 ? "rgba(26,127,82,0.1)" : "rgba(200,16,46,0.1)");color:@gc;">@g</span></td>
+                                                            <td style="font-size:12px;color:var(--ink2);font-style:italic;">@(string.IsNullOrEmpty(r.Comments) ? "—" : r.Comments)</td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        <div class="report-totals-grid report-summary-strip">
+                                            <div class="report-summary-card">
+                                                <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);margin-bottom:6px;">Subjects Recorded</div>
+                                                <div style="font-size:18px;font-weight:800;color:var(--ink);">@subjectsRecorded</div>
+                                            </div>
+                                            <div class="report-summary-card">
+                                                <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);margin-bottom:6px;">Subjects Passed</div>
+                                                <div style="font-size:18px;font-weight:800;color:var(--green);">@subjectsPassed</div>
+                                            </div>
+                                            <div class="report-summary-card">
+                                                <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);margin-bottom:6px;">Subjects Failed</div>
+                                                <div style="font-size:18px;font-weight:800;color:var(--red);">@(subjectsRecorded - subjectsPassed)</div>
+                                            </div>
+                                        </div>
+                                        @{
+                                            double reportAvg = CurrentCard.Subjects?.Any() == true ? CurrentCard.Subjects.Average(s => s.FinalMark) : 0;
+                                            var reportBest = CurrentCard.Subjects?.MaxBy(s => s.FinalMark);
+                                            var reportWorst = CurrentCard.Subjects?.MinBy(s => s.FinalMark);
+                                            string repWorstLabel = reportWorst?.FinalMark >= 80 ? "Growth Focus" : (reportWorst?.FinalMark >= 60 ? "Room for Growth" : "Needs Improvement");
+                                            string repWorstColor = reportWorst?.FinalMark >= 80 ? "var(--green)" : (reportWorst?.FinalMark >= 60 ? "#d97706" : "var(--red)");
+                                        }
+                                        <div class="report-totals-grid report-summary-strip" style="margin-top:10px;">
+                                            <div class="report-summary-card">
+                                                <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);margin-bottom:6px;">Overall Average</div>
+                                                <div style="font-size:18px;font-weight:800;color:@(reportAvg >= 50 ? "var(--green)" : "var(--red)");font-family:'DM Mono',monospace;">@reportAvg.ToString("F1")%</div>
+                                                <div style="font-size:10px;color:var(--ink3);margin-top:3px;font-weight:600;">@GradeHelper.ToGrade(reportAvg) overall</div>
+                                            </div>
+                                            <div class="report-summary-card">
+                                                <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);margin-bottom:6px;">Best Subject</div>
+                                                <div style="font-size:13px;font-weight:800;color:var(--ink);">@reportBest?.SubjectName</div>
+                                                <div style="font-size:10px;color:var(--green);font-weight:700;margin-top:3px;">@reportBest?.FinalMark.ToString("F1")%</div>
+                                            </div>
+                                            <div class="report-summary-card">
+                                                <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);margin-bottom:6px;">@repWorstLabel</div>
+                                                <div style="font-size:13px;font-weight:800;color:var(--ink);">@reportWorst?.SubjectName</div>
+                                                <div style="font-size:10px;color:@repWorstColor;font-weight:700;margin-top:3px;">@reportWorst?.FinalMark.ToString("F1")%</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="report-comment-box">
+                                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+                                                <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:1px;color:#1a7f52;display:flex;align-items:center;gap:6px;">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1a7f52" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                                                    Headmaster's Remarks
+                                                </div>
+                                                <div style="font-size:9px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:0.5px;">
+                                                    Pass Rate: @((subjectsRecorded > 0 ? ((double)subjectsPassed / subjectsRecorded * 100.0) : 0.0).ToString("F0"))% (@subjectsPassed / @subjectsRecorded passes)
+                                                </div>
+                                            </div>
+                                            <div style="font-size:11px;color:var(--ink2);line-height:1.5;font-weight:500;text-align:justify;">
+                                                @GetHeadmasterRemarks(subjectsPassed, subjectsRecorded, reportAvg, CurrentCard.StudentFirstName, CurrentCard.StudentId, CurrentCard.Term, CurrentCard.TermYear)
+                                            </div>
+                                        </div>
+                                    </div> <!-- /report-a4 -->
+                                    <div class="cert-footer">
+                                        &copy; @DateTime.Now.Year PrimeApp Demo &nbsp;&bull;&nbsp; All Rights Reserved &nbsp;&bull;&nbsp; Demo Academic Performance Report &nbsp;&bull;&nbsp; Fictional data · Demonstration only
+                                    </div>
+                                </div> <!-- /cert-frame -->
+                            </div> <!-- /cert-border-wrap -->
+                        </div> <!-- /report-a4-wrapper -->
+                    </div> <!-- /report-card-print-shell -->
+                }
+                else
+                {
+                    <div style="padding:60px 40px;text-align:center;background:#fcfcfc;border-radius:24px;">
+                        <div style="font-size:14px;font-weight:700;color:var(--ink2);margin-bottom:8px;">No report card available for this term</div>
+                        <div style="font-size:12.5px;color:var(--ink3);line-height:1.6;">Your report card for this term has not been released yet. Please check back later or contact the school office for assistance.</div>
+                    </div>
+                }
+            }
+
+            <!-- ANALYTICS -->
+            @if (activeTab == "analytics")
+            {
+                <div class="analytics-heading">
+                    <div><div class="analytics-kicker">Understand progress</div><h2>Learning analytics</h2><p>Green means the mark improved. Red means it dropped. Use these views to celebrate progress and spot where support may help.</p></div>
+                    <select class="flat-select analytics-year-select" @bind="analyticsYear" aria-label="Analytics year">
+                        @foreach (var year in AnalyticsYears)
+                        {
+                            <option value="@year">@year</option>
+                        }
+                    </select>
+                </div>
+
+                @if (!AnalyticsCards.Any())
+                {
+                    <div class="empty-analytics">No results are available for this year yet.</div>
+                }
+                else
+                {
+                    <!-- PRINT ANALYTICS SHELL OVERLAY -->
+                    <div class="analytics-print-shell print-analytics-shell-overlay">
+                        <div class="cert-border-wrap">
+                            <!-- cert corners -->
+                            <div class="cert-corner tl"><svg viewBox="0 0 48 48" fill="none"><path d="M2 46V12C2 6.48 6.48 2 12 2H46" stroke="#1a7f52" stroke-width="2.5" stroke-linecap="round" /><circle cx="8" cy="8" r="3" fill="#1a7f52" opacity=".6" /></svg></div>
+                            <div class="cert-corner tr"><svg viewBox="0 0 48 48" fill="none"><path d="M2 46V12C2 6.48 6.48 2 12 2H46" stroke="#1a7f52" stroke-width="2.5" stroke-linecap="round" /><circle cx="8" cy="8" r="3" fill="#1a7f52" opacity=".6" /></svg></div>
+                            <div class="cert-corner bl"><svg viewBox="0 0 48 48" fill="none"><path d="M2 46V12C2 6.48 6.48 2 12 2H46" stroke="#1a7f52" stroke-width="2.5" stroke-linecap="round" /><circle cx="8" cy="8" r="3" fill="#1a7f52" opacity=".6" /></svg></div>
+                            <div class="cert-corner br"><svg viewBox="0 0 48 48" fill="none"><path d="M2 46V12C2 6.48 6.48 2 12 2H46" stroke="#1a7f52" stroke-width="2.5" stroke-linecap="round" /><circle cx="8" cy="8" r="3" fill="#1a7f52" opacity=".6" /></svg></div>
+                            <div class="cert-frame">
+                                <!-- Analytics Print Header (visible only in print) -->
+                                <div style="display:none;" class="analytics-print-header">
+                                    <div style="display:flex;align-items:center;gap:14px;padding-bottom:12px;border-bottom:2px dashed rgba(26,127,82,0.3);margin-bottom:14px;">
+                                        <img src="/images/demo-logo.svg" alt="PrimeApp Demo" class="print-logo" style="width:56px;height:auto;object-fit:contain;" />
+                                        <div>
+                                            <div style="font-size:16px;font-weight:900;text-transform:uppercase;color:#0f172a;">PrimeApp Demo</div>
+                                            <div style="font-size:10px;color:#64748b;margin-top:2px;">Equipping youngsters to compete internationally</div>
+                                        </div>
+                                        <div style="margin-left:auto;text-align:right;font-size:10px;color:#475569;">
+                                            <div style="font-weight:800;font-size:13px;color:#1a7f52;">Learning Analytics</div>
+                                            <div>@Me.FirstName @Me.LastName</div>
+                                            <div>Year @analyticsYear</div>
+                                            <div>@DateTime.Now.ToString("dd MMM yyyy")</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Watermark for analytics print -->
+                                <div class="report-watermark">
+                                    <img src="/images/demo-logo.svg" alt="" class="watermark-logo-img" />
+                                </div>
+                                <div style="position:relative;z-index:1;">
+
+                                    <div class="analytics-stat-grid">
+                                        <div class="analytics-stat"><span>Year average</span><strong>@AnalyticsYearAverage.ToString("F1")%</strong><small>Across all available terms</small></div>
+                                        <div class="analytics-stat"><span>Improving subjects</span><strong class="positive">@AnalyticsImprovedCount</strong><small>Compared with the previous term</small></div>
+                                        <div class="analytics-stat"><span>Subjects to watch</span><strong class="negative">@AnalyticsDroppedCount</strong><small>Small support can make a difference</small></div>
+                                        @{
+                                            var allSubjects2 = AnalyticsCards.Where(rc => rc.Subjects?.Any() == true).SelectMany(rc => rc.Subjects!).GroupBy(s => s.SubjectName).ToList();
+                                            int passCount2 = allSubjects2.Count(g => g.Average(s => s.FinalMark) >= 50);
+                                            int failCount2 = allSubjects2.Count - passCount2;
+                                            int totalSubj2 = allSubjects2.Count;
+                                            double passRate2 = totalSubj2 > 0 ? (passCount2 * 100.0 / totalSubj2) : 0;
+                                        }
+                                        <div class="analytics-stat"><span>Pass rate</span><strong style="color:@(passRate2 >= 50 ? "var(--green)" : "var(--red)")">@passRate2.ToString("F0")%</strong><small>@passCount2 of @totalSubj2 subjects passing</small></div>
+                                        <div class="analytics-stat"><span>Terms recorded</span><strong>@AnalyticsCards.Count()</strong><small>In @analyticsYear</small></div>
+                                        @{
+                                            var bestCard2 = AnalyticsCards.Where(rc => rc.Subjects?.Any() == true).OrderByDescending(rc => rc.Subjects!.Average(s => s.FinalMark)).FirstOrDefault();
+                                        }
+                                        <div class="analytics-stat"><span>Best term</span><strong style="font-size:16px;">@(bestCard2 != null ? bestCard2.Term : "—")</strong><small>@(bestCard2?.Subjects?.Any() == true ? bestCard2.Subjects.Average(s => s.FinalMark).ToString("F1") + "% avg" : "")</small></div>
+                                    </div>
+
+                                    <!-- TERM AVERAGE BAR CHART -->
+                                    @{
+                                        var termCards2 = AnalyticsCards.ToList();
+                                        double maxAvg2 = termCards2.Where(rc => rc.Subjects?.Any() == true).Select(rc => rc.Subjects!.Average(s => s.FinalMark)).DefaultIfEmpty(100).Max();
+                                        double chartMax2 = Math.Max(maxAvg2, 10);
+                                    }
+                                    @if (termCards2.Any())
+                                    {
+                                        <div class="analytics-card">
+                                            <div class="analytics-card-head"><div><h3>Term performance overview</h3><p>Average mark per term for @analyticsYear. The 50% line marks the pass threshold.</p></div></div>
+                                            <div class="chart-bar-wrap" style="padding-top:4px;">
+                                                <svg viewBox="0 0 300 100" preserveAspectRatio="none" style="width:100%;height:90px;overflow:visible;">
+                                                    <!-- Pass line at 50% -->
+                                                    @{
+                                                        double passY2 = 90 - (50.0 / 100.0 * 80);
+                                                    }
+                                                    <line x1="0" y1="@passY2.ToString("F1")" x2="300" y2="@passY2.ToString("F1")" stroke="#c8102e" stroke-width="0.8" stroke-dasharray="4 3" opacity="0.5" />
+                                                    @SvgText(295, passY2 - 2, "50%", "#c8102e", anchor: "end", fontSize: 6, opacity: 0.7)
+                                                    @{
+                                                        var termPoints2 = new List<(double X, double Y, double Avg, string Term)>();
+                                                        for (int ti = 0; ti < termCards2.Count; ti++)
+                                                        {
+                                                            var tc = termCards2[ti];
+                                                            double avg2 = tc.Subjects?.Any() == true ? tc.Subjects.Average(s => s.FinalMark) : 0;
+                                                            double ptX = (termCards2.Count == 1 ? 150 : (ti * 280.0 / (termCards2.Count - 1) + 10));
+                                                            double ptY = 90 - (avg2 / 100.0 * 80);
+                                                            termPoints2.Add((ptX, ptY, avg2, tc.Term ?? ""));
+                                                        }
+                                                        string linePts2 = string.Join(" ", termPoints2.Select(p => $"{p.X.ToString("F1")},{p.Y.ToString("F1")}"));
+                                                    }
+                                                    <polyline points="@linePts2" fill="none" stroke="#1a7f52" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+                                                    @foreach (var p2 in termPoints2)
+                                                    {
+                                                        string ptColor2 = p2.Avg >= 50 ? "#1a7f52" : "#c8102e";
+                                                        <circle cx="@p2.X.ToString("F1")" cy="@p2.Y.ToString("F1")" r="3.2" fill="white" stroke="@ptColor2" stroke-width="2" />
+                                                        @SvgText(p2.X, p2.Y - 7, $"{p2.Avg:F0}%", ptColor2, fontWeight: "bold")
+                                                        @SvgText(p2.X, 98, p2.Term, "#64748b")
+                                                    }
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    }
+
+                                    <!-- SUBJECT MARKS ACROSS TERMS -->
+                                    @{
+                                        var matrixRows2 = SubjectTermMatrix;
+                                        var matrixTerms2 = AnalyticsCards.ToList();
+                                    }
+                                    @if (matrixRows2.Any() && matrixTerms2.Count > 1)
+                                    {
+                                        <div class="analytics-card">
+                                            <div class="analytics-card-head"><div><h3>Subject marks across terms</h3><p>Each subject's mark side by side, term by term, so improvement is easy to spot.</p></div></div>
+
+                                            <div class="report-table-wrap" style="margin-bottom:18px;">
+                                                <table class="flat-table subject-matrix-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Subject</th>
+                                                            @foreach (var mt in matrixTerms2)
+                                                            {
+                                                                <th style="text-align:center;">@mt.Term</th>
+                                                            }
+                                                            <th style="text-align:center;">Trend</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach (var row2 in matrixRows2)
+                                                        {
+                                                            var known2 = row2.Marks.Where(m => m.HasValue).Select(m => m!.Value).ToList();
+                                                            double trendDelta2 = known2.Count >= 2 ? known2.Last() - known2.First() : 0;
+                                                            <tr>
+                                                                <td style="font-weight:700;color:var(--ink);">@row2.Subject</td>
+                                                                @foreach (var mk in row2.Marks)
+                                                                {
+                                                                    <td style="text-align:center;font-family:'DM Mono',monospace;font-weight:700;color:@(mk.HasValue ? (mk.Value >= 50 ? "var(--green)" : "var(--red)") : "var(--ink3)");">@(mk.HasValue ? mk.Value.ToString("F0") + "%" : "—")</td>
+                                                                }
+                                                                <td style="text-align:center;">
+                                                                    @if (known2.Count >= 2)
+                                                                    {
+                                                                        <span style="font-weight:800;font-size:12px;color:@(trendDelta2 >= 0 ? "var(--green)" : "var(--red)");">@(trendDelta2 >= 0 ? "▲" : "▼") @Math.Abs(trendDelta2).ToString("F0")%</span>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <span style="color:var(--ink3);">—</span>
+                                                                    }
+                                                                </td>
+                                                            </tr>
+                                                        }
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                            <!-- Multi-line chart: one line per subject -->
+                                            @{
+                                                string[] palette2 = new[] { "#1a7f52", "#1d4ed8", "#c2410c", "#7c3aed", "#c8102e", "#0891b2", "#a16207", "#be185d" };
+                                            }
+                                            <div class="chart-bar-wrap" style="padding-top:6px;">
+                                                <svg viewBox="0 0 300 120" preserveAspectRatio="none" style="width:100%;height:120px;overflow:visible;">
+                                                    @{
+                                                        double passY3 = 100 - (50.0 / 100.0 * 85);
+                                                    }
+                                                    <line x1="0" y1="@passY3.ToString("F1")" x2="300" y2="@passY3.ToString("F1")" stroke="#c8102e" stroke-width="0.8" stroke-dasharray="4 3" opacity="0.4" />
+                                                    @SvgText(295, passY3 - 2, "50%", "#c8102e", anchor: "end", fontSize: 6, opacity: 0.6)
+                                                    @for (int si = 0; si < matrixRows2.Count; si++)
+                                                    {
+                                                        var srow2 = matrixRows2[si];
+                                                        string lineColor2 = palette2[si % palette2.Length];
+                                                        var pts2 = new List<(double X, double Y)>();
+                                                        for (int ti = 0; ti < srow2.Marks.Count; ti++)
+                                                        {
+                                                            if (!srow2.Marks[ti].HasValue) continue;
+                                                            double px = (matrixTerms2.Count == 1 ? 150 : (ti * 280.0 / (matrixTerms2.Count - 1) + 10));
+                                                            double py = 100 - (srow2.Marks[ti]!.Value / 100.0 * 85);
+                                                            pts2.Add((px, py));
+                                                        }
+                                                        string linePts3 = string.Join(" ", pts2.Select(p => $"{p.X.ToString("F1")},{p.Y.ToString("F1")}"));
+                                                        <polyline points="@linePts3" fill="none" stroke="@lineColor2" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" opacity="0.9" />
+                                                        @foreach (var pt2 in pts2)
+                                                        {
+                                                            <circle cx="@pt2.X.ToString("F1")" cy="@pt2.Y.ToString("F1")" r="2.4" fill="@lineColor2" />
+                                                        }
+                                                    }
+                                                    @for (int ti = 0; ti < matrixTerms2.Count; ti++)
+                                                    {
+                                                        double lx = (matrixTerms2.Count == 1 ? 150 : (ti * 280.0 / (matrixTerms2.Count - 1) + 10));
+                                                        @SvgText(lx, 114, matrixTerms2[ti].Term, "#64748b")
+                                                    }
+                                                </svg>
+                                            </div>
+                                            <div class="chart-legend-row">
+                                                @for (int si = 0; si < matrixRows2.Count; si++)
+                                                {
+                                                    string legColor2 = palette2[si % palette2.Length];
+                                                    <span class="chart-legend-item"><i style="background:@legColor2;"></i>@matrixRows2[si].Subject</span>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+
+                                    <!-- SUBJECT PERFORMANCE BARS -->
+                                    @{
+                                        var latestSubjects2 = (AnalyticsCards.LastOrDefault()?.Subjects ?? CurrentCard?.Subjects ?? new List<ReportCardSubjectModel>()).OrderByDescending(s => s.FinalMark).ToList();
+                                    }
+                                    @if (latestSubjects2.Any())
+                                    {
+                                        <div class="analytics-card">
+                                            <div class="analytics-card-head"><div><h3>Subject performance</h3><p>Final marks per subject — most recent term. Green ≥ 50%, red below pass.</p></div></div>
+                                            @foreach (var subj2 in latestSubjects2)
+                                            {
+                                                string sc2 = subj2.FinalMark >= 50 ? "#1a7f52" : "#c8102e";
+                                                <div class="subj-bar-row">
+                                                    <div class="subj-bar-label">@subj2.SubjectName</div>
+                                                    <div class="subj-bar-track">
+                                                        <div class="subj-bar-fill" style="width:@subj2.FinalMark.ToString("F0")%;background:@sc2;"></div>
+                                                    </div>
+                                                    <div class="subj-bar-val" style="color:@sc2;">@subj2.FinalMark.ToString("F0")%</div>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+
+                                    <!-- GRADE DISTRIBUTION -->
+                                    @{
+                                        var allMarks2 = AnalyticsCards.Where(rc => rc.Subjects?.Any() == true).SelectMany(rc => rc.Subjects!).Select(s => s.FinalMark).ToList();
+                                        int gdA = allMarks2.Count(m => m >= 80);
+                                        int gdB = allMarks2.Count(m => m >= 65 && m < 80);
+                                        int gdC = allMarks2.Count(m => m >= 50 && m < 65);
+                                        int gdD = allMarks2.Count(m => m >= 40 && m < 50);
+                                        int gdF = allMarks2.Count(m => m < 40);
+                                        int gdTotal = allMarks2.Count;
+                                    }
+                                    @if (gdTotal > 0)
+                                    {
+                                        <div class="analytics-card">
+                                            <div class="analytics-card-head"><div><h3>Grade distribution</h3><p>Across all subjects and terms recorded for @analyticsYear.</p></div></div>
+                                            @foreach (var (grade, count, bg, fg) in new[] {
+                                ("A (80%+)", gdA, "rgba(26,127,82,0.1)", "#1a7f52"),
+                                ("B (65–79%)", gdB, "rgba(37,99,235,0.1)", "#1d4ed8"),
+                                ("C (50–64%)", gdC, "rgba(202,138,4,0.1)", "#92400e"),
+                                ("D (40–49%)", gdD, "rgba(249,115,22,0.1)", "#c2410c"),
+                                ("F (<40%)", gdF, "rgba(200,16,46,0.1)", "#c8102e")
+                            })
+                                            {
+                                                double pct = gdTotal > 0 ? (count * 100.0 / gdTotal) : 0;
+                                                <div class="grade-dist-row">
+                                                    <div class="grade-dist-badge" style="background:@bg;color:@fg;">@grade.Split(" ")[0]</div>
+                                                    <div style="flex:1;min-width:0;">
+                                                        <div style="font-size:10px;color:var(--ink3);margin-bottom:3px;">@grade</div>
+                                                        <div class="grade-dist-bar-track"><div class="grade-dist-bar-fill" style="width:@pct.ToString("F0")%;background:@fg;opacity:0.75;"></div></div>
+                                                    </div>
+                                                    <div class="grade-dist-count">@count</div>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+
+                                    <!-- SUBJECT PROGRESS CARD (existing) -->
+                                    <div class="analytics-card">
+                                        <div class="analytics-card-head"><div><h3>Subject progress</h3><p>How each subject changed from one term to the next.</p></div><span class="legend"><i class="legend-up"></i>Improved <i class="legend-down"></i>Dropped</span></div>
+                                        <div class="progress-list">
+                                            @foreach (var row in SubjectProgressRows)
+                                            {
+                                                <div class="progress-row"><div class="progress-subject"><strong>@row.Subject</strong><span>@row.From.ToString("F0")% → @row.To.ToString("F0")%</span></div><div class="progress-track"><div class="progress-fill @(row.Delta >= 0 ? "up" : "down")" style="width:@Math.Min(Math.Abs(row.Delta) * 4 + 8, 100).ToString("F0")%"></div></div><b class="delta @(row.Delta >= 0 ? "positive" : "negative")">@(row.Delta >= 0 ? "+" : "")@row.Delta.ToString("F1")%</b></div>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <!-- TESTS AND EXAMS -->
+                                    <div class="analytics-card">
+                                        <div class="analytics-card-head"><div><h3>Tests and exams</h3><p>Choose a term, then open a subject to see the recorded assessments and feedback.</p></div><div class="assessment-filters"><select class="flat-select" @bind="selectedTerm" @bind:after="OnTermChanged"><option>Term 1</option><option>Term 2</option><option>Term 3</option></select><input class="flat-select results-year-input" type="number" @bind="selectedTermYear" @bind:after="OnTermChanged" /></div></div>
+                                        <div class="assessment-list">
+                                            @foreach (var subject in (CurrentCard?.Subjects ?? new List<ReportCardSubjectModel>()).OrderBy(s => s.SubjectName))
+                                            {
+                                                var open = expandedSubjects.Contains(subject.SubjectName ?? string.Empty);
+                                                <button type="button" class="assessment-item" @onclick="() => ToggleSubject(subject.SubjectName ?? string.Empty)"><span><strong>@subject.SubjectName</strong><small>@(open ? "Hide assessment details" : "Show assessment details")</small></span><span class="assessment-mark">@subject.FinalMark.ToString("F0")% <em>@(open ? "⌃" : "⌄")</em></span></button>
+                                                @if (open)
+                                                {
+                                                    <div class="assessment-detail assessment-detail-stack"><span>Coursework total <b>@subject.CourseworkMark.ToString("F1")%</b></span><span>Exam total <b>@subject.ExamMark.ToString("F1")%</b></span><span>Grade <b>@GradeHelper.ToGrade(subject.FinalMark)</b></span>
+                                                        @if (examFeedbackBySubject.TryGetValue(subject.SubjectName ?? string.Empty, out var exams) && exams.Any())
+                                                        { <div class="assessment-breakdown"><strong>Individual exams</strong>@foreach (var exam in exams) { <div><span>@(exam.ExamTitle ?? "Exam")</span><b>@(exam.Score?.ToString("F1") ?? "—")%</b></div> }</div> }
+                                                        @if (courseworkMarksBySubject.TryGetValue(subject.SubjectName ?? string.Empty, out var coursework) && coursework.Any())
+                                                        { <div class="assessment-breakdown"><strong>Individual coursework/tests</strong>@foreach (var mark in coursework) { <div><span>Recorded assessment</span><b>@mark.PercentageScore.ToString("F1")%</b></div> }</div> }
+                                                    </div>
+                                                }
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <!-- Print button (no-print) -->
+                                    <div class="no-print" style="display:flex;justify-content:flex-end;margin-top:8px;margin-bottom:4px;">
+                                        <button class="analytics-print-btn" @onclick="PrintAnalytics">
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></svg>
+                                            Print Analytics
+                                        </button>
+                                    </div>
+
+                                    <!-- Analytics print footer -->
+                                    <div class="cert-footer">
+                                        &copy; @DateTime.Now.Year PrimeApp Demo &nbsp;&bull;&nbsp; All Rights Reserved &nbsp;&bull;&nbsp; Confidential Academic Document &nbsp;&bull;&nbsp; Fictional data · Demonstration only
+                                    </div>
+
+                                </div> <!-- /relative z-1 -->
+                            </div> <!-- /cert-frame -->
+                        </div> <!-- /cert-border-wrap -->
+                    </div> <!-- /analytics-print-shell print-analytics-shell-overlay -->
+                }
+            }
+
+            <style>
+                            .report-filter-card, .analytics-card, .analytics-stat {
+                                background: rgba(255,255,255,.78);
+                                border: 1px solid rgba(148,163,184,.18);
+                                border-radius: 18px;
+                                box-shadow: 0 8px 24px rgba(15,23,42,.04);
+                            }
+
+                            .report-filter-card {
+                                display: flex;
+                                align-items: center;
+                                justify-content: space-between;
+                                gap: 18px;
+                                padding: 16px;
+                                margin-bottom: 18px;
+                            }
+
+                            .report-filter-title {
+                                font-size: 15px;
+                                font-weight: 800;
+                                color: var(--ink);
+                            }
+
+                            .report-filter-help, .analytics-heading p, .analytics-card-head p {
+                                margin: 4px 0 0;
+                                color: var(--ink3);
+                                font-size: 12px;
+                                line-height: 1.5;
+                            }
+
+                            .analytics-heading {
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: flex-start;
+                                gap: 18px;
+                                margin-bottom: 18px;
+                            }
+
+                                .analytics-heading h2 {
+                                    margin: 2px 0 0;
+                                    font-size: 24px;
+                                    color: var(--ink);
+                                }
+
+                            .analytics-kicker {
+                                color: var(--red);
+                                font-size: 10px;
+                                font-weight: 800;
+                                letter-spacing: 1.2px;
+                                text-transform: uppercase;
+                            }
+
+                            .analytics-year-select {
+                                width: 130px;
+                                background: white;
+                            }
+
+                            .analytics-stat-grid {
+                                display: grid;
+                                grid-template-columns: repeat(3, minmax(0,1fr));
+                                gap: 12px;
+                                margin-bottom: 18px;
+                            }
+
+                            .analytics-stat {
+                                padding: 15px;
+                            }
+
+                                .analytics-stat span, .analytics-stat small {
+                                    display: block;
+                                    color: var(--ink3);
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                }
+
+                                .analytics-stat strong {
+                                    display: block;
+                                    margin: 6px 0 3px;
+                                    font: 800 25px 'DM Mono', monospace;
+                                    color: var(--ink);
+                                }
+
+                            .positive {
+                                color: #087f52 !important;
+                            }
+
+                            .negative {
+                                color: #c8102e !important;
+                            }
+
+                            .analytics-card {
+                                padding: 18px;
+                                margin-bottom: 18px;
+                            }
+
+                            .analytics-card-head {
+                                display: flex;
+                                justify-content: space-between;
+                                gap: 16px;
+                                align-items: flex-start;
+                                margin-bottom: 16px;
+                            }
+
+                            .analytics-card h3 {
+                                margin: 0;
+                                color: var(--ink);
+                                font-size: 16px;
+                            }
+
+                            .chart-legend-row {
+                                display: flex;
+                                flex-wrap: wrap;
+                                gap: 12px 18px;
+                                margin-top: 12px;
+                                padding-top: 12px;
+                                border-top: 1px solid #f0f0f0;
+                            }
+
+                            .chart-legend-item {
+                                display: inline-flex;
+                                align-items: center;
+                                gap: 6px;
+                                font-size: 11px;
+                                font-weight: 700;
+                                color: var(--ink2);
+                            }
+
+                                .chart-legend-item i {
+                                    width: 10px;
+                                    height: 10px;
+                                    border-radius: 3px;
+                                    display: inline-block;
+                                    flex-shrink: 0;
+                                }
+
+                            .subject-matrix-table th, .subject-matrix-table td {
+                                white-space: nowrap;
+                            }
+
+                            .legend {
+                                color: var(--ink3);
+                                font-size: 10px;
+                                white-space: nowrap;
+                                display: flex;
+                                align-items: center;
+                                gap: 5px;
+                            }
+
+                                .legend i {
+                                    width: 8px;
+                                    height: 8px;
+                                    border-radius: 50%;
+                                    display: inline-block;
+                                    margin-left: 7px;
+                                }
+
+                            .legend-up {
+                                background: #087f52;
+                            }
+
+                            .legend-down {
+                                background: #c8102e;
+                            }
+
+                            .progress-list {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 14px;
+                            }
+
+                            .progress-row {
+                                display: grid;
+                                grid-template-columns: minmax(130px, 1.2fr) minmax(80px, 1fr) 58px;
+                                gap: 10px;
+                                align-items: center;
+                            }
+
+                            .progress-subject {
+                                display: flex;
+                                justify-content: space-between;
+                                gap: 8px;
+                                min-width: 0;
+                            }
+
+                                .progress-subject strong {
+                                    overflow: hidden;
+                                    text-overflow: ellipsis;
+                                    white-space: nowrap;
+                                    color: var(--ink);
+                                    font-size: 12px;
+                                }
+
+                                .progress-subject span {
+                                    color: var(--ink3);
+                                    font: 10px 'DM Mono',monospace;
+                                    white-space: nowrap;
+                                }
+
+                            .progress-track {
+                                background: #eef2f7;
+                                height: 8px;
+                                border-radius: 99px;
+                                overflow: hidden;
+                            }
+
+                            .progress-fill {
+                                height: 100%;
+                                border-radius: 99px;
+                            }
+
+                                .progress-fill.up {
+                                    background: #087f52;
+                                }
+
+                                .progress-fill.down {
+                                    background: #c8102e;
+                                }
+
+                            .delta {
+                                text-align: right;
+                                font: 700 12px 'DM Mono',monospace;
+                            }
+
+                            .assessment-filters {
+                                display: flex;
+                                gap: 8px;
+                                width: min(100%,280px);
+                            }
+
+                                .assessment-filters .flat-select {
+                                    padding: 9px 10px;
+                                    background: white;
+                                }
+
+                            .assessment-list {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 8px;
+                            }
+
+                            .assessment-item {
+                                border: 1px solid #edf0f4;
+                                background: #fff;
+                                border-radius: 12px;
+                                padding: 12px 14px;
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                text-align: left;
+                                color: var(--ink);
+                                cursor: pointer;
+                            }
+
+                                .assessment-item small {
+                                    display: block;
+                                    color: var(--ink3);
+                                    font-size: 10px;
+                                    margin-top: 3px;
+                                }
+
+                            .assessment-mark {
+                                font: 800 14px 'DM Mono',monospace;
+                                white-space: nowrap;
+                            }
+
+                                .assessment-mark em {
+                                    font-style: normal;
+                                    color: var(--ink3);
+                                    margin-left: 6px;
+                                }
+
+                            .assessment-detail {
+                                display: flex;
+                                flex-wrap: wrap;
+                                gap: 10px;
+                                background: #f8fafc;
+                                border-radius: 10px;
+                                padding: 10px 14px;
+                                color: var(--ink3);
+                                font-size: 11px;
+                            }
+
+                                .assessment-detail span {
+                                    flex: 1;
+                                    min-width: 100px;
+                                }
+
+                                .assessment-detail b {
+                                    color: var(--ink);
+                                    margin-left: 4px;
+                                }
+
+                            .empty-analytics {
+                                padding: 50px 20px;
+                                border: 1px dashed #dbe2ea;
+                                border-radius: 18px;
+                                text-align: center;
+                                color: var(--ink3);
+                            }
+
+                            @@media (max-width: 640px) {
+                                .report-filter-card, .analytics-heading, .analytics-card-head {
+                                    flex-direction: column;
+                                    align-items: stretch;
+                                }
+
+                                    .report-filter-card .results-filter-fields, .analytics-year-select {
+                                        width: 100%;
+                                    }
+
+                                .analytics-stat-grid {
+                                    grid-template-columns: 1fr;
+                                }
+
+                                .analytics-stat {
+                                    padding: 13px;
+                                }
+
+                                .analytics-heading h2 {
+                                    font-size: 21px;
+                                }
+
+                                .progress-row {
+                                    grid-template-columns: 1fr 52px;
+                                    gap: 5px 10px;
+                                }
+
+                                .progress-subject {
+                                    grid-column: 1 / -1;
+                                }
+
+                                .progress-track {
+                                    grid-column: 1;
+                                }
+
+                                .delta {
+                                    grid-column: 2;
+                                    grid-row: 2;
+                                }
+
+                                .assessment-filters {
+                                    width: 100%;
+                                }
+                            }
+            </style>
+        </div> <!-- /results-main-wrapper -->
+    </div> <!-- /results-page-wrap -->
+</CascadingValue>
+
+<style>
+    .assessment-detail-stack { display:flex; flex-wrap:wrap; gap:10px 18px; align-items:flex-start; }
+    .assessment-breakdown { flex:1 1 100%; border-top:1px solid rgba(148,163,184,.18); padding-top:8px; display:grid; gap:5px; }
+    .assessment-breakdown strong { color:var(--ink2); font-size:11px; }
+    .assessment-breakdown div { display:flex; justify-content:space-between; gap:12px; font-size:12px; }
+    @@media (max-width:640px) {
+        .report-card-print-shell, .report-a4-wrapper, .cert-border-wrap, .cert-frame { width:100%; max-width:100%; min-width:0; box-sizing:border-box; }
+        .report-a4-wrapper { overflow-x:hidden; display:block; }
+        .cert-frame { padding-left:10px; padding-right:10px; }
+        .report-header { flex-wrap:wrap; }
+        .report-title { font-size:16px; }
+        .report-meta { width:100%; }
+        .analytics-print-shell-overlay { width:100%; min-width:0; }
+        .analytics-card { min-width:0; overflow:hidden; }
+    }
+</style>
+
+@code {
+
+    private MarkupString SvgText(double x, double y, string content, string fill,
+       string anchor = "middle", double fontSize = 7, string fontWeight = "normal", double opacity = 1)
+    {
+        var safeContent = System.Net.WebUtility.HtmlEncode(content);
+        var text = $"<text x=\"{x.ToString("F1")}\" y=\"{y.ToString("F1")}\" text-anchor=\"{anchor}\" font-size=\"{fontSize}\" fill=\"{fill}\" font-weight=\"{fontWeight}\" opacity=\"{opacity}\">{safeContent}</text>";
+        return (MarkupString)text;
+    }
+
+    private string GetHeadmasterRemarks(int passed, int recorded, double overallAvg, string? firstName, long studentId, string term, int year)
+    {
+        var name = string.IsNullOrWhiteSpace(firstName) ? "The student" : firstName.Trim();
+        double passRate = recorded > 0 ? ((double)passed / recorded) * 100.0 : 0.0;
+
+        string[] remarksPool;
+
+        if (passRate >= 100.0)
+        {
+            remarksPool = new[]
+            {
+                $"A distinguished academic performance across the board. By securing a flawless 100% pass rate ({passed} of {recorded} subjects passed) with an overall average of {overallAvg:F1}%, {name} has demonstrated exemplary scholarly discipline, intellectual versatility, and steadfast commitment to academic excellence. Such comprehensive attainment reflects both rigorous preparation and admirable work habits. The college commends this outstanding dedication and encourages {name} to maintain this trajectory of distinction in future terms.",
+                $"An exceptional term of academic achievement characterized by complete subject mastery. Achieving a 100% pass rate in all {recorded} recorded disciplines alongside an impressive overall average of {overallAvg:F1}% is a testament to {name}'s intellectual maturity, focus, and scholarly diligence. {name} has set an inspiring standard of academic citizenship within the college, demonstrating deep syllabus engagement. We anticipate continued academic leadership and distinction from {name} as studies progress.",
+                $"With an unblemished 100% pass rate across all {recorded} assessed disciplines and an overall average of {overallAvg:F1}%, {name} has delivered an all-around impressive performance this term. Maintaining such high quality and consistency across diverse syllabus demands reflects superior academic discipline, analytical precision, and personal responsibility. The administration extends warmest congratulations and looks forward to seeing {name} build upon this stellar foundation.",
+                $"Superb performance throughout the academic session. Attaining passes in all {recorded} subjects with an overall average of {overallAvg:F1}% represents total curricular mastery and well-rounded intellectual engagement. {name} approaches scholarly obligations with maturity, self-direction, and consistent poise under assessment conditions. Continued application of these high standards will ensure sustained distinction throughout {name}'s academic journey."
+            };
+        }
+        else if (passRate >= 80.0)
+        {
+            remarksPool = new[]
+            {
+                $"A thoroughly solid and encouraging academic term, achieving a {passRate:F0}% pass rate ({passed} of {recorded} subjects passed) alongside an overall average of {overallAvg:F1}%. {name} has established a dependable foundation across the majority of the curriculum, showcasing positive intellectual aptitude and reliable assessment execution. With targeted consolidation and enhanced examination technique in the remaining growth areas, {name} possesses the capability to attain complete distinction across the entire subject profile.",
+                $"Commendable academic effort has yielded a strong {passRate:F0}% subject pass rate ({passed} of {recorded} subjects passed) and a respectable overall average of {overallAvg:F1}%. {name} displays clear academic capability and a positive disposition toward learning. To convert this solid achievement into full mastery across all registered subjects, {name} is urged to apply the same disciplined work habits seen in strong subjects to those areas requiring reinforcement.",
+                $"A very positive academic standing, marked by success in {passed} out of {recorded} subjects ({passRate:F0}% pass rate) and a commendable average of {overallAvg:F1}%. {name} demonstrates admirable perseverance and a solid grasp of core syllabus competencies. Addressing minor conceptual gaps and engaging in proactive revision will comfortably propel {name} into top-tier attainment across all disciplines.",
+                $"Solid achievement across the curriculum with a {passRate:F0}% pass rate and an average of {overallAvg:F1}%. {name} demonstrates clear competence in the vast majority of evaluated topics, reflecting steady application and classroom engagement. Sustained focus on past-paper technique in the few lagging subjects will help ensure 100% completion in the coming term."
+            };
+        }
+        else if (passRate >= 60.0)
+        {
+            remarksPool = new[]
+            {
+                $"A satisfactory academic outcome with a {passRate:F0}% pass rate ({passed} of {recorded} subjects completed successfully) and an overall average of {overallAvg:F1}%. While {name} demonstrates commendable ability in several core disciplines, the disparity across subjects highlights the necessity of a more balanced revision strategy and greater daily consistency. Establishing a structured independent study timetable and consulting subject teachers promptly will ensure steady progression and academic stability.",
+                $"The results reflect an emerging academic standard, securing passes in {passed} out of {recorded} evaluated subjects ({passRate:F0}% pass rate) alongside an average of {overallAvg:F1}%. {name} is clearly capable of sound academic work; however, focused attention and timely remediation in the underperforming subjects will be crucial to prevent cumulative gaps. Dedicated revision and active classroom engagement are strongly recommended next term.",
+                $"{name} has demonstrated workable competence in passing {passed} out of {recorded} subjects ({passRate:F0}%), achieving an overall average of {overallAvg:F1}%. To consolidate this foundation and elevate the overall profile, {name} must eliminate inconsistency by applying uniform effort across both coursework assignments and examination preparations. The college remains committed to supporting {name} in realizing full potential."
+            };
+        }
+        else if (passRate >= 40.0)
+        {
+            remarksPool = new[]
+            {
+                $"This term's results highlight notable academic challenges that require focused and coordinated intervention. With a pass rate of {passRate:F0}% ({passed} of {recorded} subjects passed) and an overall average of {overallAvg:F1}%, it is imperative that {name} establishes a disciplined daily study timetable, attends teacher consultations regularly, and focuses on core syllabus mastery. With targeted remedial support and redoubled personal commitment, {name} can overcome these foundational hurdles and make meaningful academic recovery.",
+                $"The current performance ({passRate:F0}% pass rate with {passed} of {recorded} subjects passed, {overallAvg:F1}% average) underscores urgent areas for remedial focus. {name} possesses the potential for better outcomes, but immediate improvement in assignment submission, structured past-paper revision, and proactive engagement with academic tutors is essential. A focused partnership between student, parents, and faculty will be key to re-establishing momentum."
+            };
+        }
+        else
+        {
+            remarksPool = new[]
+            {
+                $"Academic attainment this term is below the expected institutional standard, with a pass rate of {passRate:F0}% ({passed} of {recorded} subjects passed) and an overall average of {overallAvg:F1}%. An urgent academic review and structured remediation plan are required. {name} must prioritize daily revision, clarify foundational misunderstandings directly with subject teachers, and commit to thorough preparation for all continuous assessments. The college stands ready to assist {name} in rebuilding academic confidence and progress.",
+                $"The recorded results ({passRate:F0}% pass rate, {overallAvg:F1}% overall average) indicate critical foundational deficits across multiple disciplines. Immediate academic counseling and consistent tutorial attendance are strongly urged. {name} is encouraged to approach this setback with renewed determination, adopting methodical study routines to reverse this trend and achieve the passing benchmark in the coming session."
+            };
+        }
+
+        var seed = HashCode.Combine(studentId, term, year, passed, (int)Math.Round(overallAvg));
+        var index = (int)((uint)seed % (uint)remarksPool.Length);
+        return remarksPool[index];
+    }
+
+    private Student Me = new();
+
+    private string StudentInitials => $"{Me.FirstName?[0]}{Me.LastName?[0]}";
+
+    private string selectedTerm = "Term 3";
+    private int selectedTermYear = DateTime.Now.Year;
+    private string SelectedTermLabel => $"{selectedTerm} {selectedTermYear}";
+    private string CurrentStudentFormLabel => FormatClassroom(CurrentCard?.StudentForm ?? Me.Form, CurrentCard?.StudentClass ?? Me.Classroom);
+
+    private List<ReportCardModel> allReportCards = new();
+
+    private List<string> mySubjects = new();
+    private string myField = string.Empty;
+
+    private string LevelCode => Me.Form switch
+    {
+        >= 1 and <= 4 => "form1to4",
+        5 or 6 => "alevel",
+        _ => string.Empty
+    };
+
+    private ReportCardModel? CurrentCard => _currentCardCache ?? allReportCards.FirstOrDefault(
+        rc => string.Equals(rc.Term, selectedTerm, StringComparison.OrdinalIgnoreCase) && rc.TermYear == selectedTermYear);
+
+    private double AvgMark => AvgMarkCached;
+
+    private ReportCardModel? _currentCardCache;
+    private List<ReportCardSubjectModel>? _currentSubjectsCache;
+    private double _avgMarkCache = 0;
+    private Dictionary<long, double> _reportAverages = new();
+    private decimal balanceOwing = 0;
+    private bool isLoading = true;
+    private string activeTab = "reportcard";
+    private int analyticsYear = DateTime.Now.Year;
+    private string loadError = string.Empty;
+
+    private ReportCardModel? CurrentCardCached => _currentCardCache;
+    private IReadOnlyList<ReportCardSubjectModel>? CurrentSubjectsCached => _currentSubjectsCache;
+    private double AvgMarkCached => _avgMarkCache;
+
+    private bool dataLoadAttempted;
+
+    private IEnumerable<ReportCardModel> AnalyticsCards => allReportCards
+        .Where(rc => rc.TermYear == analyticsYear)
+        .OrderBy(rc => TermNumber(rc.Term));
+
+    private IEnumerable<int> AnalyticsYears => allReportCards
+        .Select(rc => rc.TermYear).Distinct().OrderByDescending(y => y);
+
+    private double AnalyticsYearAverage => AnalyticsCards
+        .Where(rc => rc.Subjects?.Any() == true)
+        .SelectMany(rc => rc.Subjects!)
+        .Select(s => s.FinalMark).DefaultIfEmpty().Average();
+
+    private List<SubjectProgressRow> SubjectProgressRows =>
+        AnalyticsCards.SelectMany((card, index) => index == 0 || card.Subjects == null ? Enumerable.Empty<SubjectProgressRow>() :
+            card.Subjects.Select(subject =>
+            {
+                var previous = AnalyticsCards.ElementAt(index - 1).Subjects?.FirstOrDefault(s => s.SubjectName == subject.SubjectName);
+                var from = previous?.FinalMark ?? subject.FinalMark;
+                return new SubjectProgressRow(subject.SubjectName ?? "Subject", from, subject.FinalMark, subject.FinalMark - from);
+            }))
+        .GroupBy(x => x.Subject).Select(g => g.Last()).OrderByDescending(x => Math.Abs(x.Delta)).ToList();
+
+    private int AnalyticsImprovedCount => SubjectProgressRows.Count(x => x.Delta > 0.05);
+    private int AnalyticsDroppedCount => SubjectProgressRows.Count(x => x.Delta < -0.05);
+    private List<SubjectMatrixRow> SubjectTermMatrix
+    {
+        get
+        {
+            var cards = AnalyticsCards.ToList();
+            var subjects = cards.Where(c => c.Subjects != null)
+                .SelectMany(c => c.Subjects!)
+                .Select(s => s.SubjectName ?? "Subject")
+                .Distinct()
+                .OrderBy(s => s)
+                .ToList();
+
+            var rows = new List<SubjectMatrixRow>();
+            foreach (var subj in subjects)
+            {
+                var marks = cards.Select(card => card.Subjects?.FirstOrDefault(s => s.SubjectName == subj)?.FinalMark).ToList();
+                rows.Add(new SubjectMatrixRow(subj, marks));
+            }
+            return rows;
+        }
+    }
+
+    private sealed record SubjectMatrixRow(string Subject, List<double?> Marks);
+
+    private sealed record SubjectProgressRow(string Subject, double From, double To, double Delta);
+
+    protected override Task OnInitializedAsync()
+    {
+        return Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || dataLoadAttempted) return;
+        dataLoadAttempted = true;
+
+        await LoadStudentAsync();
+        await LoadBalanceAsync();
+        if (activeTab == "reportcard")
+        {
+            await LoadReportCardsAsync();
+            reportsLoaded = true;
+        }
+        StateHasChanged();
+    }
+
+    private async Task LoadStudentAsync()
+    {
+        try
+        {
+            var userIdStr = await JS.InvokeAsync<string>("sessionStorage.getItem", "primeappDemo.userId");
+            if (int.TryParse(userIdStr, out int realUserId))
+                Me.Id = realUserId;
+
+            var student = await StudentService.GetStudentAsync(Me.Id);
+            if (student != null) Me = student;
+        }
+        catch { }
+    }
+
+    private async Task LoadReportCardsAsync()
+    {
+        isLoading = true;
+        loadError = string.Empty;
+        try
+        {
+            var cards = await GradesService.GetReportCardsAsync(Me.Id);
+            allReportCards = cards ?? new();
+
+            // Open the most recently released report by default. Previously
+            // this page was hard-coded to Term 2 2026, so a newly approved
+            // Term 3 report appeared to be missing until the student changed
+            // the term selector manually.
+            var latestCard = allReportCards
+                .OrderByDescending(rc => rc.TermYear)
+                .ThenByDescending(rc => TermNumber(rc.Term))
+                .FirstOrDefault();
+            if (latestCard != null)
+            {
+                selectedTerm = latestCard.Term ?? selectedTerm;
+                selectedTermYear = latestCard.TermYear;
+                analyticsYear = latestCard.TermYear;
+            }
+
+            _reportAverages.Clear();
+            foreach (var rc in allReportCards)
+            {
+                if (rc?.Id != null)
+                {
+                    var avg = rc.Subjects != null && rc.Subjects.Any() ? rc.Subjects.Average(s => s.FinalMark) : 0;
+                    _reportAverages[rc.Id.Value] = avg;
+                }
+            }
+
+            await RefreshCurrentCardAsync();
+        }
+        catch (Exception ex)
+        {
+            loadError = $"Could not load results. ({ex.Message})";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private static int TermNumber(string? term) => term switch
+    {
+        "Term 1" => 1,
+        "Term 2" => 2,
+        "Term 3" => 3,
+        _ => 0
+    };
+
+    private async Task LoadBalanceAsync()
+    {
+        try { var s = await FinanceService.GetAccountSummaryAsync(Me.Id); balanceOwing = s?.Balance ?? 0; }
+        catch { }
+    }
+
+    private async Task OnTermChanged()
+    {
+        if (!reportsLoaded)
+            return;
+
+        await RefreshCurrentCardAsync();
+        StateHasChanged();
+    }
+
+    private bool reportsLoaded = false;
+    private int attendanceTotal = 0;
+    private int attendancePresent = 0;
+    private int attendancePercent = 0;
+    private int subjectsRecorded = 0;
+    private int subjectsPassed = 0;
+    private int? positionInForm = null;
+
+    private async Task OnTabSelected(string tab)
+    {
+        activeTab = tab;
+        if (!reportsLoaded && (tab == "reportcard" || tab == "marks" || tab == "history" || tab == "analytics"))
+        {
+            await LoadReportCardsAsync();
+            reportsLoaded = true;
+        }
+        StateHasChanged();
+    }
+
+    private bool isPrintingReport = false;
+    private bool isPrintingAnalytics = false;
+
+    private async Task PrintReport()
+    {
+        isPrintingReport = true;
+        StateHasChanged();
+        await Task.Delay(100);
+        try
+        {
+            await JS.InvokeVoidAsync("window.print");
+        }
+        catch { }
+        finally
+        {
+            isPrintingReport = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task PrintAnalytics()
+    {
+        isPrintingAnalytics = true;
+        StateHasChanged();
+        await Task.Delay(100);
+        try
+        {
+            await JS.InvokeVoidAsync("window.print");
+        }
+        catch { }
+        finally
+        {
+            isPrintingAnalytics = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadAttendanceForCurrentCardAsync()
+    {
+        attendanceTotal = 0; attendancePresent = 0; attendancePercent = 0;
+        if (CurrentCard == null) return;
+
+        try
+        {
+            var range = GradeHelper.TermMonthRange(CurrentCard.Term ?? string.Empty);
+            var start = new DateOnly(CurrentCard.TermYear, range.Start, 1);
+            var end = new DateOnly(CurrentCard.TermYear, range.End, DateTime.DaysInMonth(CurrentCard.TermYear, range.End));
+
+            var records = await AttendanceService.GetRecordsByPersonAndDateRangeAsync(Me.Id, start, end);
+            var sessions = await AttendanceService.GetSessionsByDateRangeAsync(start, end);
+            if (records != null)
+            {
+                var sessionDateMap = new Dictionary<long, DateOnly>();
+                if (sessions != null)
+                {
+                    foreach (var session in sessions)
+                        sessionDateMap[session.Id] = session.Date;
+                }
+
+                var datedRecords = records
+                    .Where(r => sessionDateMap.ContainsKey(r.SessionId))
+                    .GroupBy(r => sessionDateMap[r.SessionId])
+                    .Select(g => g.First())
+                    .ToList();
+
+                attendanceTotal = datedRecords.Count;
+                attendancePresent = datedRecords.Count(r =>
+                    string.Equals(r.Status, "Present", StringComparison.OrdinalIgnoreCase));
+                attendancePercent = attendanceTotal > 0 ? (int)(attendancePresent * 100 / attendanceTotal) : 0;
+            }
+        }
+        catch { }
+    }
+
+    private async Task RefreshCurrentCardAsync()
+    {
+        _currentCardCache = allReportCards.FirstOrDefault(
+            rc => string.Equals(rc.Term, selectedTerm, StringComparison.OrdinalIgnoreCase) && rc.TermYear == selectedTermYear);
+
+        _currentSubjectsCache = _currentCardCache?.Subjects ?? new List<ReportCardSubjectModel>();
+        _avgMarkCache = _currentSubjectsCache.Any() ? _currentSubjectsCache.Average(s => s.FinalMark) : 0;
+
+        subjectsRecorded = _currentSubjectsCache.Count;
+        subjectsPassed = _currentSubjectsCache.Count(s => s.FinalMark >= 50);
+
+        try { await LoadAttendanceForCurrentCardAsync(); }
+        catch { }
+
+        try { await LoadPositionInFormAsync(); }
+        catch { positionInForm = null; }
+
+        try { await LoadDetailedFeedbackAsync(); }
+        catch { }
+    }
+
+    private Dictionary<string, List<ExamMarkDTO>> examFeedbackBySubject = new();
+
+    // ── CHANGED: was List<double>, now List<MarkEntry> ──
+    private Dictionary<string, List<MarkEntry>> courseworkMarksBySubject = new();
+
+    private bool isLoadingDetailedFeedback = false;
+    private HashSet<string> expandedSubjects = new();
+
+    private void ToggleSubject(string subject)
+    {
+        if (expandedSubjects.Contains(subject))
+            expandedSubjects.Remove(subject);
+        else
+            expandedSubjects.Add(subject);
+    }
+
+    private async Task LoadDetailedFeedbackAsync()
+    {
+        examFeedbackBySubject.Clear();
+        courseworkMarksBySubject.Clear();
+        if (CurrentCard == null) return;
+        isLoadingDetailedFeedback = true;
+        StateHasChanged();
+        try
+        {
+            int termInt = selectedTerm == "Term 1" ? 1 : selectedTerm == "Term 2" ? 2 : selectedTerm == "Term 3" ? 3 : 1;
+            int year = selectedTermYear;
+
+            string field = "default";
+            if (Me.Form == 3 || Me.Form == 4)
+            {
+                if (!string.IsNullOrWhiteSpace(Me.Classroom))
+                {
+                    if (Me.Classroom.Contains("Sciences", StringComparison.OrdinalIgnoreCase)) field = "Sciences";
+                    else if (Me.Classroom.Contains("Commercials", StringComparison.OrdinalIgnoreCase)) field = "Commercials";
+                    else if (Me.Classroom.Contains("Arts", StringComparison.OrdinalIgnoreCase)) field = "Arts";
+                }
+            }
+
+            var examTask = GradesService.GetExamMarksAsync(Me.Id, termInt, year, field);
+            var cwTask = GradesService.GetCourseworkMarksAsync(Me.Id, termInt, year, field);
+
+            await Task.WhenAll(examTask, cwTask);
+
+            var examResponse = await examTask;
+            if (examResponse?.MarksBySubject != null)
+                examFeedbackBySubject = examResponse.MarksBySubject;
+
+            // ── CHANGED: assign directly; types now match ──
+            var cwResponse = await cwTask;
+            if (cwResponse?.CourseMarks != null)
+                courseworkMarksBySubject = cwResponse.CourseMarks;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading detailed feedback: {ex.Message}");
+        }
+        finally
+        {
+            isLoadingDetailedFeedback = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadPositionInFormAsync()
+    {
+        positionInForm = null;
+        if (CurrentCard == null) return;
+
+        var allStudents = await StudentService.GetStudentsAsync();
+        var formMates = allStudents
+            .Where(s => s.Id != 0 && s.Form == (CurrentCard.StudentForm ?? Me.Form))
+            .ToList();
+
+        if (!formMates.Any()) return;
+
+        var averages = new List<(long StudentId, double Average)>();
+
+        foreach (var batch in formMates.Chunk(5))
+        {
+            var batchResults = await Task.WhenAll(batch.Select(async student =>
+            {
+                try
+                {
+                    var cards = await GradesService.GetReportCardsAsync(student.Id);
+                    var matchingCard = cards?.FirstOrDefault(rc =>
+                        rc.Term == CurrentCard.Term &&
+                        rc.TermYear == CurrentCard.TermYear);
+
+                    if (matchingCard?.Subjects?.Any() == true)
+                        return (StudentId: (long)student.Id, Average: matchingCard.Subjects.Average(s => s.FinalMark), HasData: true);
+                }
+                catch { }
+                return (StudentId: (long)student.Id, Average: 0.0, HasData: false);
+            }));
+
+            averages.AddRange(batchResults.Where(r => r.HasData).Select(r => (r.StudentId, r.Average)));
+        }
+
+        if (!averages.Any()) return;
+
+        var ranked = averages
+            .OrderByDescending(x => x.Average)
+            .ThenBy(x => x.StudentId)
+            .ToList();
+
+        var index = ranked.FindIndex(x => x.StudentId == Me.Id);
+        if (index >= 0)
+            positionInForm = index + 1;
+    }
+
+    private static string OrdinalSuffix(int number)
+    {
+        var absNumber = Math.Abs(number);
+        var lastTwoDigits = absNumber % 100;
+
+        if (lastTwoDigits is 11 or 12 or 13)
+            return "th";
+
+        return (absNumber % 10) switch
+        {
+            1 => "st",
+            2 => "nd",
+            3 => "rd",
+            _ => "th"
+        };
+    }
+
+    private static string FormatClassroom(int? form, string? classroom)
+    {
+        if (form.HasValue && !string.IsNullOrWhiteSpace(classroom))
+        {
+            if (classroom.StartsWith("Form", StringComparison.OrdinalIgnoreCase))
+                return classroom;
+            return $"Form {form} {classroom}";
+        }
+        if (form.HasValue) return $"Form {form}";
+        return classroom ?? string.Empty;
+    }
+}

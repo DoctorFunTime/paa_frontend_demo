@@ -1,0 +1,20 @@
+@page "/burser/student-pass/scanner"
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+@layout paa_frontend.Client.Layout.BurserPortalLayout
+
+<div class="mb-6 rounded-2xl border border-slate-200 bg-white/80 p-5 shadow-sm">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+            <div class="text-[0.65rem] font-black uppercase tracking-widest text-emerald-600">Gate tool</div>
+            <h1 class="mt-1 text-2xl font-extrabold tracking-tight text-slate-900">Student pass scanner</h1>
+            <p class="mt-1 text-sm font-medium text-slate-500">Scan or enter a pass, verify the student, then record the result.</p>
+        </div>
+        <div class="grid grid-cols-3 gap-2 text-center text-[0.65rem] font-black uppercase tracking-widest text-slate-400">
+            <div class="rounded-xl bg-slate-50 px-3 py-2"><span class="block text-emerald-600">1</span> Scan</div>
+            <div class="rounded-xl bg-slate-50 px-3 py-2"><span class="block text-indigo-600">2</span> Verify</div>
+            <div class="rounded-xl bg-slate-50 px-3 py-2"><span class="block text-amber-600">3</span> Record</div>
+        </div>
+    </div>
+</div>
+
+<StudentPassScanner />

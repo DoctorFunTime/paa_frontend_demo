@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PrimePass Scanner - Verify Student Standing</title>
+    
+    <!-- Google Fonts & jsQR Library -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #6366f1;
+            --ink: #0f172a;
+            --ink2: #475569;
+            --bg: #090d16;
+            --card: #1e293b;
+            --green: #10b981;
+            --red: #ef4444;
+            --border: rgba(255, 255, 255, 0.08);
+            font-family: 'Outfit', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body, html {
+            background-color: var(--bg);
+            color: #f8fafc;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top Header & Selector */
+        header {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 20px;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .header-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .brand-logo {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--primary);
+            box-shadow: 0 0 10px var(--primary);
+            animation: pulse 1.5s infinite;
+        }
+
+        .brand-title {
+            font-size: 16px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: #c7d2fe;
+        }
+
+        .btn-toggle-cam {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 99px;
+            padding: 6px 14px;
+            color: #94a3b8;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-toggle-cam:active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .context-selector-box {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .context-label {
+            font-size: 9px;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.75px;
+        }
+
+        .context-select {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            padding: 10px 14px;
+            color: white;
+            font-size: 14px;
+            font-family: 'Outfit', sans-serif;
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.2s;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            background-size: 14px;
+        }
+
+        .context-select:focus {
+            border-color: var(--primary);
+        }
+
+        /* Camera Scanner Viewport */
+        .scanner-viewport {
+            flex: 1;
+            position: relative;
+            background: black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        #video-element {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        #canvas-element {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        /* Scan Target Finder Graphic */
+        .scan-target {
+            position: absolute;
+            width: 250px;
+            height: 250px;
+            border-radius: 24px;
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+            z-index: 3;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+            transition: border-color 0.3s;
+        }
+
+        .scan-target::before {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 28px;
+            border: 4px solid var(--primary);
+            mask: conic-gradient(from 0deg, white 20deg, transparent 20deg 70deg, white 70deg 110deg, transparent 110deg 160deg, white 160deg 200deg, transparent 200deg 250deg, white 250deg 290deg, transparent 290deg);
+            -webkit-mask: conic-gradient(from 0deg, white 20deg, transparent 20deg 70deg, white 70deg 110deg, transparent 110deg 160deg, white 160deg 200deg, transparent 200deg 250deg, white 250deg 290deg, transparent 290deg);
+            animation: rotateTarget 15s linear infinite;
+        }
+
+        .scan-laser {
+            width: 90%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+            box-shadow: 0 0 10px var(--primary);
+            position: absolute;
+            animation: laserMove 2s ease-in-out infinite;
+        }
+
+        /* Full Screen Verification Screens */
+        .overlay-screen {
+            position: absolute;
+            inset: 0;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease-out;
+        }
+
+        .overlay-screen.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .screen-allowed {
+            background: linear-gradient(185deg, #064e3b 0%, #022c22 100%);
+        }
+
+        .screen-denied {
+            background: linear-gradient(185deg, #7f1d1d 0%, #450a0a 100%);
+        }
+
+        .result-icon-box {
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+        }
+
+        .result-icon-box svg {
+            width: 48px;
+            height: 48px;
+            color: white;
+        }
+
+        .result-status {
+            font-size: 14px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #a7f3d0;
+            margin-bottom: 8px;
+        }
+
+        .screen-denied .result-status {
+            color: #fecaca;
+        }
+
+        .student-name {
+            font-size: 28px;
+            font-weight: 800;
+            text-align: center;
+            margin-bottom: 12px;
+            letter-spacing: -0.5px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .result-detail {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 16px 20px;
+            width: 100%;
+            max-width: 320px;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            font-size: 13px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-row label {
+            color: rgba(255, 255, 255, 0.6);
+            font-weight: 500;
+        }
+
+        .detail-row span {
+            font-weight: 700;
+        }
+
+        .denied-reason {
+            font-size: 18px;
+            font-weight: 700;
+            color: #fca5a5;
+            margin-top: 6px;
+        }
+
+        .info-bar {
+            text-align: center;
+            padding: 12px 20px;
+            background: rgba(15, 23, 42, 0.8);
+            border-top: 1px solid var(--border);
+            font-size: 12px;
+            color: #94a3b8;
+            font-weight: 500;
+            z-index: 10;
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.3); opacity: 0.6; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes rotateTarget {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes laserMove {
+            0% { top: 10%; opacity: 0.3; }
+            50% { top: 90%; opacity: 1; }
+            100% { top: 10%; opacity: 0.3; }
+        }
+
+        @keyframes bounceIn {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+            70% { transform: scale(0.9); opacity: 0.9; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+<div style="position:fixed;top:0;left:0;right:0;z-index:99999;background:#172033;color:white;text-align:center;padding:8px">DEMO ONLY — no school or real pass validation</div>
+
+    <!-- Scanner Header -->
+    <header>
+        <div class="header-top">
+            <div class="brand">
+                <div class="brand-logo"></div>
+                <h1 class="brand-title">PrimePass Scan</h1>
+            </div>
+            <button class="btn-toggle-cam" id="toggle-camera-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                Switch Camera
+            </button>
+        </div>
+
+        <div class="context-selector-box">
+            <label class="context-label">Scan Context / Entitlement Requirement</label>
+            <select class="context-select" id="scan-context-select">
+                <option value="FEES">Gate Entry (FEES clearance only)</option>
+                <!-- Dynamically populated via backend -->
+            </select>
+        </div>
+    </header>
+
+    <!-- Scanner Video Viewport -->
+    <div class="scanner-viewport">
+        <!-- Live camera streaming -->
+        <video id="video-element" autoplay playsinline muted></video>
+        
+        <!-- Target graphic finder -->
+        <div class="scan-target" id="scan-target-box">
+            <div class="scan-laser"></div>
+        </div>
+
+        <!-- Dynamic QR indicator outlines -->
+        <canvas id="canvas-element"></canvas>
+    </div>
+
+    <!-- Verification Allowed Overlay Screen -->
+    <div class="overlay-screen screen-allowed" id="allowed-overlay">
+        <div class="result-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="result-status">Verification Successful</div>
+        <div class="student-name" id="success-student-name">Keith Micallef</div>
+        
+        <div class="result-detail">
+            <div class="detail-row">
+                <label>Verification standing</label>
+                <span style="color:#34d399;">ALLOWED / PASSED</span>
+            </div>
+            <div class="detail-row">
+                <label>Pass ID</label>
+                <span id="success-pass-id">--</span>
+            </div>
+            <div class="detail-row">
+                <label>Timestamp</label>
+                <span id="success-time">--</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Verification Denied Overlay Screen -->
+    <div class="overlay-screen screen-denied" id="denied-overlay">
+        <div class="result-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </div>
+        <div class="result-status">ACCESS DENIED</div>
+        <div class="student-name" id="denied-student-name">Unknown Student</div>
+
+        <div class="result-detail">
+            <div class="detail-row">
+                <label>Verification status</label>
+                <span style="color:#f87171;">REJECTED</span>
+            </div>
+            <div class="detail-row">
+                <label>Reason Code</label>
+                <span class="denied-reason" id="denied-reason-code">FEES_OWED</span>
+            </div>
+            <div class="detail-row">
+                <label>Pass ID</label>
+                <span id="denied-pass-id">--</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info status bar -->
+    <div class="info-bar">
+        Align QR pass within target area. Auto-scans instantly.
+    </div>
+
+    <!-- JavaScript Code -->
+    <script>
+        // Web Audio API Sound Generator
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSuccessSound() {
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.type = 'sine';
+                const now = audioCtx.currentTime;
+                
+                osc.frequency.setValueAtTime(523.25, now); // C5
+                osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
+                osc.frequency.setValueAtTime(783.99, now + 0.2); // G5
+                
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
+                
+                osc.start(now);
+                osc.stop(now + 0.45);
+            } catch(e) { console.error(e); }
+        }
+
+        function playErrorSound() {
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.type = 'sawtooth';
+                const now = audioCtx.currentTime;
+                
+                osc.frequency.setValueAtTime(140, now);
+                osc.frequency.linearRampToValueAtTime(90, now + 0.4);
+                
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
+                
+                osc.start(now);
+                osc.stop(now + 0.45);
+            } catch(e) { console.error(e); }
+        }
+
+        // Camera and QR Scan Orchestration
+        const video = document.getElementById('video-element');
+        const canvasElement = document.getElementById('canvas-element');
+        const canvas = canvasElement.getContext('2d');
+        const toggleCamBtn = document.getElementById('toggle-camera-btn');
+        const scanContextSelect = document.getElementById('scan-context-select');
+        const targetBox = document.getElementById('scan-target-box');
+
+        // Overlay screens
+        const allowedOverlay = document.getElementById('allowed-overlay');
+        const deniedOverlay = document.getElementById('denied-overlay');
+        const successStudentName = document.getElementById('success-student-name');
+        const successPassId = document.getElementById('success-pass-id');
+        const successTime = document.getElementById('success-time');
+        const deniedStudentName = document.getElementById('denied-student-name');
+        const deniedReasonCode = document.getElementById('denied-reason-code');
+        const deniedPassId = document.getElementById('denied-pass-id');
+
+        let isScanning = true;
+        let useRearCamera = true;
+        let currentStream = null;
+
+        // The standalone scanner has no backend in this demo.
+        async function loadEvents() {}
+
+        // Initialize Camera Stream
+        async function startCamera() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+
+            const constraints = {
+                video: {
+                    facingMode: useRearCamera ? "environment" : "user",
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
+            };
+
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = currentStream;
+                video.setAttribute("playsinline", true); // Required for iOS support
+                video.play();
+                requestAnimationFrame(tick);
+            } catch (err) {
+                console.error("Camera access denied or unavailable:", err);
+                alert("Please grant camera permissions to access the pass scanner.");
+            }
+        }
+
+        // Toggle Cameras
+        toggleCamBtn.addEventListener('click', () => {
+            useRearCamera = !useRearCamera;
+            startCamera();
+        });
+
+        // Main Frame Loop
+        function tick() {
+            if (video.readyState === video.HAVE_ENOUGH_DATA && isScanning) {
+                canvasElement.hidden = false;
+                canvasElement.height = video.videoHeight;
+                canvasElement.width = video.videoWidth;
+                
+                canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+                
+                const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert",
+                });
+
+                if (code) {
+                    drawOutline(code.location, "#6366f1");
+                    
+                    // We found a QR! Trigger verification
+                    isScanning = false;
+                    verifyPass(code.data);
+                }
+            }
+            requestAnimationFrame(tick);
+        }
+
+        // Helper to draw QR finder pattern box outline
+        function drawOutline(location, color) {
+            canvas.beginPath();
+            canvas.moveTo(location.topLeftCorner.x, location.topLeftCorner.y);
+            canvas.lineTo(location.topRightCorner.x, location.topRightCorner.y);
+            canvas.lineTo(location.bottomRightCorner.x, location.bottomRightCorner.y);
+            canvas.lineTo(location.bottomLeftCorner.x, location.bottomLeftCorner.y);
+            canvas.closePath();
+            canvas.lineWidth = 4;
+            canvas.strokeStyle = color;
+            canvas.stroke();
+        }
+
+        // This screen never validates real school passes.
+        async function verifyPass(passId) {
+            showDeniedScreen({ studentName: "Demo scanner", reason: "DEMO_ONLY_NO_REAL_PASS_VALIDATION" }, passId);
+        }
+
+        // Verification Success Display Flow
+        function showAllowedScreen(result) {
+            playSuccessSound();
+            
+            successStudentName.textContent = result.studentName || "Verified Student";
+            successPassId.textContent = result.passId || "--";
+            successTime.textContent = new Date().toLocaleTimeString();
+            
+            allowedOverlay.classList.add('show');
+
+            // Auto resume scanning after 2.2 seconds
+            setTimeout(() => {
+                allowedOverlay.classList.remove('show');
+                isScanning = true;
+                targetBox.style.borderColor = "rgba(255, 255, 255, 0.3)";
+            }, 2200);
+        }
+
+        // Verification Rejected Display Flow
+        function showDeniedScreen(result, passId) {
+            playErrorSound();
+            
+            deniedStudentName.textContent = result.studentName || "Access Rejected";
+            deniedReasonCode.textContent = result.reason || "REJECTED";
+            deniedPassId.textContent = passId || "--";
+            
+            deniedOverlay.classList.add('show');
+
+            // Auto resume scanning after 3.8 seconds
+            setTimeout(() => {
+                deniedOverlay.classList.remove('show');
+                isScanning = true;
+                targetBox.style.borderColor = "rgba(255, 255, 255, 0.3)";
+            }, 3800);
+        }
+
+        // Start initialization
+        window.addEventListener('DOMContentLoaded', () => {
+            loadEvents();
+            startCamera();
+        });
+    </script>
+</body>
+</html>

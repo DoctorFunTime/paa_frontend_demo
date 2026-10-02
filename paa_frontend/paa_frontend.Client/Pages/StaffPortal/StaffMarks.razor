@@ -1,0 +1,3206 @@
+@page "/staff/marks"
+@namespace paa_frontend.Client.Pages.Staff
+@layout paa_frontend.Client.Layout.StaffPortalLayout
+@using paa_frontend.Client.Services.StaffPortal
+@using paa_frontend.Client.Services.Admin
+@using paa_frontend.Shared.Models
+@using paa_frontend.Client.Services
+@using static paa_frontend.Shared.Models.Admin.AlevelClassesModel
+@using static paa_frontend.Shared.Models.Admin.OlevelClassesModel
+@using static paa_frontend.Shared.Models.Admin.Form1and2Model
+@inject AssessmentServiceClient AssessmentService
+@inject StudentProfileServiceClient StudentProfileService
+@inject StudentSubjectServiceClient SubjectService
+@inject AlevelClassServiceClient AClassService
+@inject OlevelClassServiceClient OClassService
+@inject AdminGradesServiceClient GradesService
+@inject NavigationManager Nav
+@inject paa_frontend.Client.Services.Auth.CustomAuthStateProvider AuthState
+@inject IJSRuntime JS
+
+<CascadingValue Name="PageTitle" Value="@pageTitle">
+
+<style>
+@@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+:root {
+    --blue:#4f46e5;--blue-dim:#eef2ff;--ink:#0f172a;--ink2:#475569;--ink3:#94a3b8;
+    --bg:#f8fafc;--card:#ffffff;--green:#16a34a;--green-dim:#dcfce7;
+    --amber:#d97706;--amber-dim:#fef3c7;--red:#e11d48;--red-dim:#fee2e2;
+    --border:#e2e8f0;--shadow:0 4px 6px -1px rgba(0,0,0,0.05),0 2px 4px -1px rgba(0,0,0,0.03);
+    --radius:20px; font-family:'Sora',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--ink);}
+a{text-decoration:none;color:inherit;}
+input,select,button,textarea{font-family:'Sora',sans-serif;}
+
+.page-wrap{padding:28px 32px;max-width:1400px;margin:0 auto;overflow-x:hidden;}
+.breadcrumb{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink3);margin-bottom:20px;}
+.breadcrumb a{color:var(--ink3);} .breadcrumb a:hover{color:var(--blue);}
+.breadcrumb-sep{color:var(--border);}
+
+.page-header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:24px;gap:16px;flex-wrap:wrap;}
+.page-title{font-size:22px;font-weight:700;color:var(--ink);letter-spacing:-0.5px;margin-bottom:3px;}
+.page-sub{font-size:13px;color:var(--ink3);}
+
+.btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 20px;min-height:44px;background:var(--blue);color:white;border:none;border-radius:12px;font-size:13.5px;font-weight:700;cursor:pointer;transition:all 0.15s;}
+.btn-primary:hover:not(:disabled){background:#4338ca;transform:translateY(-1px);box-shadow:0 4px 12px rgba(79,70,229,0.25);}
+.btn-primary:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+.btn-ghost{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;min-height:44px;background:var(--card);color:var(--ink2);border:1.5px solid var(--border);border-radius:12px;font-size:13.5px;font-weight:700;cursor:pointer;transition:all 0.15s;}
+.btn-ghost:hover{background:var(--bg);border-color:#cbd5e1;color:var(--ink);}
+.btn-danger{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:var(--red-dim);color:var(--red);border:1px solid transparent;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.15s;}
+.btn-danger:hover{background:var(--red);color:white;}
+
+/* hero header */
+.hero{background:linear-gradient(135deg,#1e1b4b 0%,#312e81 45%,#4338ca 100%);border-radius:24px;padding:26px 30px;color:#fff;margin-bottom:22px;position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 80% 20%,rgba(255,255,255,0.08) 0%,transparent 60%);}
+.hero-eyebrow{display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;}
+.hero-title{font-size:24px;font-weight:800;letter-spacing:-0.5px;margin-bottom:4px;}
+.hero-sub{font-size:13px;color:rgba(255,255,255,0.8);font-weight:500;max-width:520px;}
+.hero-actions{display:flex;gap:10px;flex-wrap:wrap;position:relative;z-index:1;}
+.hero .btn-ghost{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.25);color:#fff;}
+.hero .btn-ghost:hover{background:rgba(255,255,255,0.2);}
+
+/* step tabs */
+.step-tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:28px;position:sticky;top:0;background:var(--bg);z-index:20;padding-top:4px;}
+.step-tab{display:flex;align-items:center;gap:8px;padding:13px 20px;min-height:44px;border:none;background:transparent;font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;color:var(--ink3);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px;font-family:'Sora',sans-serif;transition:all 0.15s;white-space:nowrap;}
+.step-tab:hover{color:var(--ink2);}
+.step-tab.active{color:var(--blue);border-bottom-color:var(--blue);}
+.step-num{width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,0.06);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;color:var(--ink3);text-transform:none;}
+.step-tab.active .step-num{background:var(--blue);color:white;}
+.step-tab.done .step-num{background:var(--green);color:white;}
+.step-tab.done{color:var(--ink2);}
+.step-progress-mobile{display:none;font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:0.05em;margin:0 0 10px;}
+
+/* two-col layout */
+.two-col{display:grid;grid-template-columns:320px 1fr;gap:24px;align-items:start;}
+.panel-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:22px;box-shadow:var(--shadow);}
+.panel-title{font-size:13px;font-weight:800;color:var(--ink);margin-bottom:14px;text-transform:uppercase;letter-spacing:0.04em;}
+.form-group{margin-bottom:16px;}
+.form-label{font-size:11px;font-weight:800;color:var(--ink2);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:7px;display:block;}
+.form-control{width:100%;padding:11px 14px;min-height:44px;border:1.5px solid var(--border);border-radius:12px;font-size:14px;color:var(--ink);background:var(--card);outline:none;transition:all 0.15s;}
+.form-control:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(79,70,229,0.1);}
+.form-control:disabled{background:var(--bg);color:var(--ink3);cursor:not-allowed;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.form-hint{font-size:11.5px;color:var(--ink3);margin-top:5px;}
+
+/* assessment list */
+.assessment-list{display:flex;flex-direction:column;gap:8px;}
+.assessment-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1.5px solid var(--border);cursor:pointer;transition:all 0.12s;background:transparent;}
+.assessment-item:hover{border-color:rgba(26,79,255,0.3);background:var(--blue-dim);}
+.assessment-item.active{border-color:var(--blue);background:var(--blue-dim);}
+.ai-type{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;}
+.ai-info{flex:1;min-width:0;}
+.ai-title{font-size:12.5px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ai-meta{font-size:10.5px;color:var(--ink3);margin-top:1px;font-family:'JetBrains Mono',monospace;}
+.ai-weight{font-size:11px;color:var(--ink3);flex-shrink:0;font-family:'JetBrains Mono',monospace;}
+
+/* marks table */
+.marks-table-wrap{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);overflow:visible;box-shadow:var(--shadow);}
+.marks-table-scroll{overflow:hidden;border-radius:var(--radius) var(--radius) 0 0;}
+.marks-table{width:100%;border-collapse:collapse;}
+.marks-table th{padding:10px 14px;text-align:left;font-size:10.5px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.01);}
+.marks-table td{padding:9px 14px;border-bottom:1px solid rgba(0,0,0,0.04);font-size:13px;color:var(--ink2);vertical-align:middle;}
+.marks-table tbody tr:last-child td{border-bottom:none;}
+.marks-table tbody tr:hover{background:rgba(26,79,255,0.015);}
+.mark-input{width:90px;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'JetBrains Mono',monospace;color:var(--ink);background:var(--bg);text-align:center;outline:none;transition:all 0.15s;}
+.mark-input:focus{border-color:var(--blue);background:var(--card);}
+.mark-input.grade-a{border-color:var(--green);background:var(--green-dim);color:#008a5a;}
+.mark-input.grade-b{border-color:var(--blue);background:var(--blue-dim);color:var(--blue);}
+.mark-input.grade-c{border-color:var(--blue);background:rgba(26,79,255,0.06);color:var(--blue);}
+.mark-input.grade-d{border-color:var(--amber);background:var(--amber-dim);color:#9a6800;}
+.mark-input.grade-e{border-color:var(--amber);background:rgba(245,158,11,0.06);color:#9a6800;}
+.mark-input.grade-u{border-color:var(--red);background:var(--red-dim);color:var(--red);}
+.feedback-input{width:100%;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;color:var(--ink);background:var(--bg);outline:none;}
+.feedback-input:focus{border-color:var(--blue);background:var(--card);}
+
+.pill{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;}
+.pill-green{background:var(--green-dim);color:#15803d;}
+.pill-blue{background:var(--blue-dim);color:var(--blue);}
+.pill-amber{background:var(--amber-dim);color:#b45309;}
+.pill-red{background:var(--red-dim);color:var(--red);}
+.pill-gray{background:#f1f5f9;color:var(--ink3);}
+
+.submit-bar{position:sticky;bottom:0;z-index:15;background:rgba(255,255,255,0.92);backdrop-filter:blur(8px);border-top:1px solid var(--border);border-radius:0 0 var(--radius) var(--radius);}
+.summary-bar{display:flex;gap:20px;padding:14px 20px;flex-wrap:wrap;}
+.sb-item{display:flex;flex-direction:column;gap:2px;}
+.sb-label{font-size:10px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;}
+.sb-val{font-size:15px;font-weight:700;color:var(--ink);font-family:'JetBrains Mono',monospace;}
+
+.toast{position:fixed;bottom:24px;right:24px;padding:13px 18px;border-radius:12px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;box-shadow:0 8px 32px rgba(0,0,0,0.15);z-index:999;animation:slideIn 0.2s ease;}
+.toast-success{background:var(--green);color:white;}
+.toast-error{background:var(--red);color:white;}
+.screen-loader{position:fixed;inset:0;background:rgba(15,23,42,0.42);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:2000;color:white;}
+.screen-loader-card{display:flex;align-items:center;gap:12px;background:rgba(15,23,42,0.94);border-radius:14px;padding:18px 22px;box-shadow:0 16px 45px rgba(0,0,0,0.25);font-size:13px;font-weight:600;}
+.screen-loader-spinner{width:20px;height:20px;border:3px solid rgba(255,255,255,0.35);border-top-color:white;border-radius:50%;animation:spin 0.8s linear infinite;}
+@@keyframes spin{to{transform:rotate(360deg)}}
+@@keyframes slideIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+
+/* modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(2px);}
+.modal{background:var(--card);border-radius:var(--radius);padding:24px;max-width:480px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.2);}
+.modal-title{font-size:16px;font-weight:600;color:var(--ink);margin-bottom:16px;}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;}
+
+.empty-state{text-align:center;padding:48px 20px;color:var(--ink3);}
+.skeleton{background:linear-gradient(90deg,#e2e8f0 25%,#f8fafc 37%,#e2e8f0 63%);background-size:400% 100%;animation:marksSkeleton 1.4s ease infinite;border-radius:12px;}
+.marks-dashboard-skeleton{display:grid;gap:16px;}
+.workflow-loading-block{display:flex;align-items:center;gap:14px;padding:24px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);color:var(--ink2);font-size:13px;font-weight:600;}
+.workflow-spinner{width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:staff-spin .8s linear infinite;flex-shrink:0;}
+@@keyframes staff-spin{to{transform:rotate(360deg)}}
+.marks-skeleton-hero{height:150px;border-radius:24px;}
+.marks-skeleton-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+.marks-skeleton-stat{height:116px;border-radius:18px;}
+.marks-skeleton-list{height:300px;border-radius:20px;}
+@@keyframes marksSkeleton{0%{background-position:100% 0;}100%{background-position:-100% 0;}}
+.empty-icon{margin:0 auto 14px;width:48px;height:48px;background:rgba(0,0,0,0.04);border-radius:12px;display:flex;align-items:center;justify-content:center;}
+
+@@keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+.a1{animation:fadeUp .3s ease both;}
+.a2{animation:fadeUp .3s .06s ease both;}
+.a3{animation:fadeUp .3s .12s ease both;}
+
+@@media(max-width:900px){
+    .page-wrap{padding:14px 12px;}
+    .page-header{align-items:flex-start;}
+    .hero{padding:20px;border-radius:20px;}
+    .hero-title{font-size:20px;}
+    .hero-actions{width:100%;}
+    .hero-actions .btn-ghost{flex:1;}
+    .step-tabs{overflow-x:auto;white-space:nowrap;padding-bottom:6px;scrollbar-width:none;-ms-overflow-style:none;margin-bottom:6px;}
+    .step-tabs::-webkit-scrollbar{display:none;}
+    .step-tab{flex:0 0 auto;padding:10px 14px;}
+    .step-progress-mobile{display:block;}
+    .two-col{grid-template-columns:1fr;}
+    .form-row{grid-template-columns:1fr;}
+    .assessment-list{gap:10px;}
+    .assessment-item{align-items:flex-start;flex-wrap:wrap;}
+    .assessment-item .btn-ghost{margin-left:0 !important;}
+    .assessment-dashboard-card{padding:16px !important;}
+    .assessment-dashboard-card > div:last-child{flex-direction:column;gap:8px;}
+    .assessment-dashboard-card .btn-primary,
+    .assessment-dashboard-card .btn-ghost{width:100%;justify-content:center;}
+    .assessment-dashboard-card .btn-ghost{margin-right:0 !important;}
+    .assessments-grid{grid-template-columns:1fr !important;}
+    .summary-bar{gap:12px;padding:12px 14px;}
+    .marks-skeleton-stats{grid-template-columns:1fr;}
+    .summary-bar .sb-item{min-width:calc(50% - 6px);}
+    .marks-table-wrap{
+        background:transparent;
+        border:none;
+        box-shadow:none;
+        overflow:visible;
+    }
+    .marks-table,
+    .marks-table thead,
+    .marks-table tbody,
+    .marks-table tr,
+    .marks-table td{display:block;width:100%;}
+    .marks-table thead{display:none;}
+    .marks-table tbody tr{
+        margin:12px 8px;
+        border:1px solid var(--border);
+        border-radius:12px;
+        overflow:hidden;
+        background:var(--card);
+        box-shadow:var(--shadow);
+    }
+    .marks-table td{
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:12px;
+        padding:12px 16px;
+        overflow-wrap:anywhere;
+        word-break:break-word;
+        min-width:0;
+    }
+    .marks-table td::before{
+        content:attr(data-label);
+        flex:0 0 38%;
+        font-size:10px;
+        font-weight:600;
+        text-transform:uppercase;
+        letter-spacing:0.5px;
+        color:var(--ink3);
+        padding-top:3px;
+    }
+    .marks-table td > *{
+        flex:1;
+        min-width:0;
+    }
+    /* Score + % sit side by side on mobile to save vertical space */
+    .marks-table td[data-label^="Score"],
+    .marks-table td[data-label="%"]{
+        display:inline-flex;
+        width:50%;
+        border-bottom:none;
+    }
+    .marks-table td[data-label="%"]{
+        border-bottom:1px solid rgba(0,0,0,0.04);
+    }
+    .mark-input,
+    .feedback-input{
+        width:100%;
+        min-height:44px;
+    }
+    .feedback-input{
+        min-height:44px;
+    }
+    .submit-bar{
+        margin:0 -12px;
+        padding:0 12px;
+        box-shadow:0 -4px 16px rgba(0,0,0,0.06);
+    }
+    .summary-bar{padding:12px 4px 4px;}
+    .summary-bar .sb-item{min-width:calc(50% - 10px);}
+    .panel-card{padding:16px;}
+    .modal{padding:18px;}
+    .dropzone{padding:20px !important;}
+}
+
+@@media(max-width:600px){
+    .page-wrap{padding:12px 8px;}
+    .hero{padding:18px 16px;border-radius:18px;}
+    .hero-title{font-size:19px;}
+    .hero-actions{display:grid;grid-template-columns:1fr;gap:8px;}
+    .hero-actions .btn-primary,.hero-actions .btn-ghost{width:100%;}
+    .step-tabs{margin-left:-8px;margin-right:-8px;padding-left:4px;padding-right:4px;}
+    .step-tab{font-size:10.5px;padding:10px 12px;letter-spacing:.02em;}
+    .panel-card{padding:14px;border-radius:16px;}
+    .assessment-item{padding:11px 10px;}
+    .marks-table tbody tr{margin:10px 0;border-radius:10px;}
+    .marks-table td{padding:10px 12px;gap:8px;}
+    .marks-table td::before{flex-basis:34%;font-size:9px;}
+    .summary-bar{gap:10px;}
+    .summary-bar .sb-item{min-width:calc(50% - 8px);}
+}
+
+@@media(max-width:900px){
+    .two-col{grid-template-columns:1fr;}
+    .form-row{grid-template-columns:1fr;}
+    .page-wrap{padding:16px;}
+}
+.assessment-dashboard-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--blue) !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+}
+@@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+</style>
+
+<div class="page-wrap">
+    @if (isOpeningMarks)
+    {
+        <div class="screen-loader" role="status" aria-live="polite">
+            <div class="screen-loader-card"><span class="screen-loader-spinner"></span>Loading marks table…</div>
+        </div>
+    }
+
+    <!-- Breadcrumb -->
+    <div class="breadcrumb a1">
+        <a href="/staff">Staff Portal</a>
+        <span class="breadcrumb-sep">›</span>
+        <span style="color:var(--ink2);">Enter Marks</span>
+    </div>
+
+    <!-- Hero header (matches Admin Marks Review styling) -->
+    <div class="hero a1">
+        <div style="position:relative;z-index:1;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;">
+            <div>
+                <span class="hero-eyebrow">Staff Portal</span>
+                <div class="hero-title">Enter Marks</div>
+                <div class="hero-sub">Create assessments and record student scores for assignments, tests, and exams. Admin reviews and approves marks once submitted.</div>
+            </div>
+            <div class="hero-actions">
+
+                <button class="btn-primary" @onclick='() => showNewAssessmentModal = true'>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    New Assessment
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Primary staff marks areas -->
+    <div class="step-tabs a2">
+        <button class="step-tab @(step == 0 ? "active" : "")" @onclick="() => { step = 0; cameFromDashboard = false; }">Edit Marks</button>
+        <button class="step-tab @(step > 0 ? "active" : "")" @onclick="GoToStep1ForNewAssessment">Assessment Setup</button>
+    </div>
+
+    <!-- Assessment setup steps -->
+    @{
+        int currentStepNum = step == 0 ? 0 : (cameFromDashboard && step == 3 ? 2 : step);
+        int totalSteps = cameFromDashboard ? 2 : 3;
+    }
+    @if (step > 0)
+    {
+        <div class="step-progress-mobile">Step @currentStepNum of @totalSteps</div>
+    }
+    @if (step > 0)
+    {
+    <div class="step-tabs a2">
+        <button class="step-tab @(step >= 1 && !cameFromDashboard ? (step > 1 ? "done" : "active") : "")" @onclick="() => { step = 1; cameFromDashboard = false; }">
+            <span class="step-num">@(step > 1 && !cameFromDashboard ? "✓" : "1")</span>
+            Setup
+        </button>
+        <button class="step-tab @(step >= 2 && !cameFromDashboard ? (step > 2 ? "done" : "active") : "")" @onclick="() => { if(step > 1) { step = 2; cameFromDashboard = false; } }">
+            <span class="step-num">@(step > 2 && !cameFromDashboard ? "✓" : "2")</span>
+            Select Assessment
+        </button>
+        <button class="step-tab @(step >= 3 ? "active" : "")" @onclick="() => { if(step > 2) step = 3; }">
+            <span class="step-num">@(cameFromDashboard ? "2" : "3")</span>
+            Enter &amp; Submit Marks
+        </button>
+    </div>
+    }
+
+    @if (isOpeningMarks || isLoadingStudents)
+    {
+        <div class="workflow-loading-block a3" role="status" aria-live="polite">
+            <span class="workflow-spinner"></span>
+            <span>@(isOpeningMarks ? "Preparing the marks editor…" : "Loading the student mark sheet…")<small style="display:block;color:var(--ink3);font-weight:500;margin-top:3px;">Your selections are being loaded. This may take a moment on a slow connection.</small></span>
+        </div>
+    }
+
+    <!-- ══ STEP 0: MY ASSESSMENTS DASHBOARD ══ -->
+    @if (step == 0)
+    {
+        <div class="a3">
+            @if (isLoadingDashboard)
+            {
+                <div class="marks-dashboard-skeleton" aria-label="Loading assessments dashboard" role="status">
+                    <div class="skeleton marks-skeleton-hero"></div>
+                    <div class="marks-skeleton-stats">
+                        <div class="skeleton marks-skeleton-stat"></div>
+                        <div class="skeleton marks-skeleton-stat"></div>
+                        <div class="skeleton marks-skeleton-stat"></div>
+                    </div>
+                    <div class="skeleton marks-skeleton-list"></div>
+                </div>
+            }
+            else
+            {
+                <!-- Stats row -->
+                <div class="stats-row" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 28px;">
+                    <div class="stat-card" style="background: linear-gradient(135deg, #4338ca, var(--blue)); color: white; border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); position: relative; overflow: hidden;">
+                        <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.85;">Total Assessments</div>
+                        <div style="font-size: 32px; font-weight: 700; margin-top: 8px; font-family: 'JetBrains Mono', monospace;">@filteredAssessments.Count</div>
+                        <div style="font-size: 12px; margin-top: 4px; opacity: 0.75;">@(string.IsNullOrWhiteSpace(filterClass) ? $"{allAssessments.Count(a => a.TeacherId == currentTeacherId)} created by you" : $"in {filterClass}")</div>
+                        <div style="position: absolute; right: -10px; bottom: -10px; opacity: 0.15;">
+                            <svg width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg>
+                        </div>
+                    </div>
+                    <div class="stat-card" style="background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); position: relative; overflow: hidden;">
+                        <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--ink3);">Average Class Score</div>
+                        <div style="font-size: 32px; font-weight: 700; margin-top: 8px; color: var(--ink); font-family: 'JetBrains Mono', monospace;">
+                            @(filteredAssessments.Where(a => a.AverageScore.HasValue).Select(a => a.AverageScore!.Value).DefaultIfEmpty(0).Average().ToString("F1"))%
+                        </div>
+                        <div style="font-size: 12px; margin-top: 4px; color: var(--ink3);">@(string.IsNullOrWhiteSpace(filterClass) ? "Across all graded student marks" : $"Filtered to {filterClass}")</div>
+                        <div style="position: absolute; right: -10px; bottom: -10px; opacity: 0.05; color: var(--ink);">
+                            <svg width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+                        </div>
+                    </div>
+                    <div class="stat-card" style="background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); position: relative; overflow: hidden;">
+                        <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--ink3);">Completion Rate</div>
+                        <div style="font-size: 32px; font-weight: 700; margin-top: 8px; color: var(--ink); font-family: 'JetBrains Mono', monospace;">
+                            @{
+                                int totalEligible = filteredAssessments.Sum(a => a.TotalCount);
+                                int totalGraded = filteredAssessments.Sum(a => a.GradedCount);
+                                double completion = totalEligible > 0 ? (double)totalGraded / totalEligible * 100 : 0;
+                            }
+                            @completion.ToString("F0")%
+                        </div>
+                        <div style="font-size: 12px; margin-top: 4px; color: var(--ink3);">@totalGraded / @totalEligible total grades recorded</div>
+                        <div style="position: absolute; right: -10px; bottom: -10px; opacity: 0.05; color: var(--ink);">
+                            <svg width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filters panel -->
+                <div class="panel-card" style="margin-bottom: 24px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:16px;">
+                        <div class="panel-title" style="margin-bottom:0; font-size:14px;">Filters &amp; Search</div>
+                        <button class="btn-ghost" style="font-size:11px; padding:4px 8px; flex-shrink:0;" @onclick="ResetDashboardFilters">Clear Filters</button>
+                    </div>
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; align-items: end;">
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label class="form-label">Search Title</label>
+                            <input class="form-control" type="text" placeholder="Search by title…" @bind="searchTitle" @bind:after="ApplyFilters" />
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label class="form-label">Form</label>
+                            <select class="form-control" @bind="filterForm" @bind:after="OnFilterFormChanged">
+                                <option value="0">— All Forms —</option>
+                                <option value="1">Form 1</option>
+                                <option value="2">Form 2</option>
+                                <option value="3">Form 3</option>
+                                <option value="4">Form 4</option>
+                                <option value="5">Form 5</option>
+                                <option value="6">Form 6</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label class="form-label">Class</label>
+                            <select class="form-control" @bind="filterClass" @bind:after="ApplyFilters">
+                                <option value="">— All Classes —</option>
+                                @foreach (var c in GetFilteredDashboardClasses())
+                                {
+                                    <option value="@c">@c</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label class="form-label">Subject</label>
+                            <select class="form-control" @bind="filterSubject" @bind:after="ApplyFilters">
+                                <option value="">— All Subjects —</option>
+                                @foreach (var s in GetFilteredDashboardSubjects())
+                                {
+                                    <option value="@s">@s</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label class="form-label">Type</label>
+                            <select class="form-control" @bind="filterType" @bind:after="ApplyFilters">
+                                <option value="">— All Types —</option>
+                                <option value="assignment">Assignment</option>
+                                <option value="test">Test</option>
+                                <option value="exam">Exam</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label class="form-label">Term</label>
+                            <select class="form-control" @bind="filterTerm" @bind:after="ApplyFilters">
+                                <option value="">— All Terms —</option>
+                                <option value="Term 1">Term 1</option>
+                                <option value="Term 2">Term 2</option>
+                                <option value="Term 3">Term 3</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0; display:flex; align-items:center; gap:8px; height: 38px;">
+                            <input type="checkbox" id="myAssessmentsOnly" checked disabled style="width: 16px; height: 16px; accent-color: var(--blue);" />
+                            <label for="myAssessmentsOnly" style="font-size: 12px; font-weight: 500; color: var(--ink2); cursor: default; user-select: none; margin: 0;">My Assessments Only</label>
+                            <span class="pill pill-blue" style="font-size:10px;">Locked</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Assessments Grid -->
+                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
+                    <div style="font-size:14px; font-weight:700; color:var(--ink);">Your Assessments</div>
+                    <button class="btn-primary" style="padding:9px 16px; font-size:12.5px;" @onclick="GoToStep1ForNewAssessment">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Create Assignment / Test
+                    </button>
+                </div>
+                @if (!filteredAssessments.Any())
+                {
+                    <div class="empty-state">
+                        <div class="empty-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg></div>
+                        <div style="font-size:14px; font-weight:500; color:var(--ink2);">No assessments match your filters</div>
+                        <div style="font-size:12px; margin-top:4px;">Try modifying your search or filters above.</div>
+                    </div>
+                }
+                else
+                {
+                    <div class="assessments-grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">
+                        @foreach (var a in filteredAssessments)
+                        {
+                            string typeBg = a.Type == "exam" ? "rgba(124,58,237,0.12)" : a.Type == "test" ? "rgba(245,158,11,0.12)" : "rgba(26,79,255,0.10)";
+                            string typeColor = a.Type == "exam" ? "#7c3aed" : a.Type == "test" ? "#b45309" : "var(--blue)";
+                            string levelLabel = a.Level == "alevel" ? "A-Level" : a.Level == "olevel" ? "O-Level" : "Junior";
+                            string classLabel = GetAssessmentDisplayClass(a);
+                            
+                            <div class="panel-card assessment-dashboard-card" style="display:flex; flex-direction:column; justify-content:space-between; transition: all 0.2s; border-color: var(--border); cursor:pointer;" @onclick="() => OpenMarksFromDashboardAsync(a, classLabel)">
+                                <div>
+                                    <!-- Badges -->
+                                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; gap:8px;">
+                                        <span class="pill" style="background:@typeBg; color:@typeColor; text-transform:uppercase; font-weight:700; font-size:10px;">@a.Type</span>
+                                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
+                                            <span class="pill" style="background:var(--blue-dim); color:var(--blue); font-weight:700; font-size:10px;" title="Class: @classLabel">
+                                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:-1px; margin-right:3px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                                @classLabel
+                                            </span>
+                                            <span style="font-size:11px; color:var(--ink3); font-weight:500;">@levelLabel</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Subject & Title -->
+                                    <div style="font-size:15px; font-weight:700; color:var(--ink); line-height: 1.3;">@a.Title</div>
+                                    <div style="font-size:12px; color:var(--ink2); font-weight:500; margin-top:2px;">@a.SubjectName</div>
+
+                                    <!-- Max Score and Weight -->
+                                    <div style="display:flex; gap:16px; margin-top:12px; border-top:1px solid rgba(0,0,0,0.04); padding-top:12px; margin-bottom:14px;">
+                                        <div>
+                                            <div style="font-size:9px; text-transform:uppercase; color:var(--ink3); font-weight:600;">Max Score</div>
+                                            <div style="font-size:14px; font-weight:600; color:var(--ink); font-family: 'JetBrains Mono', monospace;">@a.MaxScore pts</div>
+                                        </div>
+                                        <div>
+                                            <div style="font-size:9px; text-transform:uppercase; color:var(--ink3); font-weight:600;">Weight</div>
+                                            <div style="font-size:14px; font-weight:600; color:var(--ink); font-family: 'JetBrains Mono', monospace;">@((a.Weight * 100).ToString("F0"))%</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Stats bar -->
+                                    <div style="background: var(--bg); border-radius: 8px; padding: 10px 12px; margin-bottom:16px;">
+                                        @if (a.GradedCount > 0)
+                                        {
+                                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                                                <span style="font-size:11px; color:var(--ink2); font-weight:500;">Average</span>
+                                                <span style="font-size:12px; font-weight:700; color:var(--ink); font-family: 'JetBrains Mono', monospace;">@(a.AverageScore?.ToString("F1") ?? "—")%</span>
+                                            </div>
+                                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                                                <span style="font-size:11px; color:var(--ink2); font-weight:500;">Pass Rate (≥50%)</span>
+                                                <span class="pill @(a.PassRate >= 0.7 ? "pill-green" : a.PassRate >= 0.4 ? "pill-amber" : "pill-red")" style="font-weight:600; font-size:10px;">@((a.PassRate * 100).ToString("F0"))% pass</span>
+                                            </div>
+                                            
+                                            <!-- Progress/Grading completeness -->
+                                            <div>
+                                                <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--ink3); margin-bottom:3px;">
+                                                    <span>Grading Progress</span>
+                                                    <span>@a.GradedCount / @(a.TotalCount > 0 ? a.TotalCount.ToString() : "—") students</span>
+                                                </div>
+                                                @if (a.TotalCount > 0)
+                                                {
+                                                    <div style="height:4px; background:rgba(0,0,0,0.06); border-radius:2px; overflow:hidden;">
+                                                        <div style="height:100%; width:@((double)a.GradedCount / a.TotalCount * 100)%; background:var(--green); border-radius:2px;"></div>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div style="font-size:11px; color:var(--ink3); text-align:center; padding:4px 0; font-style:italic;">
+                                                No marks submitted yet
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+
+                                <!-- Action Buttons -->
+                                <div style="display:flex; gap:8px; border-top: 1px solid rgba(0,0,0,0.04); padding-top:12px;">
+                                    <button type="button" class="btn-primary" style="flex:1; justify-content:center; padding: 7px 12px; font-size: 12px;" @onclick:stopPropagation="true" @onclick="() => OpenMarksFromDashboardAsync(a, classLabel)">
+                                        Enter / Edit Marks
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    }
+
+    <!-- ══ STEP 1: SETUP ══ -->
+    @if (step == 1)
+    {
+        <div class="two-col a3">
+            <div class="panel-card">
+                <div class="panel-title">Assessment Context</div>
+
+                <div class="form-group">
+                    <label class="form-label">Form</label>
+                    <select class="form-control" @bind="setup.FormNumber" @bind:after="OnFormChangedInternalAsync">
+                        <option value="0">— Select Form —</option>
+                        <option value="1">Form 1</option>
+                        <option value="2">Form 2</option>
+                        <option value="3">Form 3</option>
+                        <option value="4">Form 4</option>
+                        <option value="5">Form 5</option>
+                        <option value="6">Form 6</option>
+                    </select>
+                    <div class="form-hint">
+                        @if (setup.FormNumber >= 1 && setup.FormNumber <= 4)
+                        { <span>Subjects come from the selected Form 1–4 class setup</span> }
+                        else if (setup.FormNumber >= 5 && setup.FormNumber <= 6)
+                        { <span>A-Level — subjects from A-Level catalogue</span> }
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Class</label>
+                    @if (isLoadingClasses)
+                    {
+                        <select class="form-control" disabled><option>Loading classes…</option></select>
+                    }
+                    else
+                    {
+                        <select class="form-control" @bind="setup.ClassName" @bind:after="OnClassChangedInternalAsync">
+                            <option value="">— Select Class —</option>
+                            @foreach (var c in AvailableClasses)
+                            {
+                                <option>@c</option>
+                            }
+                        </select>
+                    }
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Subject</label>
+                    <select class="form-control" @bind="setup.SubjectName">
+                        <option value="">— Select Subject —</option>
+                        @foreach (var s in AvailableSubjects)
+                        {
+                            <option>@s</option>
+                        }
+                    </select>
+                    @if (isLoadingSubjects)
+                    {
+                        <div class="form-hint" style="color:var(--blue);">Loading subjects…</div>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(subjectLoadError))
+                    {
+                        <div class="form-hint" style="color:var(--red);">@subjectLoadError</div>
+                    }
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Assessment Type</label>
+                    <select class="form-control" @bind="setup.AssessmentType">
+                        <option value="assignment">Assignment</option>
+                        <option value="test">Test</option>
+                        <option value="exam">Exam</option>
+                    </select>
+                    <div class="form-hint">
+                        @if (setup.AssessmentType == "exam")
+                        { <span>Marks are stored as exam marks (separate from coursework)</span> }
+                        else
+                        { <span>Marks are stored as coursework and contribute to the term average</span> }
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Term</label>
+                    <select class="form-control" @bind="setup.Term">
+                        <option>Term 1</option>
+                        <option>Term 2</option>
+                        <option>Term 3</option>
+                    </select>
+                    @{
+                        var (ms, me) = GradeHelper.TermMonthRange(setup.Term);
+                    }
+                    <div class="form-hint">Marks will be scoped to months @ms–@me</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Academic year</label>
+                    <input class="form-control" type="number" min="2000" max="2100" @bind="setup.TermYear" />
+                    <div class="form-hint">Used when saving and editing marks.</div>
+                </div>
+
+            </div>
+            <div>
+                <div class="panel-card" style="margin-bottom:16px;">
+                    <div class="panel-title">What happens next</div>
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        @{
+                            var steps = new[] {
+                                ("1", "Select an existing assessment or create a new one for this subject and term", "var(--blue)"),
+                                ("2", "Enter each student's score — assignments & tests go to coursework; exams are stored separately", "var(--green)"),
+                                ("3", "Submit marks — existing marks are updated, not duplicated; partial saves are allowed", "var(--amber)"),
+                                ("4", "After submission the admin reviews your marks, generates the report card, and approves it for student view — you don't need to do anything further", "var(--ink3)"),
+                            };
+                        }
+                        @foreach (var (n, desc, col) in steps)
+                        {
+                            <div style="display:flex;gap:12px;align-items:flex-start;">
+                                <div style="width:24px;height:24px;border-radius:6px;background:@col;opacity:0.15;flex-shrink:0;margin-top:1px;"></div>
+                                <div style="font-size:12.5px;color:var(--ink2);">@desc</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div style="display:flex;justify-content:flex-end;margin-top:24px;">
+                    <button class="btn-primary"
+                            disabled="@(!IsStep1Valid || isLoadingAssessments)"
+                            @onclick="GoToStep2Async">
+                        @(isLoadingAssessments ? "Loading…" : "Continue — Select Assessment")
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- ══ STEP 2: SELECT ASSESSMENT ══ -->
+    @if (step == 2)
+    {
+        <div class="two-col a3">
+            <div class="panel-card">
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+                    <div class="panel-title" style="margin-bottom:0;">Available Assessments</div>
+                    <button class="btn-ghost" style="font-size:11.5px;padding:6px 10px;flex-shrink:0;" @onclick='() => showNewAssessmentModal = true'>+ New</button>
+                </div>
+                <div style="font-size:11px;color:var(--ink3);margin-bottom:12px;">
+                    @setup.SubjectName · @CapitaliseFirst(setup.AssessmentType) · @setup.Term
+                </div>
+
+                @if (!MockAssessments.Any())
+                {
+                    <div class="empty-state" style="padding:24px 0;">
+                        <div class="empty-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg></div>
+                        <div style="font-size:13px;font-weight:500;color:var(--ink2);">No assessments yet</div>
+                        <div style="font-size:12px;margin-top:4px;">Create one using the button above</div>
+                    </div>
+                }
+                else
+                {
+                    <div class="assessment-list">
+                        @foreach (var a in MockAssessments)
+                        {
+                            bool sel = selectedAssessmentId == a.Id;
+                            string typeLabel = setup.AssessmentType == "exam" ? "EX" : setup.AssessmentType == "test" ? "T" : "A";
+                            string typeBg = setup.AssessmentType == "exam" ? "rgba(124,58,237,0.15)" : setup.AssessmentType == "test" ? "rgba(245,158,11,0.15)" : "rgba(26,79,255,0.12)";
+                            string typeColor = setup.AssessmentType == "exam" ? "#7c3aed" : setup.AssessmentType == "test" ? "#9a6800" : "var(--blue)";
+                            <div class="assessment-item @(sel ? "active" : "")" @onclick="() => SelectAssessment(a.Id)">
+                                <div class="ai-type" style="background:@typeBg;color:@typeColor;">@typeLabel</div>
+                                <div class="ai-info">
+                                    <div class="ai-title">@a.Title</div>
+                                    <div class="ai-meta">max @a.MaxScore pts · weight @(a.Weight * 100)%</div>
+                                </div>
+                                @if (sel)
+                                {
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div>
+                @if (SelectedAssessment != null)
+                {
+                    <div class="panel-card" style="margin-bottom:16px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+                            <div class="panel-title" style="margin-bottom:0;min-width:0;flex:1 1 auto;overflow-wrap:anywhere;">Selected: @SelectedAssessment.Title</div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:12px;">
+                            @{
+                                var details = new[] {
+                                    ("Max Score", SelectedAssessment.MaxScore.ToString("F0") + " pts"),
+                                    ("Weight",    (SelectedAssessment.Weight * 100).ToString("F0") + "%"),
+                                    ("Subject",   setup.SubjectName),
+                                };
+                            }
+                            @foreach (var (dl, dv) in details)
+                            {
+                                <div style="padding:12px;background:var(--bg);border-radius:10px;">
+                                    <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">@dl</div>
+                                    <div style="font-size:15px;font-weight:600;color:var(--ink);font-family:'JetBrains Mono',monospace;">@dv</div>
+                                </div>
+                            }
+                        </div>
+                        <div style="margin-top:12px;font-size:12px;color:var(--ink3);background:var(--blue-dim);border-radius:8px;padding:9px 12px;">
+                            Scores will be submitted out of <strong style="color:var(--blue);">@SelectedAssessment.MaxScore</strong> — the weight is applied at report card generation.
+                        </div>
+                    </div>
+                }
+
+                <div style="display:flex;gap:8px;justify-content:space-between;">
+                    <button class="btn-ghost" @onclick="() => step = 1">← Back</button>
+                    <button class="btn-primary" disabled="@(selectedAssessmentId == 0 || isLoadingStudents)" @onclick="GoToStep3Async">
+                        @(isLoadingStudents ? "Loading students…" : "Enter Marks")
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- ══ STEP 3: ENTER & SUBMIT MARKS ══ -->
+    @if (step == 3)
+    {
+        <div class="a3">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+                <div>
+                    <div style="font-size:15px;font-weight:600;color:var(--ink);">
+                        @SelectedAssessment?.Title — @setup.SubjectName
+                    </div>
+                    <div style="font-size:12px;color:var(--ink3);margin-top:3px;">
+                        @setup.Term · @setup.ClassName · Max score: @SelectedAssessment?.MaxScore pts · Weight: @((SelectedAssessment?.Weight ?? 0) * 100)%
+                        · Date: @GetSelectedTermDate().ToString("dd MMM yyyy")
+                        (term months @GradeHelper.TermMonthRange(setup.Term).Start–@GradeHelper.TermMonthRange(setup.Term).End)
+                    </div>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn-ghost" @onclick="() => step = 2">← Back</button>
+                </div>
+            </div>
+            <div style="display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:10px 12px;background:#f8f9ff;border:1px solid #e4e7ff;border-radius:10px;">
+                <div class="form-group" style="margin:0;min-width:130px;">
+                    <label class="form-label">Term</label>
+                    <select class="form-control" @bind="setup.Term"><option>Term 1</option><option>Term 2</option><option>Term 3</option></select>
+                </div>
+                <div class="form-group" style="margin:0;width:125px;">
+                    <label class="form-label">Academic year</label>
+                    <input class="form-control" type="number" min="2000" max="2100" @bind="setup.TermYear" />
+                </div>
+                <div class="form-hint" style="margin-bottom:8px;">This period will be saved with new and edited marks.</div>
+            </div>
+
+            @if (markRows.Any(r => r.IsApproved))
+            {
+                <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:11px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;font-size:12.5px;color:#1e40af;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    <span>Marks for <strong>@markRows.Count(r => r.IsApproved) student(s)</strong> have been <strong>approved by Admin</strong> and are locked from further editing.</span>
+                </div>
+            }
+
+            <div class="marks-table-wrap">
+                <div class="marks-table-scroll">
+                <table class="marks-table">
+                    <thead>
+                        <tr>
+                            <th style="width:36px;">#</th>
+                            <th>Student</th>
+                            <th>National ID</th>
+                            <th>Score / @SelectedAssessment?.MaxScore</th>
+                            <th>%</th>
+                            <th>Grade</th>
+                            <th>Why editing is unavailable</th>
+                            <th style="width:80px;text-align:center;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{
+                            int ri = 1;
+                            double maxScoreForTable = SelectedAssessment?.MaxScore ?? 100.0;
+                            foreach (var row in markRows)
+                            {
+                                double? livePct = row.LivePct(maxScoreForTable);
+                                string grade = livePct.HasValue ? GradeHelper.ToGrade(livePct.Value) : "—";
+                                string gradeClass = livePct.HasValue ? "grade-" + grade.ToLower() : "";
+                                var rowRef = row;
+                                <tr style="@(row.IsApproved ? "background:rgba(240,249,255,0.6);" : "")">
+                                    <td data-label="#" style="color:var(--ink3);font-size:11.5px;font-family:'JetBrains Mono',monospace;">@ri</td>
+                                    <td data-label="Student">
+                                        <div style="font-size:13px;font-weight:500;color:var(--ink);display:flex;align-items:center;gap:6px;">
+                                            @row.StudentName
+                                            @if (row.IsApproved)
+                                            {
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0369a1" stroke-width="2.5" title="Approved by Admin"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                            }
+                                        </div>
+                                        <div style="font-size:11px;color:var(--ink3);margin-top:1px;font-family:'JetBrains Mono',monospace;">ID: @row.StudentId</div>
+                                    </td>
+                                    <td data-label="National ID" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--ink3);"><span style="min-width:0;overflow-wrap:anywhere;word-break:break-word;">@row.NationalId</span></td>
+                                    <td data-label="Score / @SelectedAssessment?.MaxScore">
+                                        <input class="mark-input @gradeClass"
+                                               type="number" min="0" max="@maxScoreForTable"
+                                               value="@(row.Score.HasValue ? ((int)row.Score.Value).ToString() : "")"
+                                               placeholder="—"
+                                                disabled="@(row.IsApproved || !string.IsNullOrWhiteSpace(row.BlockReason))"
+                                                title="@row.BlockReason"
+                                               @oninput="e => {
+                                                   if (double.TryParse(e.Value?.ToString(), out var v))
+                                                       rowRef.Score = Math.Round(Math.Min(v, maxScoreForTable), 2);
+                                                   else
+                                                       rowRef.Score = null;
+                                               }" />
+                                    </td>
+                                    <td data-label="%">
+                                        @if (livePct.HasValue)
+                                        {
+                                            <span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:@GradeHelper.ToColor(livePct.Value);">
+                                                @livePct.Value.ToString("F1")%
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span style="color:var(--ink3);font-size:12px;">—</span>
+                                        }
+                                    </td>
+                                    <td data-label="Grade">
+                                        @if (livePct.HasValue)
+                                        {
+                                            <span class="pill @GradeHelper.ToPillClass(grade)">@grade</span>
+                                        }
+                                        else
+                                        {
+                                            <span style="color:var(--ink3);font-size:12px;">—</span>
+                                        }
+                                    </td>
+                                    <td data-label="Why editing is unavailable">
+                                        @if (!string.IsNullOrWhiteSpace(row.BlockReason))
+                                        {
+                                            <span style="font-size:11px;color:#b45309;font-weight:700;">@row.BlockReason</span>
+                                        }
+                                        else
+                                        {
+                                            <span style="font-size:11px;color:var(--ink3);">Can edit</span>
+                                        }
+                                    </td>
+                                    <td data-label="Status" style="text-align:center;">
+                                        @if (row.IsApproved)
+                                        {
+                                            <span class="pill" style="background:#e0f2fe;color:#0369a1;font-weight:700;display:inline-flex;align-items:center;gap:3px;" title="Approved by Admin — locked">
+                                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                                Approved
+                                            </span>
+                                        }
+                                        else if (row.Submitted)
+                                        {
+                                            <span class="pill pill-green">Saved</span>
+                                        }
+                                        else if (row.IsExisting)
+                                        {
+                                            <span class="pill pill-amber">Edit</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="pill pill-gray">New</span>
+                                        }
+                                    </td>
+                                </tr>
+                                ri++;
+                            }
+                        }
+                    </tbody>
+                </table>
+                </div>
+
+                <!-- Summary bar + submit (sticky so it's always reachable) -->
+                <div class="submit-bar">
+                <div class="summary-bar">
+                    @{
+                        double maxScoreBar = SelectedAssessment?.MaxScore ?? 100.0;
+                        var scoredRows = markRows.Where(r => r.Score.HasValue).ToList();
+                        double avgPct = scoredRows.Any()
+                            ? scoredRows.Average(r => r.LivePct(maxScoreBar) ?? 0)
+                            : 0;
+                        int passCount = scoredRows.Count(r => (r.LivePct(maxScoreBar) ?? 0) >= 50.0);
+                        int failCount = scoredRows.Count(r => (r.LivePct(maxScoreBar) ?? 0) < 50.0);
+                    }
+                    <div class="sb-item">
+                        <span class="sb-label">Entered</span>
+                        <span class="sb-val">@scoredRows.Count / @markRows.Count</span>
+                    </div>
+                    <div class="sb-item">
+                        <span class="sb-label">Average</span>
+                        <span class="sb-val">@(scoredRows.Any() ? avgPct.ToString("F1") + "%" : "—")</span>
+                    </div>
+                    <div class="sb-item">
+                        <span class="sb-label">Pass (≥50%)</span>
+                        <span class="sb-val" style="color:var(--green);">@passCount</span>
+                    </div>
+                    <div class="sb-item">
+                        <span class="sb-label">Fail</span>
+                        <span class="sb-val" style="color:var(--red);">@failCount</span>
+                    </div>
+                    @if (markRows.Any(r => r.IsApproved))
+                    {
+                        <div class="sb-item">
+                            <span class="sb-label">Approved</span>
+                            <span class="sb-val" style="color:#0369a1;">@markRows.Count(r => r.IsApproved)</span>
+                        </div>
+                    }
+                    <div class="sb-item">
+                        <span class="sb-label">New</span>
+                        <span class="sb-val" style="color:var(--blue);">@markRows.Count(r => !r.IsExisting && !r.Submitted && !r.IsApproved)</span>
+                    </div>
+                    <div class="sb-item">
+                        <span class="sb-label">Updates</span>
+                        <span class="sb-val" style="color:var(--amber);">@markRows.Count(r => r.IsExisting && !r.IsApproved)</span>
+                    </div>
+                </div>
+
+                <div style="display:flex;justify-content:flex-end;gap:8px;padding:0 20px 16px;">
+                    <button class="btn-primary" style="width:100%;max-width:260px;" @onclick="SubmitAllMarks" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                            <span>Saving…</span>
+                        }
+                        else
+                        {
+                            <span>Submit All Marks</span>
+                        }
+                    </button>
+                </div>
+                </div>
+            </div>
+        </div>
+    }
+
+</div>
+
+<!-- ══ NEW ASSESSMENT MODAL ══ -->
+@if (showNewAssessmentModal)
+{
+    <div class="modal-overlay" @onclick='() => showNewAssessmentModal = false'>
+        <div class="modal" style="max-width: 520px;" @onclick:stopPropagation="true">
+            <div class="modal-title">
+                Create New Assessment
+            </div>
+            
+            @if (step == 0)
+            {
+                <!-- Dashboard context selectors -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Form</label>
+                        <select class="form-control" @bind="setup.FormNumber" @bind:after="OnModalFormChangedInternalAsync">
+                            <option value="0">— Select —</option>
+                            <option value="1">Form 1</option>
+                            <option value="2">Form 2</option>
+                            <option value="3">Form 3</option>
+                            <option value="4">Form 4</option>
+                            <option value="5">Form 5</option>
+                            <option value="6">Form 6</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Assessment Type</label>
+                        <select class="form-control" @bind="setup.AssessmentType">
+                            <option value="assignment">Assignment</option>
+                            <option value="test">Test</option>
+                            <option value="exam">Exam</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Subject</label>
+                    <select class="form-control" @bind="setup.SubjectName">
+                        <option value="">— Select Subject —</option>
+                        @foreach (var s in AvailableSubjects)
+                        {
+                            <option>@s</option>
+                        }
+                    </select>
+                    @if (isLoadingSubjects)
+                    {
+                        <div class="form-hint" style="color:var(--blue);">Loading subjects…</div>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(subjectLoadError))
+                    {
+                        <div class="form-hint" style="color:var(--red);">@subjectLoadError</div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div style="font-size:12px;color:var(--ink3);margin-bottom:16px;background:var(--blue-dim);padding:9px 12px;border-radius:8px;">
+                    @setup.SubjectName · Form @setup.FormNumber
+                </div>
+            }
+
+            <div class="form-group">
+                <label class="form-label">Title</label>
+                <input class="form-control" type="text" placeholder="e.g. Midterm Test 1" @bind="newAssessment.Title" />
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Max Score</label>
+                    <input class="form-control" type="number" placeholder="e.g. 100" @bind="newAssessment.MaxScore" />
+                    <div class="form-hint">Raw score stored in <code style="font-family:'JetBrains Mono',monospace;">max_score</code></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Weight (%)</label>
+                    <input class="form-control" type="number" step="1" min="0" max="100" placeholder="e.g. 50" @bind="newAssessmentWeightPercent" />
+                    <div class="form-hint">Enter a percentage, for example 50 for 50% of the final grade</div>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn-ghost" @onclick='() => showNewAssessmentModal = false'>Cancel</button>
+                <button class="btn-primary" @onclick="CreateAssessment" disabled="@(isCreating || string.IsNullOrWhiteSpace(newAssessment.Title) || (step == 0 && !IsStep1Valid))">
+                    @(isCreating ? "Creating…" : "Create Assessment")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- ══ BULK IMPORT MODAL ══ -->
+@if (showBulkModal)
+{
+    <div class="modal-overlay" @onclick='() => showBulkModal = false'>
+        <div class="modal" @onclick:stopPropagation="true">
+            <div class="modal-title">Bulk Import Marks</div>
+            <div style="font-size:12px;color:var(--ink3);background:var(--blue-dim);padding:9px 12px;border-radius:8px;margin-bottom:14px;">
+                Submits a list of mark DTOs via the bulk marks endpoints. Assignment and test marks go to the coursework table; exam marks go to the exam marks table.
+            </div>
+            <div class="dropzone" style="border:2px dashed var(--border);border-radius:12px;padding:32px;text-align:center;background:var(--bg);margin-bottom:14px;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="1.5" style="margin:0 auto 10px;display:block;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <div style="font-size:14px;font-weight:500;color:var(--ink2);margin-bottom:6px;">Drop CSV / Excel here</div>
+                <div style="font-size:12px;color:var(--ink3);">
+                    Required columns: <code style="font-family:'JetBrains Mono',monospace;">student_id, assignment_id (or test_id / exam_id), score, feedback</code>
+                </div>
+            </div>
+            <div style="font-size:12px;color:var(--ink3);">
+                Each row maps to a <code style="font-family:'JetBrains Mono',monospace;">CourseworkDTO</code> or <code style="font-family:'JetBrains Mono',monospace;">ExamMarkDTO</code>. The graded date defaults to today.
+            </div>
+            <div class="modal-actions">
+                <button class="btn-ghost" @onclick='() => showBulkModal = false'>Cancel</button>
+                <button class="btn-primary" @onclick='() => showBulkModal = false'>Import &amp; Submit</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- ══ EDIT ASSESSMENT MODAL ══ -->
+@if (showEditAssessmentModal && SelectedAssessment != null)
+{
+    <div class="modal-overlay" @onclick='() => showEditAssessmentModal = false'>
+        <div class="modal" @onclick:stopPropagation="true">
+            <div class="modal-title">Edit @CapitaliseFirst(setup.AssessmentType): @SelectedAssessment.Title</div>
+            <div class="form-group">
+                <label class="form-label">Title</label>
+                <input class="form-control" type="text" @bind="editTitle" />
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Max Score</label>
+                    <input class="form-control" type="number" @bind="editMaxScore" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Weight (%)</label>
+                    <input class="form-control" type="number" step="1" min="0" max="100" @bind="editWeightPercent" />
+                    <div class="form-hint">Enter a percentage, for example 50 for 50%</div>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label class="form-label">Term</label><select class="form-control" @bind="editTerm"><option>Term 1</option><option>Term 2</option><option>Term 3</option></select></div>
+                <div class="form-group"><label class="form-label">Academic year</label><input class="form-control" type="number" min="2000" max="2100" @bind="editTermYear" /></div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-ghost" @onclick='() => showEditAssessmentModal = false'>Cancel</button>
+                <button class="btn-primary" @onclick="SaveEditAssessment" disabled="@isEditing">
+                    @(isEditing ? "Saving…" : "Save Changes")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- ══ QUICK ENTER MARKS MODAL (DASHBOARD) ══ -->
+@if (showDashboardClassSelectModal && dashboardSelectedAssessment != null)
+{
+    <div class="modal-overlay" @onclick='() => showDashboardClassSelectModal = false'>
+        <div class="modal" @onclick:stopPropagation="true">
+            <div class="modal-title" style="margin-bottom:8px;">
+                Enter Marks: @dashboardSelectedAssessment.Title
+            </div>
+            <div style="font-size:12px;color:var(--ink3);margin-bottom:16px;">
+                @dashboardSelectedAssessment.SubjectName · @CapitaliseFirst(dashboardSelectedAssessment.Type) · @(dashboardSelectedAssessment.Level == "alevel" ? "A-Level" : dashboardSelectedAssessment.Level == "olevel" ? "O-Level" : "Junior")
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Class</label>
+                <select class="form-control" value="@dashboardSelectClass" @onchange='(e) => { dashboardSelectClass = e.Value?.ToString() ?? ""; OnDashboardClassChanged(); }'>
+                    <option value="">— Select Class —</option>
+                    @foreach (var c in GetClassesForLevel(dashboardSelectedAssessment.Level))
+                    {
+                        <option>@c</option>
+                    }
+                </select>
+                <div class="form-hint">Select the student class to record scores for</div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Form Number</label>
+                    <select class="form-control" @bind="dashboardSelectForm">
+                        <option value="0">— Select —</option>
+                        <option value="1">Form 1</option>
+                        <option value="2">Form 2</option>
+                        <option value="3">Form 3</option>
+                        <option value="4">Form 4</option>
+                        <option value="5">Form 5</option>
+                        <option value="6">Form 6</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Term</label>
+                    <select class="form-control" @bind="dashboardSelectTerm">
+                        <option>Term 1</option>
+                        <option>Term 2</option>
+                        <option>Term 3</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn-ghost" @onclick='() => showDashboardClassSelectModal = false'>Cancel</button>
+                <button class="btn-primary" 
+                        disabled="@(string.IsNullOrEmpty(dashboardSelectClass) || dashboardSelectForm == 0)"
+                        @onclick="ConfirmQuickEnterMarks">
+                    Continue to Enter Marks
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Toast -->
+@if (!string.IsNullOrEmpty(toastMsg))
+{
+    <div class="toast @(toastIsError ? "toast-error" : "toast-success")">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        @toastMsg
+    </div>
+}
+
+</CascadingValue>
+
+@code {
+    private readonly string pageTitle = "Enter Marks";
+    private int step = 1;
+    private bool isSaving        = false;
+    private bool isCreating      = false;
+    private bool isLoadingSubjects   = false;
+    private string subjectLoadError = "";
+    private bool isLoadingAssessments = false;
+    private bool isLoadingStudents   = false;
+    private bool isLoadingOLevelFields = false;
+    private bool isOpeningMarks = false;
+    private bool showNewAssessmentModal = false;
+    private bool showBulkModal = false;
+    private long currentTeacherId = 0;
+    private long dashboardAssessmentIdToSelect = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        step = 0;
+        await LoadDashboardDataAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var userIdStr = await JS.InvokeAsync<string?>("sessionStorage.getItem", "primeappDemo.userId");
+                if (long.TryParse(userIdStr, out var tid) && tid > 0)
+                {
+                    currentTeacherId = tid;
+                    ApplyFilters();
+                    if (step == 2)
+                    {
+                        await LoadAssessmentsAsync();
+                    }
+                    StateHasChanged();
+                }
+            }
+            catch { }
+        }
+    }
+
+    // ── Dashboard state & filters ─────────────────────────
+    private bool isLoadingDashboard = false;
+    private List<DashboardAssessmentModel> allAssessments = new();
+    private List<DashboardAssessmentModel> filteredAssessments = new();
+
+    private List<string> juniorClasses = new();
+    private List<string> olevelClasses = new();
+    private List<string> alevelClasses = new();
+    private List<string> allDashboardClasses = new();
+    private List<string> allDashboardSubjects = new();
+    private Dictionary<long, string> subjectIdToNameMap = new();
+    private Dictionary<long, string> alevelSubjectIdToNameMap = new();
+    private List<SubjectsModel.GetStudentALevelSubjectChoices> alevelChoices = new();
+    private Dictionary<long, List<string>> form1to4StudentSubjects = new();
+    private List<StudentProfileModel.Student> allStudents = new();
+
+    private string searchTitle = "";
+    private string filterLevel = "";
+    private int filterForm = 0;
+    private string filterClass = "";
+    private string filterSubject = "";
+    private string filterType = "";
+    private string filterTerm = "";
+    private bool filterOnlyMyAssessments = true;
+
+    // Quick enter marks modal state
+    private bool showDashboardClassSelectModal = false;
+    private DashboardAssessmentModel? dashboardSelectedAssessment = null;
+    private string dashboardSelectClass = "";
+    private int dashboardSelectForm = 0;
+    private string dashboardSelectTerm = "Term 1";
+    private bool cameFromDashboard = false;
+
+    private void ResetDashboardFilters()
+    {
+        searchTitle = "";
+        filterLevel = "";
+        filterForm = 0;
+        filterClass = "";
+        filterSubject = "";
+        filterType = "";
+        filterTerm = "";
+        filterOnlyMyAssessments = true;
+        ApplyFilters();
+    }
+
+    private void OnFilterFormChanged()
+    {
+        filterClass = "";
+        ApplyFilters();
+    }
+
+    private IEnumerable<string> GetFilteredDashboardSubjects()
+    {
+        IEnumerable<DashboardAssessmentModel> source = allAssessments;
+        if (filterForm > 0)
+            source = source.Where(a => a.Form == filterForm ||
+                (a.Form == null && ((filterForm <= 4 && a.Level == "form1to4") || (filterForm >= 5 && a.Level == "alevel"))));
+        if (!string.IsNullOrWhiteSpace(filterClass))
+            source = source.Where(a => string.IsNullOrWhiteSpace(a.ClassName) ||
+                ClassMatchesFormAndName(a.ClassName, a.Form ?? GetDefaultFormForLevel(a.Level), filterClass));
+        return source.Select(a => a.SubjectName)
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(s => s);
+    }
+
+    private List<string> GetFilteredDashboardClasses()
+    {
+        if (filterForm <= 0) return allDashboardClasses;
+        if (filterForm is >= 1 and <= 4)
+        {
+            // The Forms 1-4 class registry stores stream names (for example A),
+            // while student profiles may contain A, 1A, or Form 1 A. Use the
+            // actual profile values so the dashboard filter matches marks/attendance.
+            return allStudents
+                .Where(s => s.Form == filterForm && !string.IsNullOrWhiteSpace(s.Classroom))
+                .Select(s => s.Classroom!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(c => c)
+                .ToList();
+        }
+        if (filterForm == 5)
+        {
+            return alevelClasses.Where(c => {
+                string cls = c.ToLowerInvariant();
+                if (cls.Contains("u6")) return false;
+                return true;
+            }).ToList();
+        }
+        if (filterForm == 6)
+        {
+            return alevelClasses.Where(c => {
+                string cls = c.ToLowerInvariant();
+                if (cls.Contains("l6")) return false;
+                return true;
+            }).ToList();
+        }
+        return allDashboardClasses;
+    }
+
+    private int GetDefaultFormForLevel(string level) => level switch
+    {
+        "form1to4" => 1,
+        "alevel" => 5,
+        _ => 1
+    };
+
+    /// <summary>
+    /// Existing assessments are opened in the dedicated marks editor. The setup wizard is
+    /// reserved for creating a new assessment and is not involved in editing marks.
+    /// </summary>
+    private static bool IsFormValidForLevel(int form, string level) => level switch
+    {
+        "form1to4" => form >= 1 && form <= 4,
+        "alevel"    => form >= 5 && form <= 6,
+        _           => form >= 1 && form <= 6
+    };
+
+    private static int ExtractFormFromText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return 0;
+        var lower = text.ToLowerInvariant();
+
+        var match = System.Text.RegularExpressions.Regex.Match(lower, @"\b(?:form|f)\s*([1-6])\b");
+        if (match.Success && int.TryParse(match.Groups[1].Value, out int formNum))
+            return formNum;
+
+        if (lower.Contains("u6") || lower.Contains("upper 6") || lower.Contains("upper sixth"))
+            return 6;
+        if (lower.Contains("l6") || lower.Contains("lower 6") || lower.Contains("lower sixth"))
+            return 5;
+
+        return 0;
+    }
+
+    private string GetAssessmentDisplayClass(DashboardAssessmentModel a)
+    {
+        // 1. If classroom data is known from submitted marks, show it
+        if (a.Classrooms.Any())
+        {
+            if (a.Classrooms.Count <= 2)
+                return string.Join(", ", a.Classrooms.OrderBy(c => c));
+            return $"{string.Join(", ", a.Classrooms.OrderBy(c => c).Take(2))} +{a.Classrooms.Count - 2}";
+        }
+
+        // Resolve form from assessment title or student records. Dashboard
+        // filters are search controls and never represent stored assessment data.
+        int form = GetDefaultFormForLevel(a.Level);
+        if (!string.IsNullOrWhiteSpace(a.Title))
+        {
+            int titleForm = ExtractFormFromText(a.Title);
+            if (titleForm > 0 && IsFormValidForLevel(titleForm, a.Level))
+                form = titleForm;
+        }
+        else if (filterForm > 0 && IsFormValidForLevel(filterForm, a.Level))
+        {
+            form = filterForm;
+        }
+
+        if (form == 5) return "Form 5 (L6)";
+        if (form == 6) return "Form 6 (U6)";
+        if (form >= 1 && form <= 4) return $"Form {form}";
+
+        return a.Level switch
+        {
+            "alevel"    => "A-Level",
+            "form1to4" => "Forms 1–4",
+            _           => "All Classes"
+        };
+    }
+
+    /// <summary>
+    /// Invoked when a teacher clicks an assessment card (or its "Enter / Edit Marks" button)
+    /// on the dashboard. Pre-fills all Step 1 selections (Form, Field, Subject, Type, Term, Class)
+    /// before transitioning so the teacher sees the correct context ready to continue or edit.
+    /// </summary>
+    private async Task GoToStep1FromDashboard(DashboardAssessmentModel assessment, string displayedClass = "")
+    {
+        int defaultForm  = GetDefaultFormForLevel(assessment.Level);
+        int guessedForm  = assessment.Form is > 0 ? assessment.Form.Value : defaultForm;
+
+        // Helper: resolve the form number from a classroom name via allStudents
+        int? FormFromClass(string cls) =>
+            allStudents
+                .FirstOrDefault(s => string.Equals(s.Classroom, cls, StringComparison.OrdinalIgnoreCase))
+                ?.Form;
+
+        // 1. Best source: classrooms derived from existing marks
+        if (assessment.Classrooms.Any())
+        {
+            foreach (var cls in assessment.Classrooms.OrderBy(c => c))
+            {
+                var f = FormFromClass(cls);
+                if (f.HasValue && IsFormValidForLevel(f.Value, assessment.Level))
+                {
+                    guessedForm = f.Value;
+                    break;
+                }
+            }
+        }
+
+        // 2. A dashboard filter is only a search filter. It must never replace
+        // the assessment's own class context when opening marks.
+        if (guessedForm == defaultForm && filterForm > 0 && IsFormValidForLevel(filterForm, assessment.Level))
+        {
+            guessedForm = filterForm;
+        }
+
+        // 3. Try checking title for Form/F/L6/U6 patterns
+        if (guessedForm == defaultForm && !string.IsNullOrWhiteSpace(assessment.Title))
+        {
+            int f = ExtractFormFromText(assessment.Title);
+            if (f > 0 && IsFormValidForLevel(f, assessment.Level))
+                guessedForm = f;
+        }
+
+        // 4. Check class strings for form patterns
+        if (guessedForm == defaultForm)
+        {
+            var candidates = new List<string>();
+            candidates.AddRange(assessment.Classrooms);
+            foreach (var c in candidates)
+            {
+                int f = ExtractFormFromText(c);
+                if (f > 0 && IsFormValidForLevel(f, assessment.Level))
+                {
+                    guessedForm = f;
+                    break;
+                }
+            }
+        }
+
+        setup.FormNumber     = guessedForm;
+        setup.SubjectName    = assessment.SubjectName?.Trim() ?? "";
+        setup.Field          = "";
+        setup.AssessmentType = assessment.Type?.Trim().ToLowerInvariant() switch
+        {
+            "test" => "test",
+            "exam" => "exam",
+            _      => "assignment"
+        };
+        setup.Term           = !string.IsNullOrWhiteSpace(assessment.Term)
+            ? assessment.Term
+            : (!string.IsNullOrWhiteSpace(filterTerm) ? filterTerm : "Term 1");
+
+        // The dashboard card has already resolved the class label. Use that
+        // exact value when it is a real catalogue class instead of recomputing
+        // the context from marks or filters.
+        if (!string.IsNullOrWhiteSpace(displayedClass))
+        {
+            var displayedForm = ExtractFormFromText(displayedClass);
+            if (displayedForm > 0 && IsFormValidForLevel(displayedForm, assessment.Level))
+                setup.FormNumber = displayedForm;
+        }
+
+        // Load classes first so dashboard navigation can resolve the selected class
+        // against the current class catalogue.
+        await LoadClassesAsync();
+
+        // Use a class only when the assessment has exactly one known class. If it
+        // has none or several, the editor asks the teacher instead of guessing.
+        string preferredClass = !string.IsNullOrWhiteSpace(assessment.ClassName)
+            ? assessment.ClassName
+            : !string.IsNullOrWhiteSpace(displayedClass) &&
+                                !displayedClass.StartsWith("Form ", StringComparison.OrdinalIgnoreCase) &&
+                                !string.Equals(displayedClass, "A-Level", StringComparison.OrdinalIgnoreCase) &&
+                                !string.Equals(displayedClass, "Forms 1–4", StringComparison.OrdinalIgnoreCase)
+            ? displayedClass
+            : assessment.Classrooms.Count == 1
+            ? assessment.Classrooms.Single()
+            : "";
+
+        if (!string.IsNullOrWhiteSpace(preferredClass))
+        {
+            var matchedClass = AvailableClasses.FirstOrDefault(c => string.Equals(c, preferredClass, StringComparison.OrdinalIgnoreCase));
+            if (matchedClass != null)
+            {
+                setup.ClassName = matchedClass;
+            }
+            else
+            {
+                AvailableClasses.Insert(0, preferredClass);
+                setup.ClassName = preferredClass;
+            }
+        }
+        else
+        {
+            setup.ClassName = "";
+        }
+
+        // Load subjects after the class because Forms 1-4 subjects are class-scoped.
+        await LoadSubjectsAsync();
+
+        // Keep the assessment's subject selected when it is still offered by the class.
+        if (!string.IsNullOrWhiteSpace(setup.SubjectName))
+        {
+            var matchedSub = AvailableSubjects.FirstOrDefault(s => string.Equals(s, setup.SubjectName, StringComparison.OrdinalIgnoreCase));
+            if (matchedSub != null)
+                setup.SubjectName = matchedSub;
+            else if (setup.FormNumber is < 1 or > 4)
+                AvailableSubjects.Insert(0, setup.SubjectName);
+            else
+            {
+                // Preserve the subject stored on the existing assessment. A
+                // class catalogue refresh must never relabel an old test.
+                AvailableSubjects.Insert(0, setup.SubjectName);
+            }
+        }
+
+        selectedAssessmentId          = 0;
+        dashboardAssessmentIdToSelect = assessment.Id;
+        cameFromDashboard             = false;
+
+        step = 1;
+        StateHasChanged();
+    }
+
+    /// <summary>
+    private async Task OpenMarksFromDashboardAsync(DashboardAssessmentModel assessment, string displayedClass = "")
+    {
+        isOpeningMarks = true;
+        StateHasChanged();
+        await Task.Yield();
+        try
+        {
+            await GoToStep1FromDashboard(assessment, displayedClass);
+            if (step != 1) return;
+
+            if (string.IsNullOrWhiteSpace(setup.ClassName))
+            {
+                // Class is not persisted on the current assessment record. Ask
+                // explicitly instead of opening the first/incorrect class.
+                dashboardSelectedAssessment = assessment;
+                dashboardSelectClass = "";
+                dashboardSelectForm = setup.FormNumber;
+                dashboardSelectTerm = setup.Term;
+                showDashboardClassSelectModal = true;
+                return;
+            }
+
+            // Preserve the stored assessment identity and go straight to the mark rows.
+            MockAssessments.Clear();
+            MockAssessments.Add(new AssignmentModel
+            {
+                Id = assessment.Id,
+                RealId = assessment.RealId,
+                SubjectId = assessment.SubjectId,
+                Title = assessment.Title,
+                MaxScore = assessment.MaxScore,
+                Weight = assessment.Weight,
+                TeacherId = assessment.TeacherId
+            });
+            selectedAssessmentId = assessment.Id;
+            cameFromDashboard = true;
+            await GoToStep3Async();
+        }
+        finally
+        {
+            isOpeningMarks = false;
+        }
+    }
+
+    /// Invoked by the "Create Assignment / Test" button above the dashboard cards.
+    /// Clears any leftover setup from a previous flow and jumps straight to Step 1
+    /// (Setup) with blank fields so the teacher can create a brand-new assessment
+    /// from scratch, picking Form, Subject, Type, Term and Class themselves.
+    /// </summary>
+    private void GoToStep1ForNewAssessment()
+    {
+        setup = new SetupModel();
+        selectedAssessmentId = 0;
+        MockAssessments.Clear();
+        AvailableSubjects = new();
+        AvailableClasses = new();
+        cameFromDashboard = false;
+        step = 1;
+    }
+
+    private void StartDashboardClassSelect(DashboardAssessmentModel assessment)
+    {
+        dashboardSelectedAssessment = assessment;
+        
+        string targetClass = !string.IsNullOrEmpty(filterClass) ? filterClass : setup.ClassName;
+        int targetForm = filterForm > 0 ? filterForm : setup.FormNumber;
+
+        if (targetForm <= 0)
+        {
+            targetForm = GetDefaultFormForLevel(assessment.Level);
+        }
+
+        // If no class is set but marks already exist, use the known classroom(s) directly
+        if (string.IsNullOrEmpty(targetClass) && assessment.Classrooms.Any())
+        {
+            // Pick the first known classroom (alphabetically)
+            targetClass = assessment.Classrooms.OrderBy(c => c).First();
+            // Look up the real form number from an actual student in that class
+            // (classroom names like "West" have no form prefix, so we can't guess from the name)
+            var studentInClass = allStudents.FirstOrDefault(s =>
+                string.Equals(s.Classroom, targetClass, StringComparison.OrdinalIgnoreCase));
+            if (studentInClass?.Form != null)
+                targetForm = studentInClass.Form.Value;
+        }
+
+        if (string.IsNullOrEmpty(targetClass))
+        {
+            var classesForLevel = GetClassesForLevel(assessment.Level);
+            if (classesForLevel.Any())
+            {
+                var matchingFormClass = classesForLevel.FirstOrDefault(c => {
+                    string cls = c.ToLowerInvariant();
+                    if (targetForm == 5 && cls.Contains("u6")) return false;
+                    if (targetForm == 6 && cls.Contains("l6")) return false;
+                    if (targetForm >= 1 && targetForm <= 4) return cls.Contains($"form {targetForm}");
+                    return true;
+                });
+                targetClass = matchingFormClass ?? classesForLevel.First();
+            }
+        }
+        else if (targetForm == 0)
+        {
+            var cls = targetClass.ToLowerInvariant();
+            if (cls.Contains("l6"))
+            {
+                targetForm = 5;
+            }
+            else if (cls.Contains("u6"))
+            {
+                targetForm = 6;
+            }
+            else
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(targetClass, @"Form\s*([1-6])", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (match.Success)
+                {
+                    targetForm = int.Parse(match.Groups[1].Value);
+                }
+            }
+        }
+
+        string targetTerm = !string.IsNullOrEmpty(setup.Term) ? setup.Term : "Term 1";
+
+        bool isValid = false;
+        if (!string.IsNullOrEmpty(targetClass) && targetForm > 0)
+        {
+            var classesForLevel = GetClassesForLevel(assessment.Level);
+            if (classesForLevel.Contains(targetClass))
+            {
+                isValid = true;
+            }
+        }
+
+        if (isValid)
+        {
+            QuickEnterMarks(assessment, targetForm, targetClass, targetTerm);
+        }
+        else
+        {
+            dashboardSelectClass = targetClass;
+            dashboardSelectForm = targetForm;
+            dashboardSelectTerm = targetTerm;
+            showDashboardClassSelectModal = true;
+        }
+    }
+
+    private void OnDashboardClassChanged()
+    {
+        if (string.IsNullOrEmpty(dashboardSelectClass)) return;
+        var cls = dashboardSelectClass.ToLowerInvariant();
+        if (cls.Contains("l6"))
+        {
+            dashboardSelectForm = 5;
+            return;
+        }
+        if (cls.Contains("u6"))
+        {
+            dashboardSelectForm = 6;
+            return;
+        }
+        var match = System.Text.RegularExpressions.Regex.Match(dashboardSelectClass, @"Form\s*([1-6])", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (match.Success) {
+            dashboardSelectForm = int.Parse(match.Groups[1].Value);
+        }
+    }
+
+    private async Task OnModalFormChangedInternalAsync()
+    {
+        setup.SubjectName = "";
+        setup.Field = "";
+
+        await LoadSubjectsAsync();
+    }
+
+    private async Task OnModalFieldChangedInternalAsync()
+    {
+        setup.SubjectName = "";
+        await LoadSubjectsAsync();
+    }
+
+    private async Task OnModalFormChangedAsync(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int form))
+            setup.FormNumber = form;
+        else
+            setup.FormNumber = 0;
+        await OnModalFormChangedInternalAsync();
+    }
+
+    private async Task OnModalFieldChangedAsync(ChangeEventArgs e)
+    {
+        setup.Field = e.Value?.ToString() ?? "";
+        await OnModalFieldChangedInternalAsync();
+    }
+
+    private void ConfirmQuickEnterMarks()
+    {
+        if (dashboardSelectedAssessment == null || string.IsNullOrEmpty(dashboardSelectClass) || dashboardSelectForm == 0) return;
+
+        showDashboardClassSelectModal = false;
+        QuickEnterMarks(dashboardSelectedAssessment, dashboardSelectForm, dashboardSelectClass, dashboardSelectTerm);
+    }
+
+    private void QuickEnterMarks(DashboardAssessmentModel assessment, int form, string className, string term)
+    {
+        setup.FormNumber = form;
+        setup.ClassName = className;
+        setup.SubjectName = assessment.SubjectName;
+        setup.AssessmentType = assessment.Type;
+        setup.Term = term;
+        setup.Field = "";
+
+        MockAssessments.Clear();
+        MockAssessments.Add(new AssignmentModel
+        {
+            Id = assessment.Id,
+            RealId = assessment.RealId,
+            SubjectId = assessment.SubjectId,
+            Title = assessment.Title,
+            MaxScore = assessment.MaxScore,
+            Weight = assessment.Weight,
+            TeacherId = assessment.TeacherId
+        });
+
+        selectedAssessmentId = assessment.Id;
+        cameFromDashboard = true;
+
+        _ = GoToStep3Async();
+    }
+
+    private void QuickEditAssessment(DashboardAssessmentModel assessment)
+    {
+        setup.FormNumber = assessment.Level switch
+        {
+            "form1to4"  => 1,
+            "alevel"    => 5,
+            _           => 0
+        };
+        setup.SubjectName = assessment.SubjectName;
+        setup.Field = "";
+        setup.AssessmentType = assessment.Type;
+        setup.Term = !string.IsNullOrWhiteSpace(assessment.Term) ? assessment.Term : "Term 1";
+
+        selectedAssessmentId = assessment.Id;
+        editTitle = assessment.Title;
+        editMaxScore = assessment.MaxScore;
+        editWeight = assessment.Weight;
+        editTeacherId = assessment.TeacherId;
+
+        MockAssessments.Clear();
+        MockAssessments.Add(new AssignmentModel
+        {
+            Id = assessment.Id,
+            RealId = assessment.RealId,
+            SubjectId = assessment.SubjectId,
+            Title = assessment.Title,
+            MaxScore = assessment.MaxScore,
+            Weight = assessment.Weight,
+            TeacherId = assessment.TeacherId
+        });
+
+        showEditAssessmentModal = true;
+    }
+
+    private List<string> GetClassesForLevel(string level)
+    {
+        if (level == "form1to4") return olevelClasses;
+        if (level == "alevel") return alevelClasses;
+        return new List<string>();
+    }
+
+    private async Task LoadDashboardDataAsync()
+    {
+        isLoadingDashboard = true;
+        StateHasChanged();
+
+        try
+        {
+            var olevelClassesTask = OClassService.GetAllOlevelClassNamesAsync();
+            var alevelClassesTask = AClassService.GetAllAlevelClassNamesAsync();
+            var alevelSubjectsTask = SubjectService.GetALevelSubjectsAsync();
+            var studentsTask = StudentProfileService.GetStudentsAsync();
+            var alevelChoicesTask = SubjectService.GetStudentALevelSubjectChoicesAsync();
+
+            await Task.WhenAll(
+                olevelClassesTask, alevelClassesTask, alevelSubjectsTask,
+                studentsTask, alevelChoicesTask
+            );
+
+            olevelClasses = olevelClassesTask.Result?.Select(c => c.ClassName ?? "").Where(c => !string.IsNullOrWhiteSpace(c)).Distinct().OrderBy(c => c).ToList() ?? new();
+            juniorClasses = olevelClasses.ToList();
+            alevelClasses = alevelClassesTask.Result?.Select(c => c.ClassName ?? "").Where(c => !string.IsNullOrWhiteSpace(c)).Distinct().OrderBy(c => c).ToList() ?? new();
+
+            allDashboardClasses.Clear();
+            allDashboardClasses.AddRange(juniorClasses);
+            allDashboardClasses.AddRange(olevelClasses);
+            allDashboardClasses.AddRange(alevelClasses);
+            allDashboardClasses = allDashboardClasses.Distinct().OrderBy(c => c).ToList();
+
+            alevelSubjectIdToNameMap.Clear();
+            subjectIdToNameMap.Clear();
+            allDashboardSubjects.Clear();
+
+            if (alevelSubjectsTask.Result != null)
+            {
+                foreach (var s in alevelSubjectsTask.Result)
+                {
+                    if (s.Id > 0 && !string.IsNullOrWhiteSpace(s.SubjectName))
+                    {
+                        string name = s.SubjectName.Trim();
+                        alevelSubjectIdToNameMap[s.Id] = name;
+                        subjectIdToNameMap[s.Id] = name;
+                        allDashboardSubjects.Add(name);
+                    }
+                }
+            }
+            allDashboardSubjects = allDashboardSubjects.Distinct().OrderBy(s => s).ToList();
+
+            allStudents = studentsTask.Result ?? new();
+            alevelChoices = alevelChoicesTask.Result ?? new();
+
+            await FetchAllAssessmentsAsync();
+        }
+        catch (Exception)
+        {
+            ShowToast("Failed to load dashboard data.", error: true);
+        }
+        finally
+        {
+            isLoadingDashboard = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task<SubjectsModel.Form1to4StudentSubjectChoices?> TryGetForm1to4StudentSubjectsAsync(long studentId)
+    {
+        try
+        {
+            var saved = await SubjectService.GetForm1to4StudentSubjectsAsync(studentId);
+            if (saved?.Subjects?.Any() == true) return saved;
+
+            var student = allStudents.FirstOrDefault(s => s.Id == studentId);
+            if (student?.Form is >= 1 and <= 4 && !string.IsNullOrWhiteSpace(student.Classroom))
+            {
+                var classSetup = await SubjectService.GetForm1to4ClassSubjectsAsync(student.Form.Value, student.Classroom);
+                if (classSetup?.Subjects?.Any() == true)
+                {
+                    return new SubjectsModel.Form1to4StudentSubjectChoices
+                    {
+                        StudentId = studentId,
+                        Form = student.Form.Value,
+                        ClassName = student.Classroom,
+                        Subjects = classSetup.Subjects.ToList()
+                    };
+                }
+            }
+
+            return saved;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private bool StudentHasForm1to4Subject(long studentId, string subjectName)
+        => form1to4StudentSubjects.TryGetValue(studentId, out var subjects)
+           && subjects.Any(s => string.Equals(s, subjectName, StringComparison.OrdinalIgnoreCase));
+
+    private async Task FetchAllAssessmentsAsync()
+    {
+        allAssessments.Clear();
+
+        try
+        {
+            var assignmentsF12Task = AssessmentService.GetAssignmentsAsync("form1to4", "");
+            var assignmentsALTask  = AssessmentService.GetAssignmentsAsync("alevel", "");
+
+            var testsF12Task = AssessmentService.GetTestsAsync("form1to4", "");
+            var testsALTask  = AssessmentService.GetTestsAsync("alevel", "");
+
+            var examsF12Task = AssessmentService.GetExamsAsync("form1to4", "");
+            var examsALTask  = AssessmentService.GetExamsAsync("alevel", "");
+
+            await Task.WhenAll(
+                assignmentsF12Task, assignmentsALTask,
+                testsF12Task, testsALTask,
+                examsF12Task, examsALTask
+            );
+
+            AddDashboardItems(assignmentsF12Task.Result, "form1to4", "assignment");
+            AddDashboardItems(assignmentsALTask.Result, "alevel", "assignment");
+
+            AddDashboardItems(testsF12Task.Result, "form1to4", "test");
+            AddDashboardItems(testsALTask.Result, "alevel", "test");
+
+            AddDashboardItems(examsF12Task.Result, "form1to4", "exam");
+            AddDashboardItems(examsALTask.Result, "alevel", "exam");
+
+            allAssessments = allAssessments.OrderByDescending(a => a.RealId).ToList();
+            
+            ApplyFilters();
+
+            _ = FetchStatsForAssessmentsAsync();
+        }
+        catch (Exception)
+        {
+            ShowToast("Error fetching assessments.", error: true);
+        }
+    }
+
+    private void AddDashboardItems<T>(List<T>? list, string level, string type)
+    {
+        if (list == null) return;
+        foreach (var item in list)
+        {
+            long id = 0;
+            long subjectId = 0;
+            string title = "";
+            double maxScore = 100;
+            double weight = 0.20;
+            long? teacherId = null;
+            string term = "Term 1";
+            int? termYear = null;
+            string? subjectName = null;
+            int? assessmentForm = null;
+            string? assessmentClassName = null;
+
+            if (item is AssignmentsDTO a)
+            {
+                id = a.Id ?? 0;
+                subjectId = a.SubjectId ?? 0;
+                title = a.Title ?? "";
+                maxScore = a.MaxScore;
+                weight = a.Weight;
+                teacherId = a.TeacherId;
+                term = a.Term ?? ResolveTermFromDate(a.DueDate); termYear = a.TermYear ?? a.DueDate?.Year;
+                subjectName = a.SubjectName?.Trim();
+                assessmentForm = a.Form;
+                assessmentClassName = a.ClassName;
+            }
+            else if (item is TestsDTO t)
+            {
+                id = t.Id ?? 0;
+                subjectId = t.SubjectId ?? 0;
+                title = t.Title ?? "";
+                maxScore = t.MaxScore;
+                weight = t.Weight;
+                teacherId = t.TeacherId;
+                term = t.Term ?? ResolveTermFromDate(t.TestDate); termYear = t.TermYear ?? t.TestDate?.Year;
+                subjectName = t.SubjectName?.Trim();
+                assessmentForm = t.Form;
+                assessmentClassName = t.ClassName;
+            }
+            else if (item is ExamsDTO e)
+            {
+                id = e.Id ?? 0;
+                subjectId = e.SubjectId ?? 0;
+                title = e.Title ?? "";
+                maxScore = e.MaxScore;
+                weight = e.Weight;
+                teacherId = e.TeacherId;
+                term = e.Term ?? ResolveTermFromDate(e.ExamDate); termYear = e.TermYear ?? e.ExamDate?.Year;
+                subjectName = e.SubjectName?.Trim();
+                assessmentForm = e.Form;
+                assessmentClassName = e.ClassName;
+            }
+
+            if (id == 0) continue;
+
+            string field = "";
+
+            if (string.IsNullOrWhiteSpace(subjectName) && string.Equals(level, "alevel", StringComparison.OrdinalIgnoreCase))
+            {
+                alevelSubjectIdToNameMap.TryGetValue(subjectId, out subjectName);
+            }
+
+            if (!string.IsNullOrWhiteSpace(subjectName) &&
+                !allDashboardSubjects.Contains(subjectName, StringComparer.OrdinalIgnoreCase))
+                allDashboardSubjects.Add(subjectName);
+
+            allAssessments.Add(new DashboardAssessmentModel
+            {
+                Id = id,
+                RealId = id,
+                SubjectId = subjectId,
+                Title = title,
+                MaxScore = maxScore,
+                Weight = weight,
+                TeacherId = teacherId,
+                Level = level,
+                Type = type,
+                SubjectName = subjectName ?? $"Subject ID #{subjectId}",
+                Field = "",
+                Term = term,
+                TermYear = termYear,
+                Form = assessmentForm,
+                ClassName = assessmentClassName,
+                TotalCount = 0
+            });
+        }
+    }
+
+    private static string ResolveTermFromDate(DateOnly? date) => date?.Month switch
+    {
+        null => "Term 1",
+        1 or 2 or 3 or 4 => "Term 1",
+        5 or 6 or 7 or 8 => "Term 2",
+        _ => "Term 3"
+    };
+
+    private int CalculateTotalEligibleStudents(DashboardAssessmentModel assessment)
+    {
+        if (!allStudents.Any()) return 0;
+        int form = assessment.Form ?? GetDefaultFormForLevel(assessment.Level);
+        var cohort = allStudents.Where(s => s.Form == form);
+        if (!string.IsNullOrWhiteSpace(assessment.ClassName))
+            cohort = cohort.Where(s => ClassMatchesFormAndName(s.Classroom, form, assessment.ClassName));
+
+        if (assessment.Level == "alevel")
+        {
+            if (string.IsNullOrWhiteSpace(assessment.SubjectName)) return 0;
+            var eligibleStudentIds = alevelChoices
+                .Where(c => c.Subjects != null && c.Subjects.Any(sub => string.Equals(sub.Trim(), assessment.SubjectName.Trim(), StringComparison.OrdinalIgnoreCase)))
+                .Select(c => c.StudentId)
+                .ToHashSet();
+            return cohort.Count(s => eligibleStudentIds.Contains((long)s.Id));
+        }
+
+        // Forms 1–4 subjects are configured per class. The dashboard card is
+        // therefore measured against the selected class cohort; student-level
+        // subject overrides are resolved when the mark sheet is opened.
+        return cohort.Count();
+    }
+
+    private void ApplyFilters()
+    {
+        if (currentTeacherId <= 0)
+        {
+            filteredAssessments = new();
+            return;
+        }
+
+        var temp = allAssessments.Where(a => a.TeacherId == currentTeacherId);
+
+        if (!string.IsNullOrWhiteSpace(searchTitle))
+        {
+            temp = temp.Where(a => a.Title.Contains(searchTitle, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filterLevel))
+        {
+            temp = temp.Where(a => string.Equals(a.Level, filterLevel, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (filterForm > 0)
+        {
+            string formLevel = filterForm switch
+            {
+                >= 1 and <= 4 => "form1to4",
+                >= 5 and <= 6 => "alevel",
+                _ => ""
+            };
+            temp = temp.Where(a => string.Equals(a.Level, formLevel, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filterSubject))
+        {
+            temp = temp.Where(a => string.Equals(a.SubjectName, filterSubject, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filterType))
+        {
+            temp = temp.Where(a => string.Equals(a.Type, filterType, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filterTerm))
+        {
+            temp = temp.Where(a => string.Equals(a.Term, filterTerm, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filterClass))
+        {
+            string cls = filterClass.Trim().ToLowerInvariant();
+            temp = temp.Where(a => {
+                // Primary: if we have real classroom data from marks, use it directly
+                if (a.Classrooms.Any())
+                {
+                    int markedForm = filterForm > 0 ? filterForm : GetDefaultFormForLevel(a.Level);
+                    return a.Classrooms.Any(c => ClassMatchesFormAndName(c, markedForm, filterClass));
+                }
+
+                // Fallback: use the explicit form filter when available. This
+                // avoids guessing from a code such as 1A or 3B.
+                int targetForm = filterForm > 0 ? filterForm : GetDefaultFormForLevel(a.Level);
+                string classLevel = targetForm switch
+                {
+                    >= 1 and <= 4 => "form1to4",
+                    >= 5 and <= 6 => "alevel",
+                    _ => ""
+                };
+
+                if (!string.Equals(a.Level, classLevel, StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                if (classLevel == "alevel")
+                {
+                    var studentsInClass = allStudents.Where(s => s.Form == targetForm && ClassMatchesFormAndName(s.Classroom, targetForm, filterClass)).Select(s => (long)s.Id).ToHashSet();
+                    return alevelChoices.Any(c => studentsInClass.Contains(c.StudentId) && 
+                        c.Subjects != null && c.Subjects.Any(sub => string.Equals(sub, a.SubjectName, StringComparison.OrdinalIgnoreCase)));
+                }
+
+                var studentsInForm14Class = allStudents
+                    .Where(s => s.Form == targetForm && ClassMatchesFormAndName(s.Classroom, targetForm, filterClass))
+                    .Select(s => (long)s.Id);
+                return studentsInForm14Class.Any(studentId => StudentHasForm1to4Subject(studentId, a.SubjectName));
+            });
+        }
+
+        filteredAssessments = temp.ToList();
+    }
+
+    private async Task FetchStatsForAssessmentsAsync()
+    {
+        using var limiter = new SemaphoreSlim(6);
+        var tasks = allAssessments.Select(async assessment =>
+        {
+            await limiter.WaitAsync();
+            try
+            {
+                if (assessment.Type == "assignment")
+                {
+                    var marks = await AssessmentService.GetMarksByAssignmentAsync(assessment.RealId);
+                    PopulateStatsFromMarks(assessment, marks);
+                }
+                else if (assessment.Type == "test")
+                {
+                    var marks = await AssessmentService.GetMarksByTestAsync(assessment.RealId);
+                    PopulateStatsFromMarks(assessment, marks);
+                }
+                else if (assessment.Type == "exam")
+                {
+                    var marks = await AssessmentService.GetMarksByExamAsync(assessment.RealId);
+                    PopulateStatsFromMarks(assessment, marks);
+                }
+            }
+            catch { }
+            finally { limiter.Release(); }
+        }).ToList();
+
+        await Task.WhenAll(tasks);
+        StateHasChanged();
+    }
+
+    private void PopulateStatsFromMarks(DashboardAssessmentModel assessment, IEnumerable<object>? marks)
+    {
+        if (marks == null || !marks.Any())
+        {
+            assessment.GradedCount = 0;
+            assessment.AverageScore = null;
+            assessment.PassRate = 0;
+            return;
+        }
+
+        List<double> scores = new();
+        assessment.Classrooms.Clear();
+        foreach (var m in marks)
+        {
+            if (m is CourseworkDTO cw && cw.Score.HasValue)
+            {
+                scores.Add(cw.Score.Value);
+                var student = allStudents.FirstOrDefault(s => (long)s.Id == cw.StudentId);
+                if (student?.Classroom != null) assessment.Classrooms.Add(student.Classroom);
+            }
+            else if (m is ExamMarkDTO ex && ex.Score.HasValue)
+            {
+                scores.Add(ex.Score.Value);
+                var student = allStudents.FirstOrDefault(s => (long)s.Id == ex.StudentId);
+                if (student?.Classroom != null) assessment.Classrooms.Add(student.Classroom);
+            }
+        }
+
+        assessment.TotalCount = CalculateTotalEligibleStudents(assessment);
+
+        assessment.GradedCount = scores.Count;
+        if (scores.Any())
+        {
+            assessment.AverageScore = scores.Average();
+            // Scores from the DB are already percentages (0–100); compare against 50 directly
+            int passCount = scores.Count(s => s >= 50.0);
+            assessment.PassRate = (double)passCount / scores.Count;
+        }
+        else
+        {
+            assessment.AverageScore = null;
+            assessment.PassRate = 0;
+        }
+    }
+
+    // ── O-Level fields (loaded from API) ─────────────────
+    private List<string> oLevelFields = new();
+    private string toastMsg    = "";
+    private bool toastIsError  = false;
+    private long selectedAssessmentId = 0;
+    private System.Threading.CancellationTokenSource? _toastCts;
+
+    // ── Step 1 setup state ────────────────────────────────
+    private SetupModel setup = new();
+
+    private class SetupModel
+    {
+        public int    FormNumber     { get; set; }
+        public string Field          { get; set; } = "";
+        public string SubjectName    { get; set; } = "";
+        public string AssessmentType { get; set; } = "assignment";
+        public string Term           { get; set; } = "Term 1";
+        public int TermYear          { get; set; } = DateTime.Now.Year;
+        public string ClassName      { get; set; } = "";
+
+        /// <summary>Derived level string for backend API calls.</summary>
+        public string Level => FormNumber switch
+        {
+            >= 1 and <= 4 => "form1to4",
+            >= 5 and <= 6 => "alevel",
+            _ => ""
+        };
+    }
+
+    private bool IsStep1Valid =>
+        setup.FormNumber >= 1 &&
+        setup.FormNumber <= 6 &&
+        !string.IsNullOrEmpty(setup.SubjectName) &&
+        !string.IsNullOrEmpty(setup.AssessmentType) &&
+        !string.IsNullOrEmpty(setup.ClassName) &&
+        true;
+
+    private async Task GoToStep2Async()
+    {
+        if (!IsStep1Valid) return;
+        isOpeningMarks = true;
+        StateHasChanged();
+        try { await LoadAssessmentsAsync(); step = 2; }
+        finally { isOpeningMarks = false; }
+    }
+    private async Task GoToStep3Async()
+    {
+        if (selectedAssessmentId <= 0) return;
+        isOpeningMarks = true;
+        StateHasChanged();
+        try { await LoadStudentsAsync(); step = 3; }
+        finally { isOpeningMarks = false; }
+    }
+
+    private static string CapitaliseFirst(string s)
+        => string.IsNullOrEmpty(s) ? s : char.ToUpperInvariant(s[0]) + s[1..];
+
+    // ── Live subjects (loaded from API) ──────────────────
+    private List<string> AvailableSubjects = new();
+
+    // ── Live classes (loaded from API) ───────────────────
+    private List<string> AvailableClasses = new();
+    private bool isLoadingClasses = false;
+
+    private async Task OnFormChangedInternalAsync()
+    {
+        setup.SubjectName = "";
+        setup.Field = "";
+        setup.ClassName = "";
+
+        // Load classes first because Forms 1-4 subjects are configured per class.
+        await LoadClassesAsync();
+
+        // Auto-select a matching class for this form if available
+        if (AvailableClasses.Any())
+        {
+            var matched = AvailableClasses.FirstOrDefault(c => {
+                string cls = c.ToLowerInvariant();
+                if (setup.FormNumber == 5 && (cls.Contains("l6") || cls.Contains("lower") || cls.Contains("form 5") || cls.Contains("f5"))) return true;
+                if (setup.FormNumber == 6 && (cls.Contains("u6") || cls.Contains("upper") || cls.Contains("form 6") || cls.Contains("f6"))) return true;
+                if (setup.FormNumber >= 1 && setup.FormNumber <= 4) return cls.Contains($"form {setup.FormNumber}") || cls.Contains($"f{setup.FormNumber}");
+                return false;
+            });
+            setup.ClassName = matched ?? AvailableClasses.First();
+        }
+
+        await LoadSubjectsAsync();
+    }
+
+    private async Task OnFormChangedAsync(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int form))
+            setup.FormNumber = form;
+        else
+            setup.FormNumber = 0;
+        await OnFormChangedInternalAsync();
+    }
+
+    private async Task LoadOLevelFieldsAsync()
+    {
+        isLoadingOLevelFields = true;
+        try
+        {
+            var fields = await OClassService.GetAllOlevelFieldsAsync();
+            oLevelFields = fields.Select(f => f.Field ?? "").Where(f => !string.IsNullOrWhiteSpace(f)).OrderBy(f => f).ToList();
+        }
+        catch { oLevelFields = new(); }
+        finally { isLoadingOLevelFields = false; }
+    }
+
+    private async Task OnFieldChangedInternalAsync()
+    {
+        setup.SubjectName = "";
+        await LoadSubjectsAsync();
+    }
+
+    private async Task OnClassChangedInternalAsync()
+    {
+        setup.SubjectName = "";
+        await LoadSubjectsAsync();
+    }
+
+    private async Task OnFieldChangedAsync(ChangeEventArgs e)
+    {
+        setup.Field = e.Value?.ToString() ?? "";
+        await OnFieldChangedInternalAsync();
+    }
+
+    private async Task LoadSubjectsAsync()
+    {
+        AvailableSubjects = new();
+        subjectLoadError = "";
+        if (setup.FormNumber < 1 || setup.FormNumber > 6) return;
+
+        isLoadingSubjects = true;
+        try
+        {
+            switch (setup.Level)
+            {
+                case "form1to4":
+                    // Forms 1-4 use the class subject configuration. Do not use the
+                    // legacy Form 1/2 or O-Level catalogues here: they are not scoped
+                    // to the selected class and can show subjects that are not offered.
+                    if (string.IsNullOrWhiteSpace(setup.ClassName)) break;
+                    var classSubjects = await SubjectService.GetForm1to4ClassSubjectsAsync(setup.FormNumber, setup.ClassName);
+                    AvailableSubjects = classSubjects?.Subjects
+                        .Where(s => !string.IsNullOrWhiteSpace(s))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .OrderBy(s => s)
+                        .ToList() ?? new();
+
+                    // If the class-subject response is unavailable, use the effective
+                    // student enrolments already loaded for this class as a temporary
+                    // read-only fallback. This keeps teachers productive while the
+                    // enrollment service is recovering, without reintroducing legacy
+                    // subject data from another level.
+                    if (AvailableSubjects.Count == 0)
+                    {
+                        AvailableSubjects = await LoadSubjectsFromEnrolledStudentsAsync(setup.FormNumber, setup.ClassName);
+                        if (AvailableSubjects.Count == 0)
+                        {
+                            subjectLoadError = "No subjects could be loaded for this class. Check the class subject setup and try again.";
+                        }
+                    }
+                    break;
+                case "alevel":
+                    // Form 5 and 6 use the preset A-Level subject catalogue.
+                    var alevel = await SubjectService.GetALevelSubjectsAsync();
+                    AvailableSubjects = alevel.Select(s => s.SubjectName ?? "").Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().OrderBy(s => s).ToList();
+                    break;
+            }
+        }
+        catch
+        {
+            AvailableSubjects = new();
+            if (setup.FormNumber is >= 1 and <= 4)
+            {
+                AvailableSubjects = await LoadSubjectsFromEnrolledStudentsAsync(setup.FormNumber, setup.ClassName);
+                if (AvailableSubjects.Count == 0)
+                    subjectLoadError = "The class subjects could not be loaded. Check the class subject setup and try again.";
+            }
+        }
+        finally { isLoadingSubjects = false; }
+    }
+
+    private async Task<List<string>> LoadSubjectsFromEnrolledStudentsAsync(int form, string className)
+    {
+        if (form is < 1 or > 4 || string.IsNullOrWhiteSpace(className))
+            return new();
+
+        var students = allStudents
+            .Where(s => s.Form == form && string.Equals(s.Classroom?.Trim(), className.Trim(), StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (students.Count == 0)
+            return new();
+
+        try
+        {
+            var subjectTasks = students.Select(s => SubjectService.GetForm1to4StudentSubjectsAsync(s.Id));
+            var choices = await Task.WhenAll(subjectTasks);
+            return choices
+                .Where(c => c?.Subjects != null)
+                .SelectMany(c => c!.Subjects)
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(s => s)
+                .ToList();
+        }
+        catch
+        {
+            return new();
+        }
+    }
+
+    private async Task LoadClassesAsync()
+    {
+        AvailableClasses = new();
+        if (setup.FormNumber < 1 || setup.FormNumber > 6) return;
+
+        isLoadingClasses = true;
+        try
+        {
+            switch (setup.Level)
+            {
+                case "form1to4":
+                    var olevelClasses = await OClassService.GetAllOlevelClassNamesAsync();
+                    AvailableClasses = olevelClasses.Select(c => c.ClassName ?? "").Where(c => !string.IsNullOrWhiteSpace(c)).Distinct().OrderBy(c => c).ToList();
+                    break;
+                case "alevel":
+                    var alevelClasses = await AClassService.GetAllAlevelClassNamesAsync();
+                    AvailableClasses = alevelClasses.Select(c => c.ClassName ?? "").Where(c => !string.IsNullOrWhiteSpace(c)).OrderBy(c => c).ToList();
+                    break;
+            }
+        }
+        catch
+        {
+            AvailableClasses = new();
+        }
+        finally { isLoadingClasses = false; }
+    }
+
+    // ── Step 2: assessments loaded from API ──────────────
+    private List<AssignmentModel> MockAssessments = new();
+
+    private async Task LoadAssessmentsAsync()
+    {
+        isLoadingAssessments = true;
+        MockAssessments.Clear();
+        selectedAssessmentId = 0;
+        StateHasChanged();
+        try
+        {
+            var level = setup.Level; // "form1to4" | "alevel"
+            var subject = setup.SubjectName;
+            var field = setup.Field;
+            long idCounter = 1;
+
+            if (setup.AssessmentType == "assignment")
+            {
+                var list = await AssessmentService.GetAssignmentsAsync(level, subject, field);
+                MockAssessments = list?.Select(a => new AssignmentModel
+                {
+                    Id = a.Id ?? 0, RealId = a.Id ?? 0, SubjectId = a.SubjectId ?? 0,
+                    Title = a.Title ?? "Assignment", MaxScore = a.MaxScore, Weight = a.Weight, TeacherId = a.TeacherId
+                }).ToList() ?? new();
+            }
+            else if (setup.AssessmentType == "test")
+            {
+                var list = await AssessmentService.GetTestsAsync(level, subject, field);
+                MockAssessments = list?.Select(t => new AssignmentModel
+                {
+                    Id = t.Id ?? 0, RealId = t.Id ?? 0, SubjectId = t.SubjectId ?? 0,
+                    Title = t.Title ?? "Test", MaxScore = t.MaxScore, Weight = t.Weight, TeacherId = t.TeacherId
+                }).ToList() ?? new();
+            }
+            else
+            {
+                var list = await AssessmentService.GetExamsAsync(level, subject, field);
+                MockAssessments = list?.Select(ex => new AssignmentModel
+                {
+                    Id = ex.Id ?? 0, RealId = ex.Id ?? 0, SubjectId = ex.SubjectId ?? 0,
+                    Title = ex.Title ?? "Exam", MaxScore = ex.MaxScore, Weight = ex.Weight, TeacherId = ex.TeacherId
+                }).ToList() ?? new();
+            }
+
+            MockAssessments = currentTeacherId > 0
+                ? MockAssessments.Where(a => a.TeacherId == currentTeacherId || a.Id == dashboardAssessmentIdToSelect).ToList()
+                : MockAssessments;
+
+            if (dashboardAssessmentIdToSelect > 0 && MockAssessments.Any(a => a.Id == dashboardAssessmentIdToSelect))
+            {
+                selectedAssessmentId = dashboardAssessmentIdToSelect;
+                dashboardAssessmentIdToSelect = 0;
+            }
+        }
+        catch { ShowToast("Could not load assessments", error: true); }
+        finally { isLoadingAssessments = false; StateHasChanged(); }
+    }
+
+    private AssignmentModel? SelectedAssessment =>
+        MockAssessments.FirstOrDefault(a => a.Id == selectedAssessmentId);
+
+    private void SelectAssessment(long id)
+    {
+        selectedAssessmentId = id;
+    }
+
+
+    // ── New assessment form ───────────────────────────────
+    private AssignmentsDTO newAssessment = new() { MaxScore = 100, Weight = 0.50 };
+    private double newAssessmentWeightPercent = 50;
+
+    private async Task CreateAssessment()
+    {
+        if (string.IsNullOrWhiteSpace(newAssessment.Title) || newAssessmentWeightPercent is < 0 or > 100)
+        {
+            ShowToast("Weight must be between 0% and 100%", error: true);
+            return;
+        }
+
+        // Assessments created from the staff portal must always belong to the
+        // logged-in teacher. Previously a missing/unreadable localStorage userId
+        // silently sent teacherId=null, creating records that the dashboard and
+        // Step 2 correctly filtered out.
+        if (currentTeacherId <= 0)
+        {
+            ShowToast("Your teacher profile could not be identified. Please sign in again and retry.", error: true);
+            return;
+        }
+
+        newAssessment.Weight = newAssessmentWeightPercent / 100d;
+        isCreating = true;
+
+        try
+        {
+            // Build clean DTOs without SubjectId — the backend resolves it from subjectName
+            bool ok = (setup.Level, setup.AssessmentType) switch
+            {
+                // A-Level
+                ("alevel", "assignment") => await AssessmentService.AddAlevelAssignmentAsync(setup.SubjectName, new AssignmentsDTO { Title = newAssessment.Title, MaxScore = newAssessment.MaxScore, Weight = newAssessment.Weight, DueDate = GetSelectedTermDate(), TeacherId = currentTeacherId, Term = setup.Term, TermYear = setup.TermYear }),
+                ("alevel", "test")       => await AssessmentService.AddAlevelTestAsync(setup.SubjectName, new TestsDTO { Title = newAssessment.Title, MaxScore = newAssessment.MaxScore, Weight = newAssessment.Weight, TestDate = GetSelectedTermDate(), TeacherId = currentTeacherId, Term = setup.Term, TermYear = setup.TermYear }),
+                ("alevel", "exam")       => await AssessmentService.AddAlevelExamAsync(setup.SubjectName, new ExamsDTO { Title = newAssessment.Title, MaxScore = newAssessment.MaxScore, Weight = newAssessment.Weight, ExamDate = GetSelectedTermDate(), TeacherId = currentTeacherId, Term = setup.Term, TermYear = setup.TermYear }),
+
+                // Unified Forms 1–4
+                ("form1to4", "assignment") => await AssessmentService.AddForm1to4AssignmentAsync(setup.SubjectName, new AssignmentsDTO { Title = newAssessment.Title, MaxScore = newAssessment.MaxScore, Weight = newAssessment.Weight, DueDate = GetSelectedTermDate(), TeacherId = currentTeacherId, Form = setup.FormNumber, ClassName = setup.ClassName, Term = setup.Term, TermYear = setup.TermYear }),
+                ("form1to4", "test")       => await AssessmentService.AddForm1to4TestAsync(setup.SubjectName, new TestsDTO { Title = newAssessment.Title, MaxScore = newAssessment.MaxScore, Weight = newAssessment.Weight, TestDate = GetSelectedTermDate(), TeacherId = currentTeacherId, Form = setup.FormNumber, ClassName = setup.ClassName, Term = setup.Term, TermYear = setup.TermYear }),
+                ("form1to4", "exam")       => await AssessmentService.AddForm1to4ExamAsync(setup.SubjectName, new ExamsDTO { Title = newAssessment.Title, MaxScore = newAssessment.MaxScore, Weight = newAssessment.Weight, ExamDate = GetSelectedTermDate(), TeacherId = currentTeacherId, Form = setup.FormNumber, ClassName = setup.ClassName, Term = setup.Term, TermYear = setup.TermYear }),
+
+                _ => false
+            };
+
+            if (ok)
+            {
+                showNewAssessmentModal = false;
+                newAssessment = new() { MaxScore = 100, Weight = 0.50 };
+                newAssessmentWeightPercent = 50;
+                ShowToast("Assessment created — reloading list…");
+                if (step == 0)
+                {
+                    await LoadDashboardDataAsync();
+                }
+                else
+                {
+                    await LoadAssessmentsAsync();
+                }
+            }
+            else ShowToast("Failed to create assessment", error: true);
+        }
+        catch { ShowToast("Network error — check API connection", error: true); }
+        finally { isCreating = false; }
+    }
+
+    // ── Edit assessment ───────────────────────────────────
+    private bool showEditAssessmentModal = false;
+    private bool isEditing = false;
+    private string editTitle    = "";
+    private double editMaxScore = 100;
+    private double editWeight   = 0.50;
+    private double editWeightPercent = 50;
+    private long? editTeacherId = null;
+    private string editTerm = "Term 1";
+    private int editTermYear = DateTime.Now.Year;
+
+    private void EditAssessment()
+    {
+        if (SelectedAssessment == null) return;
+        editTitle    = SelectedAssessment.Title;
+        editMaxScore = SelectedAssessment.MaxScore;
+        editWeight   = SelectedAssessment.Weight;
+        editWeightPercent = SelectedAssessment.Weight * 100d;
+        // Always use the currently logged-in teacher — never let it be manually overridden
+        editTeacherId = currentTeacherId > 0 ? currentTeacherId : SelectedAssessment.TeacherId;
+        editTerm = string.IsNullOrWhiteSpace(SelectedAssessment.Term) ? setup.Term : SelectedAssessment.Term;
+        editTermYear = SelectedAssessment.TermYear ?? setup.TermYear;
+        showEditAssessmentModal = true;
+    }
+
+    private async Task SaveEditAssessment()
+    {
+        if (SelectedAssessment == null) return;
+        if (editWeightPercent is < 0 or > 100)
+        {
+            ShowToast("Weight must be between 0% and 100%", error: true);
+            return;
+        }
+        editWeight = editWeightPercent / 100d;
+        isEditing = true;
+        try
+        {
+            var realId = SelectedAssessment.RealId;
+            bool ok = setup.AssessmentType switch
+            {
+                "assignment" => await AssessmentService.EditAssignmentAsync(realId, new AssignmentsDTO { Title = editTitle, MaxScore = editMaxScore, Weight = editWeight, TeacherId = editTeacherId, Term = editTerm, TermYear = editTermYear }),
+                "test"       => await AssessmentService.EditTestAsync(realId, new TestsDTO { Title = editTitle, MaxScore = editMaxScore, Weight = editWeight, TeacherId = editTeacherId, Term = editTerm, TermYear = editTermYear }),
+                _            => await AssessmentService.EditExamAsync(realId, new ExamsDTO { Title = editTitle, MaxScore = editMaxScore, Weight = editWeight, TeacherId = editTeacherId, Term = editTerm, TermYear = editTermYear }),
+            };
+            if (ok)
+            {
+                SelectedAssessment.Title    = editTitle;
+                SelectedAssessment.MaxScore = editMaxScore;
+                SelectedAssessment.Weight   = editWeight;
+                SelectedAssessment.TeacherId = editTeacherId;
+                showEditAssessmentModal = false;
+                ShowToast("Assessment updated");
+                if (step == 0)
+                {
+                    await LoadDashboardDataAsync();
+                }
+            }
+            else ShowToast("Update failed", error: true);
+        }
+        catch { ShowToast("Network error", error: true); }
+        finally { isEditing = false; }
+    }
+
+    private async Task SubmitAllMarks()
+    {
+        isSaving = true;
+        int saved = 0, errors = 0;
+        // The marks endpoint groups records by gradedDate. Saving today's date
+        // here made marks entered for an older term disappear from that term's
+        // query. Keep the mark date inside the selected term instead.
+        var today = GetSelectedTermDate();
+        double maxScore = SelectedAssessment?.MaxScore ?? 100.0;
+
+        try
+        {
+            var rowsToSave = markRows.Where(r => r.Score.HasValue && !r.IsApproved && string.IsNullOrWhiteSpace(r.BlockReason)).ToList();
+            if (!rowsToSave.Any())
+            {
+                if (markRows.Any(r => r.IsApproved))
+                    ShowToast("All entered marks are approved by Admin and locked against changes.", error: false);
+                else
+                    ShowToast("No marks to submit.", error: false);
+                return;
+            }
+
+            var newRows = rowsToSave.Where(r => !r.IsExisting).ToList();
+            var editRows = rowsToSave.Where(r => r.IsExisting).ToList();
+
+            if (setup.AssessmentType == "exam")
+            {
+                // ── EXAM: bulk create ────────────────────────────────────────────
+                if (newRows.Any())
+                {
+                    var dtos = newRows.Select(r => new ExamMarkDTO
+                    {
+                        StudentId = r.StudentId,
+                        ExamId = SelectedAssessment!.RealId,
+                        Score = r.Score!.Value,   // raw mark. Backend expects raw mark for exams, not percentage
+                        ActualMark = r.Score!.Value,           // raw mark   → for read-back
+                        MaxScore = maxScore,
+                        Feedback = r.Feedback,
+                        GradedDate = today,
+                        TeacherId = currentTeacherId,
+                        Term = setup.Term, TermYear = setup.TermYear,
+                    }).ToList();
+
+                    var result = await AssessmentService.BulkSetExamMarksAsync(dtos);
+                    if (result == null) errors += newRows.Count;
+                    else saved += result.Count;
+                }
+
+                // ── EXAM: bulk edit ──────────────────────────────────────────────
+                if (editRows.Any())
+                {
+                    var dtos = editRows.Select(r => new ExamMarkDTO
+                    {
+                        Id = r.ExistingId,
+                        StudentId = r.StudentId,
+                        ExamId = SelectedAssessment!.RealId,
+                        Score = r.Score!.Value,   // raw mark; backend converts it to a percentage during edit
+                        ActualMark = r.Score!.Value,
+                        MaxScore = maxScore,
+                        Feedback = r.Feedback,
+                        GradedDate = today,
+                        TeacherId = currentTeacherId,
+                        Term = setup.Term, TermYear = setup.TermYear,
+                    }).ToList();
+
+                    var result = await AssessmentService.BulkEditExamMarksAsync(dtos);
+                    if (result == null) errors += editRows.Count;
+                    else saved += result.Count;
+                }
+            }
+            else
+            {
+                // ── COURSEWORK: bulk create ──────────────────────────────────────
+                if (newRows.Any())
+                {
+                    var dtos = newRows.Select(r => new CourseworkDTO
+                    {
+                        StudentId = r.StudentId,
+                        AssignmentId = setup.AssessmentType == "assignment" ? SelectedAssessment!.RealId : null,
+                        TestId = setup.AssessmentType == "test" ? SelectedAssessment!.RealId : null,
+                        Score = r.Score!.Value,          // backend converts raw mark to percentage
+                        Feedback = r.Feedback,
+                        GradedDate = today,
+                        TeacherId = currentTeacherId,
+                        Term = setup.Term, TermYear = setup.TermYear,
+                    }).ToList();
+
+                    var result = await AssessmentService.BulkSetCourseworkMarksAsync(dtos);
+                    if (result == null) errors += newRows.Count;
+                    else saved += result.Count;
+                }
+
+                // ── COURSEWORK: bulk edit ────────────────────────────────────────
+                if (editRows.Any())
+                {
+                    var dtos = editRows.Select(r => new CourseworkDTO
+                    {
+                        Id = r.ExistingId,   // required — backend looks up by this
+                        StudentId = r.StudentId,
+                        AssignmentId = setup.AssessmentType == "assignment" ? SelectedAssessment!.RealId : null,
+                        TestId = setup.AssessmentType == "test" ? SelectedAssessment!.RealId : null,
+                        Score = r.Score!.Value,          // backend stores coursework as a percentage
+                        Feedback = r.Feedback,
+                        GradedDate = today,
+                        TeacherId = currentTeacherId,
+                        Term = setup.Term, TermYear = setup.TermYear,
+                    }).ToList();
+
+                    var result = await AssessmentService.BulkEditCourseworkMarksAsync(dtos);
+                    if (result == null) errors += editRows.Count;
+                    else saved += result.Count;
+                }
+            }
+
+            // Mark rows as submitted in the UI
+            foreach (var row in rowsToSave)
+                row.Submitted = true;
+
+            ShowToast(errors > 0
+                ? $"{saved} marks saved, {errors} failed"
+                : $"{saved} marks submitted successfully",
+                error: errors > 0);
+
+            if (errors == 0)
+            {
+                step = 0;
+                await LoadDashboardDataAsync();
+            }
+        }
+        finally { isSaving = false; }
+    }
+
+    // ── Step 3: mark rows ────────────────────────────────
+    private class MarkRow
+    {
+        public long    StudentId   { get; set; }
+        public string  StudentName { get; set; } = "";
+        public string  NationalId  { get; set; } = "";
+        /// <summary>Raw mark as entered by the teacher (0 – MaxScore).</summary>
+        public double? Score       { get; set; }
+        public string  Feedback    { get; set; } = "";
+        public bool    IsExisting  { get; set; }
+        public long    ExistingId  { get; set; }
+        public bool    Submitted   { get; set; }
+        public bool    IsApproved  { get; set; }
+        public string  BlockReason { get; set; } = "";
+
+        /// <summary>Live percentage derived from Score / MaxScore * 100 — updated whenever Score changes.</summary>
+        public double? LivePct(double maxScore) =>
+            Score.HasValue && maxScore > 0 ? Score.Value / maxScore * 100.0 : null;
+    }
+
+    private static bool ClassMatchesFormAndName(string? classroom, int form, string selectedClass)
+    {
+        if (string.IsNullOrWhiteSpace(classroom) || string.IsNullOrWhiteSpace(selectedClass))
+            return false;
+
+        static string Normalize(string value) =>
+            new string(value.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
+
+        var actual = Normalize(classroom);
+        var selected = Normalize(selectedClass);
+        var formText = form.ToString();
+
+        // The enrollment service accepts stream-only names and full class codes.
+        if (actual == selected || actual == formText + selected || actual == selected + formText)
+            return true;
+
+        if (actual.StartsWith("form" + formText))
+            actual = actual[("form" + formText).Length..];
+        else if (actual.StartsWith(formText))
+            actual = actual[formText.Length..];
+
+        if (selected.StartsWith("form" + formText))
+            selected = selected[("form" + formText).Length..];
+        else if (selected.StartsWith(formText))
+            selected = selected[formText.Length..];
+
+        return actual == selected;
+    }
+
+    private class AssignmentModel
+    {
+        public long   Id        { get; set; } // used for selection
+        public long   RealId    { get; set; } // actual DB id
+        public long   SubjectId { get; set; }
+        public string Title     { get; set; } = "";
+        public double MaxScore  { get; set; } = 100;
+        public double Weight    { get; set; } = 0.20;
+        public long?  TeacherId { get; set; }
+        public string? Term { get; set; }
+        public int? TermYear { get; set; }
+    }
+
+    private class DashboardAssessmentModel
+    {
+        public long   Id             { get; set; } // used for selection
+        public long   RealId         { get; set; } // actual DB id
+        public long   SubjectId      { get; set; }
+        public string Title          { get; set; } = "";
+        public double MaxScore       { get; set; } = 100;
+        public double Weight         { get; set; } = 0.20;
+        public long?  TeacherId      { get; set; }
+        public string Level          { get; set; } = ""; // "form1to4", "alevel"
+        public string Type           { get; set; } = ""; // "assignment", "test", "exam"
+        public string SubjectName    { get; set; } = "";
+        public string Field          { get; set; } = "";
+        public string Term           { get; set; } = "";
+        public int? TermYear         { get; set; }
+        public int? Form             { get; set; }
+        public string? ClassName     { get; set; }
+        public double? AverageScore  { get; set; }
+        public int    GradedCount    { get; set; }
+        public int    TotalCount     { get; set; }
+        public double PassRate       { get; set; }
+        public HashSet<string> Classrooms { get; set; } = new();
+    }
+
+    private List<MarkRow> markRows = new();
+
+    /// <summary>
+    /// Loads students eligible for the selected subject and class.
+    /// Uses GetStudentsAsync (all pages) for all levels — avoids unreliable level-specific endpoints.
+    /// A-Level additionally cross-references subject choices.
+    /// </summary>
+    private async Task<HashSet<long>> GetAssessmentStudentIdsAsync()
+    {
+        if (SelectedAssessment == null || SelectedAssessment.RealId <= 0)
+            return new HashSet<long>();
+
+        try
+        {
+            if (setup.AssessmentType == "exam")
+            {
+                var marks = await AssessmentService.GetMarksByExamAsync(SelectedAssessment.RealId);
+                return marks?.Select(m => m.StudentId).ToHashSet() ?? new HashSet<long>();
+            }
+
+            var coursework = setup.AssessmentType == "assignment"
+                ? await AssessmentService.GetMarksByAssignmentAsync(SelectedAssessment.RealId)
+                : await AssessmentService.GetMarksByTestAsync(SelectedAssessment.RealId);
+            return coursework?.Select(m => m.StudentId).ToHashSet() ?? new HashSet<long>();
+        }
+        catch
+        {
+            // The saved assessment context remains the fallback for a new
+            // assessment or when its marks endpoint has no rows yet.
+            return new HashSet<long>();
+        }
+    }
+
+    private async Task LoadStudentsAsync()
+    {
+        isLoadingStudents = true;
+        markRows.Clear();
+        StateHasChanged();
+        try
+        {
+            // Single source of truth: paginated GetStudentsAsync (now fetches all pages)
+            var all = await StudentProfileService.GetStudentsAsync();
+
+            // Match Teacher Analytics: when marks already exist, resolve the
+            // cohort from the students attached to those marks rather than
+            // relying on stale card/filter context.
+            var markedStudentIds = await GetAssessmentStudentIdsAsync();
+            if (markedStudentIds.Count > 0)
+            {
+                var markedStudents = all.Where(s => markedStudentIds.Contains((long)s.Id)).ToList();
+                var resolvedForm = markedStudents
+                    .Where(s => s.Form.HasValue)
+                    .GroupBy(s => s.Form!.Value)
+                    .OrderByDescending(g => g.Count())
+                    .Select(g => (int?)g.Key)
+                    .FirstOrDefault();
+                if (resolvedForm.HasValue)
+                    setup.FormNumber = resolvedForm.Value;
+
+                var resolvedClass = markedStudents
+                    .Where(s => !string.IsNullOrWhiteSpace(s.Classroom))
+                    .GroupBy(s => s.Classroom!.Trim(), StringComparer.OrdinalIgnoreCase)
+                    .OrderByDescending(g => g.Count())
+                    .Select(g => g.Key)
+                    .FirstOrDefault();
+                if (!string.IsNullOrWhiteSpace(resolvedClass))
+                    setup.ClassName = resolvedClass;
+            }
+
+            // Filter by the selected form and normalize the supported classroom formats
+            // (A, 1A, 1-A, and Form 1 A) before applying the class boundary.
+            var formStudents = all.Where(s => s.Form.GetValueOrDefault(0) == setup.FormNumber);
+
+            // Further narrow by class if one was selected
+            if (!string.IsNullOrWhiteSpace(setup.ClassName))
+                formStudents = formStudents.Where(s => ClassMatchesFormAndName(s.Classroom, setup.FormNumber, setup.ClassName));
+
+            var eligibleStudents = formStudents.ToList();
+            var effectiveSubjectsByStudent = new Dictionary<long, HashSet<string>>();
+
+            if (setup.FormNumber is >= 1 and <= 4)
+            {
+                // Class subjects are the default. Only an explicitly saved student
+                // choice list can remove a subject for that student.
+                var classSetup = await SubjectService.GetForm1to4ClassSubjectsAsync(setup.FormNumber, setup.ClassName);
+                var classSubjects = new HashSet<string>(classSetup?.Subjects ?? new(), StringComparer.OrdinalIgnoreCase);
+                var subjectTasks = eligibleStudents.ToDictionary(
+                    s => (long)s.Id,
+                    s => SubjectService.GetForm1to4StudentSubjectsAsync(s.Id));
+                await Task.WhenAll(subjectTasks.Values);
+
+                foreach (var student in eligibleStudents)
+                {
+                    var saved = subjectTasks.TryGetValue(student.Id, out var task) ? task.Result : null;
+                    effectiveSubjectsByStudent[student.Id] = new HashSet<string>(
+                        saved?.Subjects?.Any() == true ? saved.Subjects : classSubjects,
+                        StringComparer.OrdinalIgnoreCase);
+                }
+            }
+
+            if (setup.Level == "alevel")
+            {
+                // A-Level: only students who have this subject in their subject choices
+                var choices = await SubjectService.GetStudentALevelSubjectChoicesAsync();
+                var eligible = choices
+                    .Where(c => c.Subjects != null && c.Subjects.Any(sub =>
+                        string.Equals(sub, setup.SubjectName, StringComparison.OrdinalIgnoreCase)))
+                    .Select(c => c.StudentId)
+                    .ToHashSet();
+
+                eligibleStudents = eligibleStudents.Where(s => eligible.Contains((long)s.Id)).ToList();
+            }
+            markRows = eligibleStudents.Select(s => new MarkRow
+            {
+                StudentId   = s.Id,
+                StudentName = $"{s.FirstName} {s.LastName}".Trim(),
+                NationalId  = s.NationalId ?? "",
+                BlockReason = effectiveSubjectsByStudent.TryGetValue(s.Id, out var subjects) &&
+                              !subjects.Contains(setup.SubjectName)
+                    ? "Student opted out of this subject"
+                    : ""
+            }).ToList();
+
+            // ── Pre-load existing marks so the table is never empty ─────────────
+            if (SelectedAssessment != null)
+            {
+                if (setup.AssessmentType == "exam")
+                {
+                    var existing = await AssessmentService.GetMarksByExamAsync(SelectedAssessment.RealId);
+                    if (existing != null && existing.Any())
+                    {
+                        var dict = existing.GroupBy(m => m.StudentId).ToDictionary(g => g.Key, g => g.First());
+                        foreach (var row in markRows)
+                        {
+                            if (dict.TryGetValue(row.StudentId, out var hit))
+                            {
+                                // Prefer actualMark (raw) from the DTO; fall back to reverse-calculating
+                                // from the percentage score only if actualMark is zero (legacy records).
+                                row.Score = hit.ActualMark > 0
+                                    ? Math.Round(hit.ActualMark, 2)
+                                    : (hit.Score.HasValue && SelectedAssessment.MaxScore > 0
+                                        ? Math.Round(hit.Score.Value / 100.0 * SelectedAssessment.MaxScore, 2)
+                                        : null);
+                                row.Feedback   = hit.Feedback ?? "";
+                                row.IsExisting = true;
+                                row.ExistingId = hit.Id ?? 0;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    List<CourseworkDTO>? existing = setup.AssessmentType == "assignment"
+                        ? await AssessmentService.GetMarksByAssignmentAsync(SelectedAssessment.RealId)
+                        : await AssessmentService.GetMarksByTestAsync(SelectedAssessment.RealId);
+
+                    if (existing != null && existing.Any())
+                    {
+                        var dict = existing.GroupBy(m => m.StudentId).ToDictionary(g => g.Key, g => g.First());
+                        foreach (var row in markRows)
+                        {
+                            if (dict.TryGetValue(row.StudentId, out var hit))
+                            {
+                                // Score on CourseworkDTO is a percentage (0–100); convert back to raw mark.
+                                row.Score = hit.Score.HasValue && SelectedAssessment.MaxScore > 0
+                                    ? Math.Round(hit.Score.Value / 100.0 * SelectedAssessment.MaxScore, 2)
+                                    : null;
+                                row.Feedback   = hit.Feedback ?? "";
+                                row.IsExisting = true;
+                                row.ExistingId = hit.Id ?? 0;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Check if marks for this term are already approved by admin ─────
+            try
+            {
+                var reportCardTasks = markRows.Select(async r =>
+                {
+                    try
+                    {
+                        var cards = await AssessmentService.GetStudentReportCardsAsync(r.StudentId);
+                        var cardForTerm = cards?.FirstOrDefault(c =>
+                            string.Equals(c.Term, setup.Term, StringComparison.OrdinalIgnoreCase) &&
+                            c.TermYear == setup.TermYear);
+                        if (cardForTerm?.AdminApproved == true)
+                        {
+                            r.IsApproved = true;
+                            if (string.IsNullOrWhiteSpace(r.BlockReason))
+                                r.BlockReason = "Marks approved by Admin — locked";
+                        }
+                    }
+                    catch { }
+                }).ToList();
+                await Task.WhenAll(reportCardTasks);
+            }
+            catch { }
+
+            if (!markRows.Any())
+                ShowToast("No students matched this form and class.", error: false);
+        }
+        catch (Exception) { ShowToast("Could not load students.", error: true); }
+        finally { isLoadingStudents = false; StateHasChanged(); }
+    }
+
+    // ── Toast helper ─────────────────────────────────────
+    private async void ShowToast(string msg, bool error = false)
+    {
+        _toastCts?.Cancel();
+        toastMsg = msg;
+        toastIsError = error;
+        StateHasChanged();
+        _toastCts = new System.Threading.CancellationTokenSource();
+        try
+        {
+            await Task.Delay(3500, _toastCts.Token);
+            toastMsg = "";
+            StateHasChanged();
+        }
+        catch (TaskCanceledException) { }
+    }
+
+    private bool IsInTerm(DateOnly date, string term)
+    {
+        var (s, e) = GradeHelper.TermMonthRange(term);
+        int m = date.Month;
+        return s <= e ? (m >= s && m <= e) : (m >= s || m <= e);
+    }
+
+    private DateOnly GetSelectedTermDate()
+    {
+        var (startMonth, _) = GradeHelper.TermMonthRange(setup.Term);
+        return new DateOnly(setup.TermYear, startMonth, 1);
+    }
+}

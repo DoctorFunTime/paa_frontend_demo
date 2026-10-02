@@ -1,0 +1,977 @@
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@using paa_frontend.Client.Services.StudentPass
+@using paa_frontend.Shared.Models.Finance
+@using paa_frontend.Shared.Models.StudentPassScanner
+@inject FinancePassServiceClient FinanceService
+@inject IJSRuntime JS
+@implements IDisposable
+
+<PageTitle>Pass Scanner</PageTitle>
+
+<div class="sp-root">
+
+    @* ── Top bar ──────────────────────────────────────────────────────── *@
+    <header class="sp-topbar">
+        <div class="sp-brand">
+            <div class="sp-logo-mark">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="1.5" />
+                    <circle cx="10" cy="10" r="5" stroke="currentColor" stroke-width="1.5" />
+                    <circle cx="10" cy="10" r="1.5" fill="currentColor" />
+                </svg>
+            </div>
+            <span class="sp-scanner-title">NFC Pass Scanner</span>
+        </div>
+        <div class="sp-context-wrap">
+            <label class="sp-context-label">Context</label>
+            <select @bind="selectedContext" class="sp-context-select">
+                <option value="FEES">Fees only</option>
+                <option value="FEES,LIBRARY">Fees + Library</option>
+                @foreach (var evt in activeEvents)
+                {
+                    <option value="FEES,@evt.Code">Fees + @evt.Name</option>
+                }
+            </select>
+        </div>
+    </header>
+
+    @* ── Scanner canvas ───────────────────────────────────────────────── *@
+    <div class="sp-canvas">
+
+        @* animated background grid *@
+        <div class="sp-grid" aria-hidden="true"></div>
+
+        @* NFC ring *@
+        <div class="sp-ring-wrap">
+            <div class="sp-ring-outer @nfcRingClass">
+                <div class="sp-ring-mid">
+                    <div class="sp-ring-inner">
+                        @if (isVerifying)
+                        {
+                            <svg class="sp-spinner" viewBox="0 0 40 40" fill="none">
+                                <circle cx="20" cy="20" r="16" stroke="var(--ring-color)" stroke-width="3" stroke-dasharray="60 40" stroke-linecap="round" />
+                            </svg>
+                        }
+                        else if (lastResult != null)
+                        {
+                            @if (lastResult.Allowed)
+                            {
+                                <svg class="sp-verdict-icon" viewBox="0 0 40 40" fill="none">
+                                    <polyline points="10,21 17,28 30,13" stroke="var(--ring-color)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            }
+                            else
+                            {
+                                <svg class="sp-verdict-icon" viewBox="0 0 40 40" fill="none">
+                                    <line x1="12" y1="12" x2="28" y2="28" stroke="var(--ring-color)" stroke-width="3" stroke-linecap="round" />
+                                    <line x1="28" y1="12" x2="12" y2="28" stroke="var(--ring-color)" stroke-width="3" stroke-linecap="round" />
+                                </svg>
+                            }
+                        }
+                        else
+                        {
+                            <svg class="sp-nfc-icon" viewBox="0 0 40 40" fill="none">
+                                <path d="M20 8 C12 8 6 14 6 20" stroke="var(--ring-color)" stroke-width="2.2" stroke-linecap="round" opacity=".35" />
+                                <path d="M20 8 C28 8 34 14 34 20" stroke="var(--ring-color)" stroke-width="2.2" stroke-linecap="round" opacity=".35" />
+                                <path d="M20 13 C15 13 11 16.5 11 20" stroke="var(--ring-color)" stroke-width="2.2" stroke-linecap="round" opacity=".6" />
+                                <path d="M20 13 C25 13 29 16.5 29 20" stroke="var(--ring-color)" stroke-width="2.2" stroke-linecap="round" opacity=".6" />
+                                <circle cx="20" cy="20" r="3" fill="var(--ring-color)" />
+                            </svg>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* status label *@
+        <p class="sp-status-label">
+            @if (isVerifying)
+            {
+                <span>Checking card…</span>
+            }
+            else if (lastResult != null)
+            {
+                <span class="@(lastResult.Allowed ? "label-ok" : "label-err")">
+                    @(lastResult.Allowed ? "Access granted" : "Access denied")
+                </span>
+            }
+            else
+            {
+                <span>Tap or scan a student card</span>
+            }
+        </p>
+
+    </div>
+
+    @* ── Controls ─────────────────────────────────────────────────────── *@
+    <div class="sp-controls">
+        @if (webNfcSupported)
+        {
+            @if (isWebNfcActive)
+            {
+                <button class="sp-btn sp-btn-danger" @onclick="StopWebNfcAsync">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <rect x="3" y="3" width="10" height="10" rx="1" fill="currentColor"/>
+                    </svg>
+                    Stop Scanning
+                </button>
+            }
+            else
+            {
+                <button class="sp-btn sp-btn-primary" @onclick="StartWebNfcAsync">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <circle cx="8" cy="8" r="3" fill="currentColor" />
+                        <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5" />
+                    </svg>
+                    Start Scanning
+                </button>
+            }
+        }
+    </div>
+
+    @* NFC support note *@
+    @if (!webNfcSupported)
+    {
+        <p class="sp-hint">Phone NFC requires Chrome on Android over HTTPS.</p>
+    }
+
+    @* ── Result card ──────────────────────────────────────────────────── *@
+    @if (lastResult != null)
+    {
+        <div class="sp-result @(lastResult.Allowed ? "result-ok" : "result-err")">
+            <div class="sp-result-left">
+                <div class="sp-student-avatar">
+                    @(lastResult.StudentId.HasValue ? (lastResult.StudentId.Value.ToString().Length > 1 ? lastResult.StudentId.Value.ToString()[^2..] : lastResult.StudentId.Value.ToString()) : "?")
+                </div>
+                <div>
+                    <p class="sp-result-name">
+                        @(lastResult.StudentId.HasValue ? $"Student {lastResult.StudentId.Value}" : "Unknown Card")
+                    </p>
+                    <p class="sp-result-nfc">
+                        @ReasonToMessage(lastResult.Reason)
+                    </p>
+                </div>
+            </div>
+            <div class="sp-result-right">
+                <span class="sp-verdict-badge">@(lastResult.Allowed ? "ALLOWED" : "DENIED")</span>
+            </div>
+        </div>
+    }
+
+    @* ── Recent scans ─────────────────────────────────────────────────── *@
+    @if (scanHistory.Count > 0)
+    {
+        <section class="sp-history">
+            <div class="sp-history-hdr">
+                <span>Recent scans</span>
+                <button class="sp-clear-btn" @onclick="() => scanHistory.Clear()">Clear</button>
+            </div>
+            <div class="sp-history-list">
+                @foreach (var entry in scanHistory.Take(12))
+                {
+                    <div class="sp-hitem @(entry.Allowed ? "hi-ok" : "hi-err")">
+                        <div class="sp-hdot"></div>
+                        <span class="sp-hname">@(entry.Label)</span>
+                        <span class="sp-hmsg">@(entry.Allowed ? "Allowed" : ReasonToMessage(entry.Reason))</span>
+                        <span class="sp-htime">@entry.At.ToString("HH:mm:ss")</span>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+
+    @* ── Error banner ─────────────────────────────────────────────────── *@
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="sp-error">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5" /><path d="M8 5v3.5M8 11v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
+            <span>@errorMessage</span>
+            <button @onclick="() => errorMessage = string.Empty">✕</button>
+        </div>
+    }
+</div>
+
+<style>
+    /* ── Tokens ──────────────────────────────────────────────────────── */
+    :root {
+        --sp-bg: transparent;
+        --sp-surface: rgba(255,255,255,0.55);
+        --sp-surface-hover: rgba(255,255,255,0.72);
+        --sp-border: rgba(0,0,0,0.08);
+        --sp-border-strong: rgba(0,0,0,0.14);
+        --sp-text: #1a1d27;
+        --sp-muted: #6b7280;
+        --sp-accent: #3b82f6;
+        --sp-accent-soft: rgba(59,130,246,0.12);
+        --sp-ok: #16a34a;
+        --sp-ok-soft: rgba(22,163,74,0.1);
+        --sp-err: #dc2626;
+        --sp-err-soft: rgba(220,38,38,0.1);
+        --sp-warn: #d97706;
+        --sp-shadow: 0 2px 16px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.04);
+        --sp-shadow-lg: 0 8px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04);
+        --sp-font: 'DM Sans', 'Outfit', system-ui, sans-serif;
+        --sp-mono: 'DM Mono', 'JetBrains Mono', monospace;
+        --ring-color: var(--sp-muted);
+    }
+
+    /* ── Layout ──────────────────────────────────────────────────────── */
+    .sp-root {
+        max-width: 480px;
+        margin: 0 auto;
+        padding: 1.25rem 1rem 3rem;
+        font-family: var(--sp-font);
+        color: var(--sp-text);
+        background: transparent;
+        min-height: 100dvh;
+    }
+
+    /* ── Top bar ─────────────────────────────────────────────────────── */
+    .sp-topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+    }
+
+    .sp-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+    }
+
+    .sp-logo-mark {
+        width: 32px;
+        height: 32px;
+        background: rgba(255,255,255,0.7);
+        border: 1px solid var(--sp-border-strong);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--sp-accent);
+        box-shadow: var(--sp-shadow);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+
+    .sp-scanner-title {
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: var(--sp-text);
+        letter-spacing: -0.01em;
+    }
+
+    .sp-context-wrap {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .sp-context-label {
+        font-size: 0.75rem;
+        color: var(--sp-muted);
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+
+    .sp-context-select {
+        background: rgba(255,255,255,0.7);
+        border: 1px solid var(--sp-border-strong);
+        color: var(--sp-text);
+        border-radius: 8px;
+        padding: 0.4rem 0.7rem;
+        font-size: 0.82rem;
+        font-family: var(--sp-font);
+        outline: none;
+        cursor: pointer;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        box-shadow: var(--sp-shadow);
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+        .sp-context-select:focus {
+            border-color: var(--sp-accent);
+            box-shadow: 0 0 0 3px var(--sp-accent-soft), var(--sp-shadow);
+        }
+
+    /* ── Scanner canvas ──────────────────────────────────────────────── */
+    .sp-canvas {
+        position: relative;
+        background: rgba(255,255,255,0.5);
+        border: 1px solid var(--sp-border);
+        border-radius: 24px;
+        padding: 2.5rem 1rem 2rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        overflow: hidden;
+        margin-bottom: 1rem;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        box-shadow: var(--sp-shadow-lg), inset 0 1px 0 rgba(255,255,255,0.8);
+    }
+
+    /* subtle dot-grid background */
+    .sp-grid {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        background-image: radial-gradient(circle, rgba(0,0,0,0.06) 1px, transparent 1px);
+        background-size: 24px 24px;
+        pointer-events: none;
+    }
+
+    /* ── NFC Ring ────────────────────────────────────────────────────── */
+    .sp-ring-wrap {
+        position: relative;
+        z-index: 1;
+    }
+
+    .sp-ring-outer {
+        width: 176px;
+        height: 176px;
+        border-radius: 50%;
+        border: 2px solid var(--sp-border-strong);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: border-color 0.35s, box-shadow 0.35s;
+        --ring-color: var(--sp-muted);
+        margin: 1rem 0;
+    }
+
+    .sp-ring-mid {
+        width: 136px;
+        height: 136px;
+        border-radius: 50%;
+        border: 1.5px solid var(--sp-border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: border-color 0.35s;
+    }
+
+    .sp-ring-inner {
+        width: 96px;
+        height: 96px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.7);
+        border: 1.5px solid var(--sp-border-strong);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: border-color 0.35s, background 0.35s;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        box-shadow: var(--sp-shadow);
+    }
+
+    /* idle — pulsing */
+    .ring-idle {
+        --ring-color: var(--sp-muted);
+        animation: ring-breathe 3s ease-in-out infinite;
+    }
+
+    /* active scanning */
+    .ring-active {
+        --ring-color: var(--sp-accent);
+        border-color: var(--sp-accent);
+        box-shadow: 0 0 0 8px rgba(59,130,246,.1), 0 0 0 20px rgba(59,130,246,.05);
+    }
+
+        .ring-active .sp-ring-mid {
+            border-color: rgba(59,130,246,.4);
+        }
+
+        .ring-active .sp-ring-inner {
+            border-color: rgba(59,130,246,.3);
+            background: rgba(239,246,255,0.8);
+        }
+
+    /* allowed */
+    .ring-ok {
+        --ring-color: var(--sp-ok);
+        border-color: var(--sp-ok);
+        box-shadow: 0 0 0 8px rgba(22,163,74,.12), 0 0 0 20px rgba(22,163,74,.05);
+    }
+
+        .ring-ok .sp-ring-mid {
+            border-color: rgba(22,163,74,.4);
+        }
+
+        .ring-ok .sp-ring-inner {
+            border-color: rgba(22,163,74,.3);
+            background: rgba(240,253,244,0.85);
+        }
+
+    /* denied */
+    .ring-err {
+        --ring-color: var(--sp-err);
+        border-color: var(--sp-err);
+        box-shadow: 0 0 0 8px rgba(220,38,38,.12), 0 0 0 20px rgba(220,38,38,.05);
+    }
+
+        .ring-err .sp-ring-mid {
+            border-color: rgba(220,38,38,.4);
+        }
+
+        .ring-err .sp-ring-inner {
+            border-color: rgba(220,38,38,.3);
+            background: rgba(255,241,242,0.85);
+        }
+
+    .sp-nfc-icon {
+        width: 40px;
+        height: 40px;
+    }
+
+    .sp-spinner {
+        width: 40px;
+        height: 40px;
+        animation: spin 0.9s linear infinite;
+    }
+
+    .sp-verdict-icon {
+        width: 40px;
+        height: 40px;
+        animation: pop-in 0.25s ease-out;
+    }
+
+    /* status text */
+    .sp-status-label {
+        position: relative;
+        z-index: 1;
+        margin-top: 1.5rem;
+        font-size: 0.88rem;
+        color: var(--sp-muted);
+        letter-spacing: 0.02em;
+        text-align: center;
+        margin-bottom: 0;
+    }
+
+    .label-ok {
+        color: var(--sp-ok);
+        font-weight: 600;
+    }
+
+    .label-err {
+        color: var(--sp-err);
+        font-weight: 600;
+    }
+
+    /* ── Controls ────────────────────────────────────────────────────── */
+    .sp-controls {
+        display: flex;
+        justify-content: center;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.75rem;
+    }
+
+    .sp-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        border: none;
+        border-radius: 999px;
+        font-family: var(--sp-font);
+        font-size: 0.82rem;
+        font-weight: 600;
+        padding: 0.55rem 1.25rem;
+        cursor: pointer;
+        transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+    }
+
+        .sp-btn:active {
+            transform: scale(0.97);
+        }
+
+        .sp-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+    .sp-btn-primary {
+        background: var(--sp-accent);
+        color: #fff;
+        box-shadow: 0 2px 8px rgba(59,130,246,.3);
+    }
+
+        .sp-btn-primary:not(:disabled):hover {
+            box-shadow: 0 4px 14px rgba(59,130,246,.4);
+        }
+
+    .sp-btn-danger {
+        background: rgba(220,38,38,.08);
+        color: var(--sp-err);
+        border: 1px solid rgba(220,38,38,.2);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+
+        .sp-btn-danger:hover {
+            background: rgba(220,38,38,.14);
+        }
+
+    .sp-hint {
+        font-size: 0.76rem;
+        color: var(--sp-muted);
+        margin: 0 0 1rem;
+        line-height: 1.5;
+        text-align: center;
+    }
+
+    /* ── Result card ─────────────────────────────────────────────────── */
+    .sp-result {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        border-radius: 16px;
+        padding: 1rem 1.1rem;
+        margin: 0.5rem 0 1rem;
+        animation: slide-up 0.25s ease-out;
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        box-shadow: var(--sp-shadow-lg);
+    }
+
+    .result-ok {
+        background: rgba(240,253,244,0.75);
+        border: 1px solid rgba(22,163,74,.25);
+    }
+
+    .result-err {
+        background: rgba(255,241,242,0.75);
+        border: 1px solid rgba(220,38,38,.25);
+    }
+
+    .sp-result-left {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .sp-student-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.8);
+        border: 1.5px solid var(--sp-border-strong);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.78rem;
+        font-weight: 700;
+        font-family: var(--sp-mono);
+        color: var(--sp-muted);
+        flex-shrink: 0;
+        box-shadow: var(--sp-shadow);
+    }
+
+    .sp-result-name {
+        margin: 0 0 0.15rem;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--sp-text);
+    }
+
+    .sp-result-nfc {
+        margin: 0;
+        font-size: 0.72rem;
+        font-family: var(--sp-mono);
+        color: var(--sp-muted);
+    }
+
+    .sp-result-right {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.3rem;
+        flex-shrink: 0;
+    }
+
+    .sp-verdict-badge {
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        padding: 0.2rem 0.65rem;
+        border-radius: 999px;
+    }
+
+    .result-ok .sp-verdict-badge {
+        background: rgba(22,163,74,.15);
+        color: #15803d;
+        border: 1px solid rgba(22,163,74,.25);
+    }
+
+    .result-err .sp-verdict-badge {
+        background: rgba(220,38,38,.12);
+        color: #b91c1c;
+        border: 1px solid rgba(220,38,38,.2);
+    }
+
+    /* ── History ─────────────────────────────────────────────────────── */
+    .sp-history {
+        margin-top: 1.5rem;
+    }
+
+    .sp-history-hdr {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.6rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--sp-muted);
+    }
+
+    .sp-clear-btn {
+        background: none;
+        border: none;
+        color: var(--sp-muted);
+        font-size: 0.72rem;
+        cursor: pointer;
+        font-family: var(--sp-font);
+        text-decoration: underline;
+        padding: 0;
+        transition: color 0.15s;
+    }
+
+        .sp-clear-btn:hover {
+            color: var(--sp-err);
+        }
+
+    .sp-history-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+
+    .sp-hitem {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        padding: 0.6rem 0.8rem;
+        border-radius: 10px;
+        background: rgba(255,255,255,0.55);
+        border: 1px solid var(--sp-border);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        box-shadow: var(--sp-shadow);
+        transition: background 0.15s;
+    }
+
+        .sp-hitem:hover {
+            background: rgba(255,255,255,0.72);
+        }
+
+    .sp-hdot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .hi-ok .sp-hdot {
+        background: var(--sp-ok);
+        box-shadow: 0 0 4px rgba(22,163,74,.5);
+    }
+
+    .hi-err .sp-hdot {
+        background: var(--sp-err);
+        box-shadow: 0 0 4px rgba(220,38,38,.5);
+    }
+
+    .sp-hname {
+        font-size: 0.82rem;
+        font-weight: 600;
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--sp-text);
+    }
+
+    .sp-hmsg {
+        font-size: 0.72rem;
+        color: var(--sp-muted);
+        flex: 1.5;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .hi-err .sp-hmsg {
+        color: var(--sp-err);
+    }
+
+    .sp-htime {
+        font-size: 0.7rem;
+        color: var(--sp-muted);
+        flex-shrink: 0;
+        font-family: var(--sp-mono);
+    }
+
+    /* ── Error banner ────────────────────────────────────────────────── */
+    .sp-error {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        background: rgba(255,251,235,0.8);
+        border: 1px solid rgba(217,119,6,.25);
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        font-size: 0.82rem;
+        color: var(--sp-warn);
+        margin-top: 1rem;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        box-shadow: var(--sp-shadow);
+    }
+
+        .sp-error span {
+            flex: 1;
+        }
+
+        .sp-error button {
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 0;
+            opacity: 0.7;
+        }
+
+            .sp-error button:hover {
+                opacity: 1;
+            }
+
+    /* ── Keyframes ───────────────────────────────────────────────────── */
+    @@keyframes ring-breathe {
+        0%, 100% {
+            box-shadow: none;
+        }
+
+        50% {
+            box-shadow: 0 0 0 6px rgba(0,0,0,.03), 0 0 0 14px rgba(0,0,0,.015);
+        }
+    }
+
+    @@keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    @@keyframes pop-in {
+        from {
+            transform: scale(0.6);
+            opacity: 0;
+        }
+
+        to {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+
+    @@keyframes slide-up {
+        from {
+            transform: translateY(8px);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    @@keyframes blink {
+        0%, 100% {
+            opacity: 1;
+        }
+
+        50% {
+            opacity: 0.3;
+        }
+    }
+
+    /* ── Responsive ──────────────────────────────────────────────────── */
+    @@media (max-width: 420px) {
+        .sp-topbar {
+            gap: 0.75rem;
+        }
+
+        .sp-ring-outer {
+            width: 156px;
+            height: 156px;
+        }
+
+        .sp-ring-mid {
+            width: 118px;
+            height: 118px;
+        }
+
+        .sp-ring-inner {
+            width: 80px;
+            height: 80px;
+        }
+    }
+</style>
+
+@code {
+    // ── Events / context ────────────────────────────────────────────────
+    private List<EntitlementEvent> activeEvents = new();
+    private string selectedContext = "FEES";
+
+    // ── Mode / state ────────────────────────────────────────────────────
+    private bool isVerifying;
+    private bool webNfcSupported;
+    private bool isWebNfcActive;
+    private string nfcRingClass = "ring-idle";
+
+    // ── Results ─────────────────────────────────────────────────────────
+    private FinanceValidationResult? lastResult;
+    private string errorMessage = string.Empty;
+
+    // ── DotNetReference ──────────────────────────────────────────────────
+    private DotNetObjectReference<StudentPassScanner>? scannerReference;
+
+    // ── History ──────────────────────────────────────────────────────────
+    private record ScanEntry(string Label, bool Allowed, string Reason, DateTime At);
+    private readonly List<ScanEntry> scanHistory = new();
+
+    // ── Lifecycle ────────────────────────────────────────────────────────
+
+    protected override void OnInitialized()
+    {
+        scannerReference = DotNetObjectReference.Create(this);
+        activeEvents = new();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        webNfcSupported = await JS.InvokeAsync<bool>("studentPassScanner.isWebNfcSupported");
+        if (webNfcSupported)
+        {
+            await StartWebNfcAsync();
+        }
+        StateHasChanged();
+    }
+
+    // ── NFC Scanning Controls ────────────────────────────────────────────
+
+    private async Task StartWebNfcAsync()
+    {
+        errorMessage = string.Empty;
+        if (!webNfcSupported)
+        {
+            errorMessage = "Web NFC is not supported on this device/browser.";
+            return;
+        }
+
+        try
+        {
+            await JS.InvokeVoidAsync("studentPassScanner.startWebNfc", scannerReference);
+            isWebNfcActive = true;
+            nfcRingClass = "ring-idle";
+        }
+        catch (JSException ex)
+        {
+            errorMessage = ex.Message;
+            isWebNfcActive = false;
+        }
+        StateHasChanged();
+    }
+
+    private async Task StopWebNfcAsync()
+    {
+        if (isWebNfcActive)
+            await JS.InvokeVoidAsync("studentPassScanner.stopWebNfc");
+
+        isWebNfcActive = false;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public Task ReceiveNfcCode(string nfcCode) => ProcessScanAsync(nfcCode);
+
+    // ── Core verification: calls finance backend ─────────────────────────
+
+    public async Task ProcessScanAsync(string nfcCode)
+    {
+        if (isVerifying || string.IsNullOrWhiteSpace(nfcCode)) return;
+
+        isVerifying = true;
+        nfcRingClass = "ring-active";
+        lastResult = null;
+        errorMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var result = await FinanceService.ValidateCardAsync(nfcCode.Trim());
+
+            if (result == null)
+            {
+                errorMessage = $"No finance validation response for card {nfcCode}.";
+                nfcRingClass = "ring-idle";
+                return;
+            }
+
+            lastResult = result;
+            nfcRingClass = result.Allowed ? "ring-ok" : "ring-err";
+
+            var label = result.StudentId.HasValue ? $"Student {result.StudentId.Value}" : nfcCode;
+            scanHistory.Insert(0, new ScanEntry(label, result.Allowed, result.Reason, DateTime.Now));
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Verification failed: {ex.Message}";
+            nfcRingClass = "ring-idle";
+        }
+        finally
+        {
+            isVerifying = false;
+            StateHasChanged();
+
+            // Hold result on screen for 4 s then reset
+            await Task.Delay(4000);
+            lastResult = null;
+            nfcRingClass = "ring-idle";
+            StateHasChanged();
+        }
+    }
+
+    // ── Reason mapping ───────────────────────────────────────────────────
+
+    private string ReasonToMessage(string reason) => reason switch
+    {
+        "No account associated with this card" => "Card not registered in finance.",
+        "Account is blocked" => "Account suspended. See finance office.",
+        "Insufficient funds" => "Outstanding fees owed.",
+        "Special pass already scanned today" => "Special pass already used today.",
+        "Pass already scanned today" => "Already scanned today.",
+        "Validation could not be completed" => "Validation error. Contact admin.",
+        _ when reason.StartsWith("Special pass accepted:") => reason,
+        _ => reason
+    };
+
+    public void Dispose() => scannerReference?.Dispose();
+}

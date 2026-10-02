@@ -1,0 +1,17 @@
+@inject NavigationManager Navigation
+@inject paa_frontend.Client.Services.Auth.AuthService Auth
+@inject paa_frontend.Client.Services.Demo.DemoStore Store
+<div class="demo-toolbar" role="region" aria-label="Demo controls">
+    <strong>DEMO</strong><span>Fictional data · Changes reset on refresh</span>
+    <button @onclick="SwitchRole">Switch role</button><button @onclick="Reset">Reset demo</button>
+</div>
+<style>
+.demo-toolbar { position:fixed;bottom:8px;left:50%;transform:translateX(-50%);z-index:99999;display:flex;align-items:center;gap:12px;padding:10px 16px;background:#172033;color:white;border-radius:14px;font:12px system-ui;box-shadow:0 5px 24px #0003;max-width:calc(100vw - 16px); }
+.demo-toolbar strong {color:#a5b4fc}.demo-toolbar button{border:1px solid #64748b;border-radius:8px;padding:6px 10px;color:white;background:transparent;white-space:nowrap;cursor:pointer}
+@@media(max-width:600px){.demo-toolbar span{display:none}}
+@@media print{.demo-toolbar{display:none}}
+</style>
+@code {
+    private async Task SwitchRole() { await Auth.LogoutAsync(); Navigation.NavigateTo("/login"); }
+    private async Task Reset() { Store.Reset(); await SwitchRole(); }
+}

@@ -1,0 +1,1690 @@
+@page "/admin/grades/teacher-analytics"
+@page "/admin/grades/teacher-analytics/{TeacherId:long}"
+@namespace paa_frontend.Client.Pages.Admin
+@layout paa_frontend.Client.Layout.AdminPortalLayout
+@using paa_frontend.Client.Services.Admin
+@using paa_frontend.Client.Services.StaffPortal
+@using paa_frontend.Client.Services
+@using paa_frontend.Shared.Models
+@using System.Linq
+@inject AdminGradesServiceClient GradesService
+@inject TeacherProfileServiceClient TeacherService
+@inject AssessmentServiceClient AssessmentService
+@inject StudentSubjectServiceClient SubjectService
+@inject StudentProfileServiceClient StudentService
+
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    :root {
+        --blue: #1A4FFF;
+        --blue-dim: #ebefff;
+        --ink: #0d1117;
+        --ink2: #4a5168;
+        --ink3: #9097a8;
+        --bg: #f2f3f7;
+        --card: #ffffff;
+        --green: #00b67a;
+        --green-dim: #e2f8f0;
+        --amber: #f59e0b;
+        --amber-dim: #fef3c7;
+        --red: #ef4444;
+        --red-dim: #fef2f2;
+        --border: rgba(0,0,0,0.07);
+        --shadow: 0 1px 3px rgba(0,0,0,0.06),0 4px 16px rgba(0,0,0,0.04);
+        --radius: 14px;
+        font-family: 'Sora',sans-serif;
+    }
+
+    *, *::before, *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    body {
+        background: var(--bg);
+        color: var(--ink);
+    }
+
+    a {
+        text-decoration: none;
+        color: inherit;
+    }
+
+    input, select, button, textarea {
+        font-family: 'Sora',sans-serif;
+    }
+
+    .page-wrap {
+        padding: 28px 32px;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12.5px;
+        color: var(--ink3);
+        margin-bottom: 20px;
+    }
+
+        .breadcrumb a {
+            color: var(--ink3);
+        }
+
+            .breadcrumb a:hover {
+                color: var(--blue);
+            }
+
+    .breadcrumb-sep {
+        color: var(--border);
+    }
+
+    .page-header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        margin-bottom: 28px;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .page-title {
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--ink);
+        letter-spacing: -0.5px;
+        margin-bottom: 3px;
+    }
+
+    .page-sub {
+        font-size: 13px;
+        color: var(--ink3);
+    }
+
+    .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 9px 18px;
+        background: var(--blue);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+        .btn-primary:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+    .form-control {
+        width: 100%;
+        padding: 9px 12px;
+        border: 1.5px solid var(--border);
+        border-radius: 10px;
+        font-size: 13px;
+        color: var(--ink);
+        background: var(--card);
+        outline: none;
+        transition: border-color 0.15s;
+    }
+
+        .form-control:focus {
+            border-color: var(--blue);
+            box-shadow: 0 0 0 3px rgba(26,79,255,0.08);
+        }
+
+    /* layout */
+    .two-col {
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: 24px;
+        align-items: start;
+    }
+
+    .panel-card {
+        background: var(--card);
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        padding: 20px;
+        box-shadow: var(--shadow);
+    }
+
+    .panel-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--ink);
+        margin-bottom: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* sidebar listing */
+    .teacher-list-container {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-height: 600px;
+        overflow-y: auto;
+        padding-right: 4px;
+    }
+
+    .teacher-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        border-radius: 10px;
+        border: 1.5px solid var(--border);
+        cursor: pointer;
+        transition: all 0.12s;
+        background: transparent;
+    }
+
+        .teacher-item:hover {
+            border-color: rgba(26,79,255,0.3);
+            background: var(--blue-dim);
+        }
+
+        .teacher-item.active {
+            border-color: var(--blue);
+            background: var(--blue-dim);
+        }
+
+    .teacher-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background: linear-gradient(135deg,var(--blue),#7c3aed);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        font-weight: 700;
+        color: white;
+        flex-shrink: 0;
+    }
+
+    .teacher-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--ink);
+    }
+
+    .teacher-count {
+        font-size: 11.5px;
+        color: var(--ink3);
+        margin-top: 2px;
+    }
+
+    /* overview bar */
+    .teacher-overview-bar {
+        display: flex;
+        gap: 16px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    .overview-metric {
+        flex: 1;
+        min-width: 130px;
+        padding: 12px 16px;
+        background: var(--bg);
+        border-radius: 10px;
+        border: 1px solid var(--border);
+    }
+
+    .overview-metric-label {
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--ink3);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 6px;
+    }
+
+    .overview-metric-value {
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--ink);
+        font-family: 'JetBrains Mono',monospace;
+    }
+
+    /* table styling */
+    .table-container {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow-x: auto;
+        margin-bottom: 24px;
+        background: var(--card);
+    }
+
+    .assess-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 600px;
+    }
+
+        .assess-table th {
+            padding: 10px 14px;
+            text-align: left;
+            font-size: 10.5px;
+            font-weight: 600;
+            color: var(--ink3);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg);
+        }
+
+        .assess-table td {
+            padding: 12px 14px;
+            font-size: 13px;
+            color: var(--ink2);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .assess-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .assess-table tbody tr:hover {
+            background: rgba(26,79,255,0.015);
+        }
+
+    .mobile-only {
+        display: none;
+    }
+
+    .mobile-assessment-list {
+        display: none;
+    }
+
+    .mobile-assessment-card {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px;
+        background: var(--card);
+        box-shadow: var(--shadow);
+        margin-bottom: 12px;
+    }
+
+        .mobile-assessment-card:last-child {
+            margin-bottom: 0;
+        }
+
+    .mobile-assessment-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+    }
+
+    .mobile-assessment-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--ink);
+        line-height: 1.25;
+    }
+
+    .mobile-assessment-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+    }
+
+    .mobile-metric {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .mobile-metric-label {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .45px;
+        color: var(--ink3);
+    }
+
+    .mobile-metric-value {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--ink2);
+    }
+
+    .type-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: capitalize;
+    }
+
+    .type-exam {
+        background: rgba(124,58,237,0.1);
+        color: #7c3aed;
+    }
+
+    .type-test {
+        background: var(--amber-dim);
+        color: #9a6800;
+    }
+
+    .type-assignment {
+        background: var(--blue-dim);
+        color: var(--blue);
+    }
+
+    .pass-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .pass-track {
+        flex: 1;
+        height: 6px;
+        border-radius: 3px;
+        background: rgba(0,0,0,0.06);
+        overflow: hidden;
+    }
+
+    .pass-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.4s ease;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 48px 20px;
+        color: var(--ink3);
+    }
+
+    .empty-icon {
+        margin: 0 auto 14px;
+        width: 48px;
+        height: 48px;
+        background: rgba(0,0,0,0.04);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    @@keyframes spin {
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    /* ── Marks Drawer ─────────────────────────────────────── */
+    .drawer-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.35);
+        z-index: 600;
+        backdrop-filter: blur(2px);
+        animation: fadeIn 0.18s ease;
+    }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    .drawer {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: min(560px, 100vw);
+        background: var(--card);
+        box-shadow: -8px 0 40px rgba(0,0,0,0.15);
+        z-index: 601;
+        display: flex;
+        flex-direction: column;
+        animation: slideInRight 0.22s cubic-bezier(0.16,1,0.3,1);
+        overflow: hidden;
+    }
+
+    @@keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+        }
+
+        to {
+            transform: translateX(0);
+        }
+    }
+
+    .drawer-header {
+        padding: 20px 24px 16px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+    }
+
+    .drawer-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--ink);
+        margin-bottom: 3px;
+    }
+
+    .drawer-sub {
+        font-size: 12px;
+        color: var(--ink3);
+    }
+
+    .drawer-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px 24px;
+    }
+
+    .drawer-close {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        width: 30px;
+        height: 30px;
+        border: none;
+        background: rgba(0,0,0,0.06);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: var(--ink2);
+        transition: background 0.12s;
+    }
+
+        .drawer-close:hover {
+            background: rgba(0,0,0,0.12);
+        }
+
+    .marks-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        margin-bottom: 8px;
+        background: var(--card);
+    }
+
+        .marks-row:last-child {
+            margin-bottom: 0;
+        }
+
+    .marks-student-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--ink);
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .marks-classroom {
+        font-size: 11px;
+        color: var(--ink3);
+        margin-top: 2px;
+    }
+
+    .marks-score {
+        font-size: 14px;
+        font-weight: 700;
+        font-family: 'JetBrains Mono',monospace;
+        flex-shrink: 0;
+    }
+
+    .marks-pct {
+        font-size: 11px;
+        color: var(--ink3);
+        font-family: 'JetBrains Mono',monospace;
+        flex-shrink: 0;
+    }
+
+    .pass-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 8px;
+        border-radius: 20px;
+        font-size: 10.5px;
+        font-weight: 600;
+        flex-shrink: 0;
+    }
+
+        .pass-pill.pass {
+            background: var(--green-dim);
+            color: #008a5a;
+        }
+
+        .pass-pill.fail {
+            background: var(--red-dim);
+            color: var(--red);
+        }
+
+    .drawer-stat-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 18px;
+    }
+
+    .drawer-stat {
+        background: var(--bg);
+        border-radius: 10px;
+        padding: 12px;
+        text-align: center;
+    }
+
+    .drawer-stat-label {
+        font-size: 9.5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--ink3);
+        margin-bottom: 4px;
+    }
+
+    .drawer-stat-value {
+        font-size: 20px;
+        font-weight: 700;
+        font-family: 'JetBrains Mono',monospace;
+        color: var(--ink);
+    }
+
+    .feedback-chip {
+        font-size: 11px;
+        color: var(--ink3);
+        font-style: italic;
+        max-width: 160px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex-shrink: 0;
+    }
+
+    @@media (max-width: 768px) {
+        .page-wrap {
+            padding: 14px;
+        }
+
+        .two-col {
+            grid-template-columns: 1fr;
+        }
+
+        .page-header {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+            .page-header > div:last-child {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                width: 100%;
+            }
+
+            .page-header select, .page-header button {
+                width: 100%;
+            }
+
+        .teacher-overview-bar {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .overview-metric {
+            min-width: unset;
+        }
+
+        .panel-card {
+            padding: 14px;
+        }
+
+        .subject-header {
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .subject-pass-bar {
+            flex: 1;
+            min-width: 140px;
+            max-width: 100%;
+        }
+
+        .stats-row {
+            grid-template-columns: 1fr 1fr !important;
+            gap: 12px !important;
+        }
+
+        .teacher-list-container {
+            max-height: none;
+        }
+
+        .mobile-only {
+            display: block;
+        }
+
+        .desktop-only {
+            display: none;
+        }
+
+        .mobile-assessment-list {
+            display: block;
+        }
+
+        .assess-table {
+            min-width: 0;
+        }
+
+        .drawer {
+            top: auto;
+            width: 100vw;
+            height: 88vh;
+            border-radius: 20px 20px 0 0;
+            animation: slideInUp 0.25s cubic-bezier(0.16,1,0.3,1);
+        }
+
+        @@keyframes slideInUp {
+            from {
+                transform: translateY(100%);
+            }
+
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        .drawer-stat-row {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .marks-row {
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+    }
+</style>
+
+<div class="page-wrap">
+    <div class="breadcrumb">
+        <a href="/admin/academics">Academics</a>
+        <span class="breadcrumb-sep">›</span>
+        <span style="color:var(--ink2);">Teacher Analytics</span>
+    </div>
+
+    <div class="page-header">
+        <div>
+            <div class="page-title">Teacher Analytics</div>
+            <div class="page-sub">Track assessments written, marks submitted, and pass rates per subject for a specific Term.</div>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <select class="form-control" @bind="filterTerm" style="min-width:140px; width:auto;">
+                <option value="Term 1">Term 1</option>
+                <option value="Term 2">Term 2</option>
+                <option value="Term 3">Term 3</option>
+            </select>
+            <select class="form-control" @bind="filterYear" style="min-width:100px; width:auto;" aria-label="Academic year">
+                @foreach (var year in AvailableYears)
+                {
+                    <option value="@year">@year</option>
+                }
+            </select>
+            <button class="btn-primary" @onclick="LoadDataAsync" disabled="@isLoading">
+                @if (isLoading)
+                {
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite; margin-right:4px;"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
+                }
+                @(isLoading ? "Loading…" : "Load Analytics")
+            </button>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="empty-state" style="padding: 120px 0;">
+            <div style="animation: spin 1.5s linear infinite; margin-bottom: 12px; display: inline-block;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
+            </div>
+            <div style="font-size:14px; font-weight:500; color:var(--ink2);">Loading analytics data…</div>
+        </div>
+    }
+    else
+    {
+        <!-- SUMMARY STATS -->
+        <div class="stats-row" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 28px;">
+            <div class="stat-card" style="background: linear-gradient(135deg, var(--blue), #4f46e5); color: white; border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); position: relative; overflow: hidden;">
+                <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.85;">Total Assessments</div>
+                <div style="font-size: 32px; font-weight: 700; margin-top: 8px; font-family: 'JetBrains Mono', monospace;">@analyticsItems.Count</div>
+                <div style="font-size: 12px; margin-top: 4px; opacity: 0.75;">for @filterTerm @filterYear across all levels</div>
+                <div style="position: absolute; right: -10px; bottom: -10px; opacity: 0.15;">
+                    <svg width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="3" y1="9" x2="21" y2="9" /></svg>
+                </div>
+            </div>
+            <div class="stat-card" style="background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); position: relative; overflow: hidden;">
+                <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--ink3);">Active Teachers</div>
+                <div style="font-size: 32px; font-weight: 700; margin-top: 8px; color: var(--ink); font-family: 'JetBrains Mono', monospace;">@teacherGroups.Count</div>
+                <div style="font-size: 12px; margin-top: 4px; color: var(--ink3);">with assessments for @filterTerm @filterYear</div>
+                <div style="position: absolute; right: -10px; bottom: -10px; opacity: 0.05; color: var(--ink);">
+                    <svg width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="two-col">
+            <!-- LEFT: TEACHER LIST -->
+            <div class="panel-card" style="padding: 16px;">
+                <div class="panel-title" style="font-size:14px; margin-bottom:14px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                    Teachers
+                </div>
+                <div style="position:relative; margin-bottom:16px;">
+                    <input type="text" class="form-control" placeholder="Search teacher…" @bind="teacherSearchQuery" @bind:event="oninput" style="padding-left: 36px;" />
+                    <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--ink3); display:flex; align-items:center;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                    </span>
+                </div>
+                <div class="teacher-list-container">
+                    @foreach (var teacher in filteredTeachers)
+                    {
+                        bool sel = selectedTeacherId == teacher.Id;
+                        string initials = (teacher.FirstName?.FirstOrDefault().ToString() + teacher.LastName?.FirstOrDefault().ToString()).Trim().ToUpper();
+                        int count = teacherGroups.ContainsKey(teacher.Id) ? teacherGroups[teacher.Id].Count : 0;
+                        <div class="teacher-item @(sel ? "active" : "")" @onclick="() => SelectTeacher(teacher.Id)">
+                            <div class="teacher-avatar">@initials</div>
+                            <div style="flex:1; min-width:0;">
+                                <div class="teacher-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">@teacher.FirstName @teacher.LastName</div>
+                                <div class="teacher-count">@count assessment@(count == 1 ? "" : "s") written</div>
+                            </div>
+                            @if (sel)
+                            {
+                                <svg style="flex-shrink:0; margin-left:auto;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- RIGHT: DETAIL -->
+            <div class="panel-card" style="padding: 24px; min-height: 480px;">
+                @if (selectedTeacherId == null)
+                {
+                    <div class="empty-state" style="padding: 100px 0;">
+                        <div class="empty-icon">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                        </div>
+                        <div style="font-size:13px; color:var(--ink3);">Select a teacher on the left to view their performance metrics</div>
+                    </div>
+                }
+                else if (isTeacherLoading)
+                {
+                    <div class="empty-state" style="padding: 100px 0;">
+                        <div style="animation:spin 1.5s linear infinite; margin-bottom:12px; display:inline-block;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
+                        </div>
+                        <div style="font-size:14px; font-weight:500; color:var(--ink2);">Loading teacher marks &amp; calculating pass rates…</div>
+                    </div>
+                }
+                else
+                {
+                    var items = selectedTeacherItems;
+                    var byType = items.GroupBy(i => i.Kind).ToList();
+                    var bySubject = items.GroupBy(i => i.Subject ?? "Unknown").ToDictionary(g => g.Key, g => g.ToList());
+
+                    int overallMarks = items.Sum(i => i.TotalMarksSubmitted);
+                    int overallPasses = items.Sum(i => i.TotalPassed);
+                    double overallPassRate = overallMarks > 0 ? (double)overallPasses / overallMarks * 100 : 0;
+
+                    <!-- Overview Header & Stats Bar -->
+                    <div class="panel-title" style="font-size:15px; margin-bottom:16px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="21" x2="9" y2="9" /></svg>
+                        Overview — @filterTerm @filterYear Performance
+                    </div>
+
+                    <div class="teacher-overview-bar">
+                        <div class="overview-metric">
+                            <div class="overview-metric-label">Overall Pass Rate</div>
+                            <div class="overview-metric-value" style="color: @(overallPassRate >= 80 ? "var(--green)" : overallPassRate >= 50 ? "var(--amber)" : "var(--red)");">
+                                @overallPassRate.ToString("F1")%
+                            </div>
+                        </div>
+                        <div class="overview-metric">
+                            <div class="overview-metric-label">Marks Submitted</div>
+                            <div class="overview-metric-value">@overallMarks</div>
+                        </div>
+                        @foreach (var t in byType)
+                        {
+                            <div class="overview-metric">
+                                <div class="overview-metric-label">@t.Key@(t.Count() == 1 ? "" : "s")</div>
+                                <div class="overview-metric-value">@t.Count()</div>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Subjects Breakdown Header -->
+                    <div class="panel-title" style="font-size:15px; margin-bottom:20px; margin-top:12px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
+                        Subject Breakdown &amp; Tests Written
+                    </div>
+
+                    @if (!bySubject.Any())
+                    {
+                        <div class="empty-state" style="padding:48px 0;">No assessments found for this teacher in @filterTerm @filterYear.</div>
+                    }
+                    else
+                    {
+                        @foreach (var subjectKvp in bySubject)
+                        {
+                            var subjItems = subjectKvp.Value;
+                            int subjTotalMarks = subjItems.Sum(i => i.TotalMarksSubmitted);
+                            int subjTotalPasses = subjItems.Sum(i => i.TotalPassed);
+                            double subjPassRate = subjTotalMarks > 0 ? (double)subjTotalPasses / subjTotalMarks * 100 : 0;
+                            string fillCol = subjPassRate >= 80 ? "var(--green)" : subjPassRate >= 50 ? "var(--amber)" : "var(--red)";
+
+                            <div class="subject-header" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; margin-top:24px;">
+                                <div style="font-weight:600; color:var(--ink); font-size:14px; display:flex; align-items:center; gap:8px;">
+                                    <span style="display:inline-block; width:4px; height:16px; background:@fillCol; border-radius:2px;"></span>
+                                    @subjectKvp.Key
+                                </div>
+                                <div class="subject-pass-bar" style="display:flex; align-items:center; gap:10px; min-width:160px; max-width:220px;">
+                                    <div style="font-size:12px; font-weight:600; color:var(--ink2); white-space:nowrap;">@subjPassRate.ToString("F0")% Pass</div>
+                                    <div class="pass-track" style="flex:1;"><div class="pass-fill" style="width:@subjPassRate%; background:@fillCol"></div></div>
+                                </div>
+                            </div>
+
+                            <div class="table-container desktop-only">
+                                <table class="assess-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Test/Exam Name</th>
+                                            <th>Type</th>
+                                            <th>Class</th>
+                                            <th>Level</th>
+                                            <th>Marks Input</th>
+                                            <th>Avg Score</th>
+                                            <th>Pass Rate</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var item in subjItems)
+                                        {
+                                            string cls = item.Kind == "exam" ? "type-exam" : item.Kind == "test" ? "type-test" : "type-assignment";
+                                            <tr>
+                                                <td style="font-weight:500; color:var(--ink);">@item.Title</td>
+                                                <td><span class="type-badge @cls">@item.Kind</span></td>
+                                                <td>
+                                                    @if (item.ClassroomCounts.Any())
+                                                    {
+                                                        <div style="display:flex; flex-wrap:wrap; gap:4px;">
+                                                            @foreach (var kv in item.ClassroomCounts.OrderBy(k => k.Key))
+                                                            {
+                                                                <span style="display:inline-flex; align-items:center; gap:4px; background:var(--blue-dim); color:var(--blue); border-radius:6px; padding:2px 7px; font-size:10.5px; font-weight:600; white-space:nowrap;">
+                                                                    @kv.Key
+                                                                    <span style="background:var(--blue); color:white; border-radius:4px; padding:0 5px; font-size:9.5px; font-weight:700;">@kv.Value</span>
+                                                                </span>
+                                                            }
+                                                        </div>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span style="color:var(--ink3); font-size:11px;">—</span>
+                                                    }
+                                                </td>
+                                                <td style="font-size:11.5px; color:var(--ink3); font-family:'JetBrains Mono',monospace;">@item.Level</td>
+                                                <td style="font-family:'JetBrains Mono',monospace;">@item.TotalMarksSubmitted marks</td>
+                                                <td style="font-family:'JetBrains Mono',monospace;">@(item.TotalMarksSubmitted > 0 ? item.AverageScore.ToString("F1") + "%" : "-")</td>
+                                                <td style="font-family:'JetBrains Mono',monospace; font-weight:600; color:@(item.PassRate >= 50 ? "var(--green)" : "var(--red)")">
+                                                    @(item.TotalMarksSubmitted > 0 ? item.PassRate.ToString("F1") + "%" : "-")
+                                                </td>
+                                                <td>
+                                                    <div style="display:flex; gap:6px; align-items:center;">
+                                                        <button style="display:inline-flex;align-items:center;gap:5px;padding:5px 11px;background:var(--blue-dim);color:var(--blue);border:none;border-radius:8px;font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:'Sora',sans-serif;"
+                                                                @onclick:stopPropagation="true"
+                                                                @onclick="() => OpenMarksDrawer(item)">
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                                                            Class Marks
+                                                        </button>
+                                                        <button style="display:inline-flex;align-items:center;padding:5px 8px;background:var(--red-dim);color:var(--red);border:none;border-radius:8px;font-size:12px;cursor:pointer;font-family:'Sora',sans-serif;"
+                                                                title="Delete assessment"
+                                                                @onclick:stopPropagation="true"
+                                                                @onclick="() => PromptDelete(item)">
+                                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="mobile-assessment-list mobile-only">
+                                @foreach (var item in subjItems)
+                                {
+                                    string cls = item.Kind == "exam" ? "type-exam" : item.Kind == "test" ? "type-test" : "type-assignment";
+                                    var avgPct = item.TotalMarksSubmitted > 0 ? item.AverageScore : 0;
+                                    <div class="mobile-assessment-card">
+                                        <div class="mobile-assessment-head">
+                                            <div>
+                                                <div class="mobile-assessment-title">@item.Title</div>
+                                                <div class="mobile-assessment-meta">
+                                                    <span class="type-badge @cls">@item.Kind</span>
+                                                    <span class="type-badge" style="background:var(--bg);color:var(--ink2);">@item.Level</span>
+                                                </div>
+                                            </div>
+                                            <div style="text-align:right;">
+                                                <div style="font-size:12px;font-weight:700;color:@(item.PassRate >= 50 ? "var(--green)" : "var(--red)");">@((item.TotalMarksSubmitted > 0 ? item.PassRate.ToString("F1") + "%" : "-"))</div>
+                                                <div style="font-size:10px;color:var(--ink3);">pass rate</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="mobile-assessment-meta">
+                                            <div class="mobile-metric">
+                                                <div class="mobile-metric-label">Class</div>
+                                                <div class="mobile-metric-value">@(item.ClassroomCounts.Any() ? string.Join(", ", item.ClassroomCounts.OrderBy(k => k.Key).Select(k => $"{k.Key} ({k.Value})")) : "—")</div>
+                                            </div>
+                                            <div class="mobile-metric">
+                                                <div class="mobile-metric-label">Marks Input</div>
+                                                <div class="mobile-metric-value">@item.TotalMarksSubmitted marks</div>
+                                            </div>
+                                            <div class="mobile-metric">
+                                                <div class="mobile-metric-label">Avg Score</div>
+                                                <div class="mobile-metric-value">@(item.TotalMarksSubmitted > 0 ? avgPct.ToString("F1") + "%" : "-")</div>
+                                            </div>
+                                            <div class="mobile-metric">
+                                                <div class="mobile-metric-label">Level</div>
+                                                <div class="mobile-metric-value">@item.Level</div>
+                                            </div>
+                                        </div>
+                                        <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:8px;">
+                                            <button style="width:100%; display:flex; align-items:center; justify-content:center; gap:6px; padding:8px 14px; background:var(--blue-dim); color:var(--blue); border:none; border-radius:9px; font-size:12.5px; font-weight:600; cursor:pointer; font-family:'Sora',sans-serif;"
+                                                    @onclick="() => OpenMarksDrawer(item)">
+                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                                                View Class Marks
+                                            </button>
+                                            <button style="width:100%; display:flex; align-items:center; justify-content:center; gap:6px; padding:8px 14px; background:var(--red-dim); color:var(--red); border:none; border-radius:9px; font-size:12.5px; font-weight:600; cursor:pointer; font-family:'Sora',sans-serif;"
+                                                    @onclick="() => PromptDelete(item)">
+                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                                                Delete Assessment
+                                            </button>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                }
+            </div>
+
+        </div>
+    }
+
+    <!-- ── CLASS MARKS DRAWER ──────────────────────────────── -->
+    @if (drawerItem != null)
+    {
+        <div class="drawer-overlay" @onclick="CloseMarksDrawer"></div>
+        <div class="drawer">
+            <button class="drawer-close" @onclick="CloseMarksDrawer">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+            </button>
+            <div class="drawer-header">
+                <div class="drawer-title">@drawerItem.Title</div>
+                <div class="drawer-sub">
+                    @drawerItem.Subject &nbsp;·&nbsp; @drawerItem.Level &nbsp;·&nbsp;
+                    <span class="type-badge @(drawerItem.Kind == "exam" ? "type-exam" : drawerItem.Kind == "test" ? "type-test" : "type-assignment")" style="font-size:10px; padding:2px 7px;">@drawerItem.Kind</span>
+                </div>
+            </div>
+
+            <div class="drawer-body">
+                @if (isLoadingDrawer)
+                {
+                    <div class="empty-state" style="padding:60px 0;">
+                        <div style="animation:spin 1.5s linear infinite; margin-bottom:12px; display:inline-block;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
+                        </div>
+                        <div style="font-size:13px; color:var(--ink2);">Loading class marks…</div>
+                    </div>
+                }
+                else
+                {
+                    <!-- Summary stats -->
+                    <div class="drawer-stat-row">
+                        <div class="drawer-stat">
+                            <div class="drawer-stat-label">Submitted</div>
+                            <div class="drawer-stat-value">@drawerMarks.Count</div>
+                        </div>
+                        <div class="drawer-stat">
+                            <div class="drawer-stat-label">Avg Score</div>
+                            @{
+                                double drawerAvg = drawerMarks.Count > 0 ? drawerMarks.Average(m => m.Pct) : 0;
+                                double drawerPassRate = drawerMarks.Count > 0 ? (double)drawerMarks.Count(m => m.Pct >= 50) / drawerMarks.Count * 100 : 0;
+                            }
+                            <div class="drawer-stat-value" style="font-size:16px;">@drawerAvg.ToString("F1")%</div>
+                        </div>
+                        <div class="drawer-stat">
+                            <div class="drawer-stat-label">Pass Rate</div>
+                            <div class="drawer-stat-value" style="color:@(drawerPassRate >= 80 ? "var(--green)" : drawerPassRate >= 50 ? "var(--amber)" : "var(--red)");">@drawerPassRate.ToString("F0")%</div>
+                        </div>
+                    </div>
+
+                    @if (!drawerMarks.Any())
+                    {
+                        <div class="empty-state" style="padding:40px 0;">
+                            <div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg></div>
+                            <div style="font-size:13px;">No marks have been submitted for this assessment yet.</div>
+                        </div>
+                    }
+                    else
+                    {
+                        <!-- Sort bar -->
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+                            <div style="font-size:12px; font-weight:600; color:var(--ink2);">@drawerMarks.Count student@(drawerMarks.Count == 1 ? "" : "s") graded</div>
+                            <select style="font-size:11.5px; padding:4px 8px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--ink2); outline:none; font-family:'Sora',sans-serif;"
+                                    @bind="drawerSortOrder" @bind:after="SortDrawerMarks">
+                                <option value="name">Sort: Name A–Z</option>
+                                <option value="score_desc">Sort: Score ↓</option>
+                                <option value="score_asc">Sort: Score ↑</option>
+                                <option value="class">Sort: Class</option>
+                            </select>
+                        </div>
+
+                        @foreach (var m in drawerMarks)
+                        {
+                            bool passed = m.Pct >= 50;
+                            <div class="marks-row">
+                                <div style="width:34px; height:34px; border-radius:9px; background:linear-gradient(135deg,var(--blue),#7c3aed); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:white; flex-shrink:0;">
+                                    @m.Initials
+                                </div>
+                                <div style="flex:1; min-width:0;">
+                                    <div class="marks-student-name">@m.StudentName</div>
+                                    <div class="marks-classroom">@m.Classroom</div>
+                                </div>
+                                <div style="text-align:right; flex-shrink:0;">
+                                    <div class="marks-score" style="color:@(passed ? "var(--green)" : "var(--red)");">@m.Score.ToString("F0") / @drawerItem.MaxScore.ToString("F0")</div>
+                                    <div class="marks-pct">@m.Pct.ToString("F1")%</div>
+                                </div>
+                                <span class="pass-pill @(passed ? "pass" : "fail")">@(passed ? "Pass" : "Fail")</span>
+                                @if (!string.IsNullOrWhiteSpace(m.Feedback))
+                                {
+                                    <div class="feedback-chip" title="@m.Feedback">💬 @m.Feedback</div>
+                                }
+                            </div>
+                        }
+                    }
+                }
+            </div>
+        </div>
+    }
+
+    <!-- ── DELETE CONFIRMATION MODAL ───────────────────────── -->
+    @if (assessmentToDelete != null)
+    {
+        <div style="position:fixed;inset:0;background:rgba(15,23,42,0.5);backdrop-filter:blur(3px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;">
+            <div style="background:#fff;border-radius:1rem;max-width:440px;width:100%;padding:24px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1),0 10px 10px -5px rgba(0,0,0,0.04);">
+                <div style="font-size:16px;font-weight:700;color:#0f172a;margin-bottom:8px;">Delete Assessment</div>
+                <p style="font-size:13px;color:#64748b;margin-bottom:20px;line-height:1.5;">
+                    Are you sure you want to delete <strong>@assessmentToDelete.Title</strong> (@assessmentToDelete.Kind.ToUpper())? This will permanently remove the assessment and any linked marks.
+                </p>
+                <div style="display:flex;justify-content:flex-end;gap:10px;">
+                    <button class="btn-ghost" style="padding:8px 16px; font-size:12px;"
+                            @onclick="() => assessmentToDelete = null" disabled="@isDeleting">
+                        Cancel
+                    </button>
+                    <button class="btn-primary" style="background:var(--red); padding:8px 16px; font-size:12px;"
+                            @onclick="ExecuteDeleteAsync" disabled="@isDeleting">
+                        @(isDeleting ? "Deleting…" : "Delete")
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+</div>
+
+@code {
+    private string filterTerm = CurrentTerm();
+    private int filterYear = DateTime.Today.Year;
+    private bool isLoading = true;
+    private bool isTeacherLoading = false;
+    private long? selectedTeacherId = null;
+    private string teacherSearchQuery = "";
+
+    // ── Marks Drawer ──────────────────────────────────────
+    private AssessmentItem? drawerItem = null;
+    private bool isLoadingDrawer = false;
+    private List<DrawerMarkRow> drawerMarks = new();
+    private string drawerSortOrder = "score_desc";
+
+    private class DrawerMarkRow
+    {
+        public string StudentName { get; set; } = "";
+        public string Initials { get; set; } = "";
+        public string Classroom { get; set; } = "";
+        public double Score { get; set; }
+        public double Pct { get; set; }
+        public string Feedback { get; set; } = "";
+    }
+
+    private Dictionary<long, string> studentIdToClassroomMap = new();
+    private Dictionary<long, int> studentIdToFormMap = new();
+    private Dictionary<string, string> subjectCache = new();  // Key: "level:id", Value: "subject name"
+    private Dictionary<long, string> studentNameMap = new();
+    private List<TeacherProfileModel.Teacher> allTeachers = new();
+
+    // Store all raw assessments from all levels
+    private List<AssessmentItem> allItems = new();
+    private Dictionary<long?, List<AssessmentItem>> teacherGroups = new();
+    private List<AssessmentItem> selectedTeacherItems = new();
+    private IEnumerable<int> AvailableYears => allItems.Select(i => i.TermYear ?? i.AssessmentDate?.Year).Where(y => y.HasValue).Select(y => y!.Value)
+        .Concat(Enumerable.Range(DateTime.Today.Year - 5, 6)).Append(filterYear).Distinct().OrderByDescending(y => y);
+    private List<AssessmentItem> analyticsItems => allItems.Where(IsAssessmentInSelectedPeriod).ToList();
+
+    private IEnumerable<TeacherProfileModel.Teacher> filteredTeachers =>
+        string.IsNullOrWhiteSpace(teacherSearchQuery)
+            ? allTeachers.Where(t => teacherGroups.ContainsKey(t.Id))
+            : allTeachers.Where(t => teacherGroups.ContainsKey(t.Id) && (t.FirstName + " " + t.LastName).Contains(teacherSearchQuery, StringComparison.OrdinalIgnoreCase));
+
+    private class AssessmentItem
+    {
+        public long Id { get; set; }
+        public long? TeacherId { get; set; }
+        public string Kind { get; set; } = "";
+        public string Title { get; set; } = "";
+        public long SubjectId { get; set; }
+        public string? Subject { get; set; }
+        public string? Level { get; set; }
+        public double MaxScore { get; set; }
+        public double Weight { get; set; }
+        public string? Term { get; set; }
+        public int? TermYear { get; set; }
+        public DateOnly? AssessmentDate { get; set; }
+        public string Classroom { get; set; } = "";
+        public Dictionary<string, int> ClassroomCounts { get; set; } = new();
+
+        // Analytics populated when selected
+        public int TotalMarksSubmitted { get; set; }
+        public int TotalPassed { get; set; }
+        public double AverageScore { get; set; }
+        public double PassRate => TotalMarksSubmitted > 0 ? (double)TotalPassed / TotalMarksSubmitted * 100 : 0;
+    }
+
+    private bool dataLoadAttempted;
+
+    private static string CurrentTerm() => DateTime.Today.Month switch
+    {
+        >= 1 and <= 4 => "Term 1",
+        >= 5 and <= 8 => "Term 2",
+        _ => "Term 3"
+    };
+
+    [Parameter] public long? TeacherId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "term")]
+    public string? RequestedTerm { get; set; }
+    [SupplyParameterFromQuery(Name = "year")]
+    public int? RequestedYear { get; set; }
+
+    protected override Task OnInitializedAsync()
+    {
+        return Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || dataLoadAttempted) return;
+        dataLoadAttempted = true;
+
+        filterTerm = string.IsNullOrWhiteSpace(RequestedTerm) ? CurrentTerm() : RequestedTerm;
+        filterYear = RequestedYear is >= 1900 and <= 9999 ? RequestedYear.Value : DateTime.Today.Year;
+
+        await Task.WhenAll(BuildSubjectCacheAsync(), LoadDataAsync());
+        if (TeacherId.HasValue)
+            await SelectTeacher(TeacherId.Value);
+        StateHasChanged();
+    }
+
+    private async Task BuildSubjectCacheAsync()
+    {
+        try
+        {
+            var alevel = await SubjectService.GetALevelSubjectsAsync();
+            if (alevel != null) foreach (var s in alevel)
+            {
+                subjectCache[$"alevel:{s.Id}"] = s.SubjectName ?? "Unknown";
+            }
+        }
+        catch { }
+    }
+
+    private string GetSubjectName(long subjectId, string level)
+    {
+        var key = $"{level}:{subjectId}";
+        var found = subjectCache.TryGetValue(key, out var name);
+        var result = found ? name : $"Subject #{subjectId}";
+        return result;
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        allItems.Clear();
+        selectedTeacherId = null;
+        selectedTeacherItems.Clear();
+        try
+        {
+            var levels = new[] { "form1to4", "alevel" };
+            studentIdToClassroomMap.Clear();
+            studentIdToFormMap.Clear();
+            studentNameMap.Clear();
+
+            // Start independent service calls together instead of waiting for
+            // each round trip to finish before starting the next one.
+            var studentsTask = StudentService.GetStudentsAsync();
+            var teachersTask = TeacherService.GetTeachersAsync();
+            var levelTasks = levels.Select(FetchLevelAssessmentsAsync).ToArray();
+            await Task.WhenAll(levelTasks);
+            await Task.WhenAll((Task)studentsTask, teachersTask);
+
+            allTeachers = await teachersTask ?? new();
+            try
+            {
+                var students = await studentsTask ?? new();
+                foreach (var student in students)
+                {
+                    studentIdToClassroomMap[(long)student.Id] = student.Classroom ?? "Unknown";
+                    studentIdToFormMap[(long)student.Id] = student.Form ?? 0;
+                    studentNameMap[(long)student.Id] = $"{student.FirstName} {student.LastName}".Trim();
+                }
+            }
+            catch { Console.WriteLine("Error loading student classrooms"); }
+
+            foreach (var batch in await Task.WhenAll(levelTasks)) allItems.AddRange(batch);
+
+            teacherGroups = allItems
+                .Where(i => i.TeacherId != null && IsAssessmentInSelectedPeriod(i))
+                .GroupBy(i => i.TeacherId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+        }
+        catch (Exception)
+        {
+            Console.WriteLine($"Error loading analytics");
+        }
+        finally { isLoading = false; }
+    }
+
+    private async Task<List<AssessmentItem>> FetchLevelAssessmentsAsync(string level)
+    {
+        var assignmentsTask = SafeLoadListAsync(() => GradesService.GetAllAssignmentsForLevelAsync(level));
+        var testsTask = SafeLoadListAsync(() => GradesService.GetAllTestsForLevelAsync(level));
+        var examsTask = SafeLoadListAsync(() => GradesService.GetAllExamsForLevelAsync(level));
+        await Task.WhenAll(assignmentsTask, testsTask, examsTask);
+        var items = new List<AssessmentItem>();
+        items.AddRange((await assignmentsTask).Select(item => new AssessmentItem
+        {
+            Id = item.Id ?? 0, Kind = "assignment", TeacherId = item.TeacherId, Title = item.Title ?? "",
+            SubjectId = item.SubjectId ?? 0, Subject = item.SubjectName ?? $"Subject #{item.SubjectId}", Level = item.Level ?? level,
+            MaxScore = item.MaxScore > 0 ? item.MaxScore : 100, Weight = item.Weight, Term = item.Term,
+            TermYear = item.TermYear, AssessmentDate = item.DueDate
+        }));
+        items.AddRange((await testsTask).Select(item => new AssessmentItem
+        {
+            Id = item.Id ?? 0, Kind = "test", TeacherId = item.TeacherId, Title = item.Title ?? "",
+            SubjectId = item.SubjectId ?? 0, Subject = item.SubjectName ?? $"Subject #{item.SubjectId}", Level = item.Level ?? level,
+            MaxScore = item.MaxScore > 0 ? item.MaxScore : 100, Weight = item.Weight, Term = item.Term,
+            TermYear = item.TermYear, AssessmentDate = item.TestDate
+        }));
+        items.AddRange((await examsTask).Select(item => new AssessmentItem
+        {
+            Id = item.Id ?? 0, Kind = "exam", TeacherId = item.TeacherId, Title = item.Title ?? "",
+            SubjectId = item.SubjectId ?? 0, Subject = item.SubjectName ?? $"Subject #{item.SubjectId}", Level = item.Level ?? level,
+            MaxScore = item.MaxScore > 0 ? item.MaxScore : 100, Weight = item.Weight, Term = item.Term,
+            TermYear = item.TermYear, AssessmentDate = item.ExamDate
+        }));
+        return items;
+    }
+
+    private static async Task<List<T>> SafeLoadListAsync<T>(Func<Task<List<T>>> load)
+    {
+        try { return await load() ?? new(); }
+        catch { return new(); }
+    }
+
+    private async Task SelectTeacher(long? id)
+    {
+        selectedTeacherId = id;
+        if (id == null) return;
+
+        isTeacherLoading = true;
+        selectedTeacherItems.Clear();
+        StateHasChanged();
+
+        try
+        {
+            var rawItems = teacherGroups.ContainsKey(id) ? teacherGroups[id] : new List<AssessmentItem>();
+            var filteredItems = new List<AssessmentItem>();
+
+            // Run assessment mark lookups concurrently with a modest cap.
+            using var markRequestLimit = new SemaphoreSlim(10);
+            var allMarkResults = await Task.WhenAll(rawItems.Select(async item =>
+            {
+                await markRequestLimit.WaitAsync();
+                try
+                {
+                    try
+                    {
+                        List<(long StudentId, double Score, DateOnly? GradedDate, string? Term, int? TermYear)> marks = item.Kind switch
+                        {
+                            "assignment" => (await AssessmentService.GetMarksByAssignmentAsync(item.Id))?
+                                .Select(m => (StudentId: m.StudentId, Score: m.Score ?? 0d, GradedDate: (DateOnly?)m.GradedDate, Term: m.Term, TermYear: m.TermYear)).ToList() ?? new(),
+                            "test" => (await AssessmentService.GetMarksByTestAsync(item.Id))?
+                                .Select(m => (StudentId: m.StudentId, Score: m.Score ?? 0d, GradedDate: (DateOnly?)m.GradedDate, Term: m.Term, TermYear: m.TermYear)).ToList() ?? new(),
+                            "exam" => (await AssessmentService.GetMarksByExamAsync(item.Id))?
+                                .Select(m => (StudentId: m.StudentId, Score: m.Score ?? 0d, GradedDate: (DateOnly?)m.GradedDate, Term: m.Term, TermYear: m.TermYear)).ToList() ?? new(),
+                            _ => new()
+                        };
+                        return (item, marks);
+                    }
+                    catch { return (item, new List<(long StudentId, double Score, DateOnly? GradedDate, string? Term, int? TermYear)>()); }
+                }
+                finally { markRequestLimit.Release(); }
+            }));
+
+            // Now process results without any more awaits
+            foreach (var (item, allMarks) in allMarkResults)
+            {
+                var termMarks = allMarks.Where(m => IsInSelectedPeriod(m.Term, m.TermYear, m.GradedDate, item)).ToList();
+                if (!termMarks.Any()) continue;
+
+                int totalMarks = 0, passCount = 0;
+                double sumScores = 0;
+                var classroomCounts = new Dictionary<string, int>();
+
+                foreach (var m in termMarks)
+                {
+                    totalMarks++;
+                    double pctScore = Math.Min(m.Score, 100.0);
+                    sumScores += pctScore;
+                    if (pctScore >= 50.0) passCount++;
+                    if (studentIdToClassroomMap.TryGetValue(m.StudentId, out var cls))
+                    {
+                        int form = studentIdToFormMap.GetValueOrDefault(m.StudentId, 0);
+                        string classKey = form > 0 ? $"Form {form} {cls}" : cls;
+                        classroomCounts[classKey] = classroomCounts.GetValueOrDefault(classKey, 0) + 1;
+                    }
+                }
+
+                item.TotalMarksSubmitted = totalMarks;
+                item.TotalPassed = passCount;
+                item.AverageScore = sumScores / totalMarks;
+                item.ClassroomCounts = classroomCounts;
+                item.Classroom = classroomCounts.Any()
+                    ? string.Join(", ", classroomCounts.Keys.OrderBy(c => c))
+                    : "None";
+                filteredItems.Add(item);
+            }
+
+            selectedTeacherItems = filteredItems.OrderBy(i => i.Subject).ThenBy(i => i.Title).ToList();
+        }
+        catch (Exception)
+        {
+            Console.WriteLine("Error calculating stats");
+        }
+        finally
+        {
+            isTeacherLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private bool IsAssessmentInSelectedPeriod(AssessmentItem item)
+    {
+        // Old assessments may not have any period metadata. Keep those visible
+        // and classify their individual marks using each mark's saved period.
+        if (NormalizeTerm(item.Term) is null && !item.AssessmentDate.HasValue)
+            return !item.TermYear.HasValue || item.TermYear.Value == filterYear;
+        return IsInSelectedPeriod(item.Term, item.TermYear, item.AssessmentDate, item);
+    }
+
+    private bool IsInSelectedPeriod(string? recordTerm, int? recordYear, DateOnly? fallbackDate)
+        => IsInSelectedPeriod(recordTerm, recordYear, fallbackDate, null);
+
+    private bool IsInSelectedPeriod(string? recordTerm, int? recordYear, DateOnly? fallbackDate, AssessmentItem? item)
+    {
+        var termNumber = NormalizeTerm(recordTerm) ?? NormalizeTerm(item?.Term);
+        var year = recordYear ?? item?.TermYear ?? fallbackDate?.Year;
+
+        if (termNumber.HasValue)
+        {
+            if (termNumber.Value != SelectedTermNumber) return false;
+        }
+        else if (!fallbackDate.HasValue || TermNumberFromMonth(fallbackDate.Value.Month) != SelectedTermNumber)
+        {
+            return false;
+        }
+
+        // If a legacy assessment has a term but no year, retain it for that
+        // term; all modern marks/assessments use the explicit year when saved.
+        return !year.HasValue || year.Value == filterYear;
+    }
+
+    private int SelectedTermNumber => NormalizeTerm(filterTerm) ?? 0;
+
+    private static int? NormalizeTerm(string? term)
+    {
+        if (string.IsNullOrWhiteSpace(term)) return null;
+        var value = term.Trim();
+        if (value.StartsWith("Term", StringComparison.OrdinalIgnoreCase)) value = value[4..].Trim();
+        return int.TryParse(value, out var number) && number is >= 1 and <= 3 ? number : null;
+    }
+
+    private static int TermNumberFromMonth(int month) => month <= 4 ? 1 : month <= 8 ? 2 : 3;
+
+    // ── Marks Drawer ──────────────────────────────────────
+
+    private async Task OpenMarksDrawer(AssessmentItem item)
+    {
+        drawerItem = item;
+        isLoadingDrawer = true;
+        drawerMarks = new();
+        drawerSortOrder = "score_desc";
+        StateHasChanged();
+
+        try
+        {
+            List<(long StudentId, double Score, string? Feedback, string? Term, int? TermYear)> rawMarks = new();
+
+            if (item.Kind == "assignment")
+            {
+                var marks = await AssessmentService.GetMarksByAssignmentAsync(item.Id);
+                if (marks != null)
+                    rawMarks = marks
+                        .Where(m => IsInSelectedPeriod(m.Term, m.TermYear, m.GradedDate))
+                        .Select(m => (m.StudentId, m.Score ?? 0d, m.Feedback, m.Term, m.TermYear))
+                        .ToList();
+            }
+            else if (item.Kind == "test")
+            {
+                var marks = await AssessmentService.GetMarksByTestAsync(item.Id);
+                if (marks != null)
+                    rawMarks = marks
+                        .Where(m => IsInSelectedPeriod(m.Term, m.TermYear, m.GradedDate))
+                        .Select(m => (m.StudentId, m.Score ?? 0d, m.Feedback, m.Term, m.TermYear))
+                        .ToList();
+            }
+            else if (item.Kind == "exam")
+            {
+                var marks = await AssessmentService.GetMarksByExamAsync(item.Id);
+                if (marks != null)
+                    rawMarks = marks
+                        .Where(m => IsInSelectedPeriod(m.Term, m.TermYear, m.GradedDate))
+                        .Select(m => (m.StudentId, m.Score ?? 0d, m.Feedback, m.Term, m.TermYear))
+                        .ToList();
+            }
+
+            // The bulk student lookup can fail independently of the marks
+            // request. Fill any missing names directly from the student API
+            // before rendering the drawer instead of showing Student #123.
+            await EnsureStudentDetailsAsync(rawMarks.Select(r => r.StudentId));
+
+            drawerMarks = rawMarks.Select(r =>
+{
+    // Build name from the already-loaded classroom map isn't enough —
+    // we still need names. Add a name map alongside the classroom map.
+    studentNameMap.TryGetValue(r.StudentId, out var name);
+    name = string.IsNullOrWhiteSpace(name) ? $"Student #{r.StudentId}" : name;
+
+    string[] parts = name.Split(' ', 2);
+    string firstName = parts.ElementAtOrDefault(0) ?? "";
+    string lastName = parts.ElementAtOrDefault(1) ?? "";
+    string initials = (firstName.FirstOrDefault().ToString() + lastName.FirstOrDefault().ToString())
+                        .Trim().ToUpper();
+    if (string.IsNullOrWhiteSpace(initials)) initials = "?";
+
+    studentIdToClassroomMap.TryGetValue(r.StudentId, out var cls);
+    int form = studentIdToFormMap.GetValueOrDefault(r.StudentId, 0);
+    string classroom = form > 0 ? $"Form {form} {cls}" : cls ?? "";
+
+    double score = item.MaxScore > 0 ? r.Score * item.MaxScore / 100.0 : 0.0;
+    return new DrawerMarkRow
+    {
+        StudentName = name,
+        Initials = initials,
+        Classroom = classroom,
+        Score = Math.Round(score, 2),
+        Pct = r.Score,
+        Feedback = r.Feedback ?? ""
+    };
+}).OrderByDescending(m => m.Score).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading class marks: {ex.Message}");
+        }
+        finally
+        {
+            isLoadingDrawer = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task EnsureStudentDetailsAsync(IEnumerable<long> studentIds)
+    {
+        var missingIds = studentIds
+            .Distinct()
+            .Where(id => !studentNameMap.ContainsKey(id))
+            .ToList();
+
+        if (!missingIds.Any()) return;
+
+        var students = await Task.WhenAll(missingIds.Select(async id =>
+        {
+            try { return await StudentService.GetStudentAsync(id); }
+            catch { return null; }
+        }));
+
+        foreach (var student in students.Where(s => s is not null))
+        {
+            var id = (long)student!.Id;
+            studentNameMap[id] = $"{student.FirstName} {student.LastName}".Trim();
+            studentIdToClassroomMap[id] = student.Classroom ?? "Unknown";
+            studentIdToFormMap[id] = student.Form ?? 0;
+        }
+    }
+
+    private void CloseMarksDrawer()
+    {
+        drawerItem = null;
+        drawerMarks = new();
+    }
+
+    private void SortDrawerMarks()
+    {
+        drawerMarks = drawerSortOrder switch
+        {
+            "score_asc" => drawerMarks.OrderBy(m => m.Score).ToList(),
+            "score_desc" => drawerMarks.OrderByDescending(m => m.Score).ToList(),
+            "class" => drawerMarks.OrderBy(m => m.Classroom).ThenBy(m => m.StudentName).ToList(),
+            _ => drawerMarks.OrderBy(m => m.StudentName).ToList()
+        };
+    }
+
+    private AssessmentItem? assessmentToDelete = null;
+    private bool isDeleting = false;
+
+    private void PromptDelete(AssessmentItem item)
+    {
+        assessmentToDelete = item;
+    }
+
+    private async Task ExecuteDeleteAsync()
+    {
+        if (assessmentToDelete == null) return;
+        isDeleting = true;
+        try
+        {
+            var item = assessmentToDelete;
+            bool ok = await AssessmentService.DeleteAssessmentAsync(item.Kind, item.Id);
+            if (ok)
+            {
+                allItems.RemoveAll(i => i.Id == item.Id && i.Kind == item.Kind);
+                selectedTeacherItems.RemoveAll(i => i.Id == item.Id && i.Kind == item.Kind);
+                if (item.TeacherId.HasValue && teacherGroups.ContainsKey(item.TeacherId.Value))
+                {
+                    teacherGroups[item.TeacherId.Value].RemoveAll(i => i.Id == item.Id && i.Kind == item.Kind);
+                }
+
+                if (drawerItem?.Id == item.Id && drawerItem?.Kind == item.Kind)
+                {
+                    CloseMarksDrawer();
+                }
+
+                assessmentToDelete = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting assessment: {ex.Message}");
+        }
+        finally
+        {
+            isDeleting = false;
+            StateHasChanged();
+        }
+    }
+}

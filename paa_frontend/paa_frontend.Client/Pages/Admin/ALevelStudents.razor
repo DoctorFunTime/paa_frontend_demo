@@ -1,0 +1,323 @@
+@using paa_frontend.Client.Services.Admin
+@using static paa_frontend.Shared.Models.Admin.SubjectsModel
+@using static paa_frontend.Shared.Models.StudentProfileModel
+@inject StudentSubjectServiceClient SubjectService
+@inject paa_frontend.Client.Services.StudentProfileServiceClient StudentProfileService
+@inject paa_frontend.Client.Services.NotificationService NotificationService
+
+@code {
+    [Parameter] public EventCallback OnChanged { get; set; }
+}
+
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+    <div>
+        <h2 class="text-xl font-extrabold text-slate-900 tracking-tight mb-1">A-Level Student Subjects</h2>
+        <p class="text-sm font-medium text-slate-500">View Form 5 &amp; 6 students and assign their subject choices.</p>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(pageStatus))
+{
+    <div class="mb-5 p-4 rounded-2xl flex items-center gap-3 text-sm font-bold @(pageError ? "bg-rose-50 text-rose-700 border border-rose-200" : "bg-violet-50 text-violet-700 border border-violet-200")">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        @pageStatus
+    </div>
+}
+
+<div class="bg-white/70 backdrop-blur-sm border border-slate-200 rounded-3xl shadow-sm overflow-hidden mb-8">
+    <div class="p-6 md:p-8 border-b border-slate-100 flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+        <div class="relative w-full max-w-sm">
+            <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            </span>
+            <input class="w-full py-2.5 pl-10 pr-4 bg-slate-50 border border-slate-200 rounded-full text-sm font-medium focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100 transition-all placeholder:text-slate-400"
+                   type="text" placeholder="Search students..." value="@searchTerm" @oninput="OnSearch" />
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full lg:w-auto">
+            <select class="py-2.5 px-4 bg-slate-50 border border-slate-200 rounded-full text-sm font-bold text-slate-600" value="@formFilter" @onchange="OnFormFilterChanged">
+                <option value="">All Forms</option>
+                <option value="5">Form 5</option>
+                <option value="6">Form 6</option>
+            </select>
+            <select class="py-2.5 px-4 bg-slate-50 border border-slate-200 rounded-full text-sm font-bold text-slate-600" value="@classFilter" @onchange="OnClassFilterChanged">
+                <option value="">All Classes</option>
+                @foreach (var classroom in ClassOptions)
+                {
+                    <option value="@classroom">@classroom</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="p-8 space-y-4">
+            @for (int i = 0; i < 5; i++) { <div class="h-16 bg-slate-100 rounded-2xl animate-pulse"></div> }
+        </div>
+    }
+    else if (!filteredStudents.Any())
+    {
+        <div class="text-center py-20 px-6">
+            <div class="w-16 h-16 bg-violet-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-violet-400">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            </div>
+            <h3 class="text-lg font-extrabold text-slate-900 mb-2">No A-Level students found</h3>
+            <p class="text-sm text-slate-500 mb-6">@(students?.Any() == true ? "Try a different search term." : "There are currently no Form 5 or 6 students enrolled.")</p>
+        </div>
+    }
+    else
+    {
+        <div class="hidden sm:grid grid-cols-[auto_1fr_1fr_1fr_auto] items-center gap-4 px-6 py-3 bg-slate-50/80 border-b border-slate-100 text-[length:0.65rem] font-bold text-slate-400 uppercase tracking-widest">
+            <span>ID</span>
+            <span>Student Name</span>
+            <span>Class</span>
+            <span>Status</span>
+            <span></span>
+        </div>
+
+        @foreach (var student in filteredStudents)
+        {
+            <div class="hidden sm:grid grid-cols-[auto_1fr_1fr_1fr_auto] items-center gap-4 px-6 py-4 border-b border-slate-100/60 hover:bg-slate-50/50 transition-colors group">
+                <span class="text-xs font-mono text-slate-400 w-12">#@student.Id</span>
+                <div class="text-sm font-bold text-slate-900">@student.FirstName @student.LastName</div>
+                <div class="text-sm font-medium text-slate-600">Form @student.Form @student.Classroom</div>
+                <div class="flex items-center gap-2">
+                    <span class="px-2 py-0.5 rounded-full text-[length:0.65rem] font-bold @(student.Status == "Active" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600")">
+                        @student.Status
+                    </span>
+                </div>
+                <div>
+                    <button class="w-8 h-8 rounded-lg border border-transparent text-slate-400 hover:text-violet-600 hover:border-violet-200 hover:bg-violet-50 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+                            title="Assign Subjects" @onclick="() => OpenAssignModalForStudent(student)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="sm:hidden px-4 py-4 border-b border-slate-100/60">
+                <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div class="flex items-start justify-between gap-3 mb-3">
+                        <div>
+                            <div class="text-sm font-extrabold text-slate-900">@student.FirstName @student.LastName</div>
+                            <div class="text-xs font-mono text-slate-400 mt-1">#@student.Id</div>
+                        </div>
+                        <button class="w-9 h-9 rounded-lg border border-slate-200 text-slate-400 hover:text-violet-600 hover:border-violet-200 hover:bg-violet-50 flex items-center justify-center transition-all"
+                                title="Assign Subjects" @onclick="() => OpenAssignModalForStudent(student)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                        </button>
+                    </div>
+                    <div class="text-sm font-medium text-slate-600 mb-2">Form @student.Form @student.Classroom</div>
+                    <span class="inline-flex px-2.5 py-1 rounded-full text-[length:0.65rem] font-bold @(student.Status == "Active" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600")">
+                        @student.Status
+                    </span>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<!-- Assign Subjects Modal -->
+@if (showAssignModal)
+{
+    <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4" @onclick="CloseAssignModal">
+        <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md shadow-2xl flex flex-col max-h-[90vh]" @onclick:stopPropagation="true">
+            <div class="p-6 border-b border-slate-100 shrink-0">
+                <h3 class="text-lg font-extrabold text-slate-900">Assign A-Level Subjects</h3>
+                <p class="text-xs text-slate-500 font-medium mt-0.5">Select subjects for the student.</p>
+            </div>
+            
+            <div class="p-6 overflow-y-auto flex-1">
+                <div class="mb-5 rounded-2xl border border-violet-100 bg-violet-50/70 p-4">
+                    <div class="text-[length:0.65rem] font-bold uppercase tracking-widest text-violet-500 mb-2">Selected Student</div>
+                    @if (assignStudent != null)
+                    {
+                        <div class="text-sm font-extrabold text-slate-900">@assignStudent.FirstName @assignStudent.LastName</div>
+                        <div class="text-xs font-medium text-slate-500 mt-1">Form @assignStudent.Form @assignStudent.Classroom</div>
+                    }
+                    else
+                    {
+                        <div class="text-sm font-extrabold text-slate-900">Student #@assignStudentId</div>
+                    }
+                </div>
+                
+                <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Subject Selection</label>
+                @if (allSubjects == null || !allSubjects.Any())
+                {
+                    <div class="p-4 bg-slate-50 rounded-xl text-sm text-slate-500 text-center">
+                        No subjects available. Please add subjects to the catalogue first.
+                    </div>
+                }
+                else
+                {
+                    <div class="space-y-2 border border-slate-200 rounded-xl p-2 max-h-60 overflow-y-auto bg-slate-50/50">
+                        @foreach (var subject in allSubjects)
+                        {
+                            bool isSelected = selectedSubjectNames.Contains(subject.SubjectName ?? "");
+                            <label class="flex items-center gap-3 p-3 rounded-lg hover:bg-white border border-transparent hover:border-slate-200 cursor-pointer transition-all @(isSelected ? "bg-white border-violet-200 shadow-sm" : "")">
+                                <div class="relative flex items-center justify-center w-5 h-5 rounded border @(isSelected ? "border-violet-600 bg-violet-600 text-white" : "border-slate-300 bg-white") transition-colors">
+                                    @if (isSelected) { <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> }
+                                    <input type="checkbox" class="absolute opacity-0 w-full h-full cursor-pointer"
+                                           checked="@isSelected" @onchange="@((e) => ToggleSubject(subject.SubjectName, (bool)(e.Value ?? false)))" />
+                                </div>
+                                <span class="text-sm font-bold text-slate-700">@subject.SubjectName</span>
+                            </label>
+                        }
+                    </div>
+                    <div class="text-xs font-medium text-slate-500 mt-2 text-right">
+                        @selectedSubjectNames.Count subject(s) selected
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(assignStatus))
+                {
+                    <p class="mt-4 text-xs font-bold @(assignError ? "text-rose-600" : "text-violet-600")">@assignStatus</p>
+                }
+            </div>
+            
+            <div class="p-6 border-t border-slate-100 flex flex-col sm:flex-row gap-3 shrink-0">
+                <button class="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition-colors" @onclick="CloseAssignModal">Cancel</button>
+                <button class="flex-1 px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-bold transition-colors shadow-sm flex items-center justify-center gap-2"
+                        disabled="@(isSaving || assignStudentId <= 0 || !selectedSubjectNames.Any())" @onclick="HandleAssignSubjects">
+                    @if (isSaving) { <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> }
+                    Save Assignment
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Student>? students;
+    private List<Student> filteredStudents = new();
+    private List<SubjectsModel.ALevelSubjects>? allSubjects;
+    private List<GetStudentALevelSubjectChoices> existingChoices = new();
+    private bool isLoading = true;
+    private string searchTerm = "";
+    private string formFilter = "";
+    private string classFilter = "";
+    private string pageStatus = "";
+    private bool pageError;
+
+    private bool showAssignModal;
+    private long assignStudentId;
+    private Student? assignStudent;
+    private HashSet<string> selectedSubjectNames = new();
+    private string assignStatus = "";
+    private bool assignError;
+    private bool isSaving;
+
+    private IEnumerable<string> ClassOptions => (students ?? new())
+        .Where(s => !string.IsNullOrWhiteSpace(s.Classroom))
+        .Select(s => s.Classroom!.Trim())
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(c => c);
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        try
+        {
+            var studentsTask = StudentProfileService.GetStudentsAsync();
+            var subjectsTask = SubjectService.GetALevelSubjectsAsync();
+            var choicesTask = SubjectService.GetStudentALevelSubjectChoicesAsync();
+            
+            await Task.WhenAll(studentsTask, subjectsTask, choicesTask);
+            
+            // Filter to only Forms 5 and 6
+            students = studentsTask.Result
+                .Where(s => s.Form == 5 || s.Form == 6)
+                .OrderBy(s => s.FirstName)
+                .ThenBy(s => s.LastName)
+                .ToList();
+                
+            allSubjects = subjectsTask.Result.OrderBy(s => s.SubjectName).ToList();
+            existingChoices = choicesTask.Result ?? new();
+            
+            ApplySearch();
+        }
+        catch (Exception ex) { pageStatus = "Error loading data: " + ex.Message; pageError = true; students = new(); }
+        finally { isLoading = false; }
+    }
+
+    private void OnSearch(ChangeEventArgs e) { searchTerm = e.Value?.ToString() ?? ""; ApplySearch(); }
+    private void OnFormFilterChanged(ChangeEventArgs e) { formFilter = e.Value?.ToString() ?? ""; ApplySearch(); }
+    private void OnClassFilterChanged(ChangeEventArgs e) { classFilter = e.Value?.ToString() ?? ""; ApplySearch(); }
+    private void ApplySearch() => filteredStudents = string.IsNullOrWhiteSpace(searchTerm)
+        ? FilteredByAcademicScope(students ?? new()).ToList()
+        : students?.Where(s => 
+            (s.FirstName ?? "").Contains(searchTerm, StringComparison.OrdinalIgnoreCase) || 
+            (s.LastName ?? "").Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+            s.Id.ToString() == searchTerm).Where(s => MatchesAcademicScope(s)).ToList() ?? new();
+
+    private IEnumerable<Student> FilteredByAcademicScope(IEnumerable<Student> source) => source.Where(MatchesAcademicScope);
+    private bool MatchesAcademicScope(Student student) =>
+        (string.IsNullOrWhiteSpace(formFilter) || student.Form?.ToString() == formFilter)
+        && (string.IsNullOrWhiteSpace(classFilter) || string.Equals(student.Classroom?.Trim(), classFilter.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    private void OpenAssignModal() { assignStudentId = 0; assignStudent = null; selectedSubjectNames.Clear(); assignStatus = ""; assignError = false; showAssignModal = true; }
+    private void OpenAssignModalForStudent(Student student)
+    {
+        assignStudentId = student.Id;
+        assignStudent = student;
+        assignStatus = "";
+        assignError = false;
+
+        var existing = existingChoices.FirstOrDefault(choice => choice.StudentId == student.Id);
+        selectedSubjectNames = existing != null
+            ? existing.Subjects.Where(subject => !string.IsNullOrWhiteSpace(subject)).ToHashSet(StringComparer.OrdinalIgnoreCase)
+            : (allSubjects ?? new()).Select(subject => subject.SubjectName)
+                .Where(subject => !string.IsNullOrWhiteSpace(subject))
+                .Cast<string>()
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        showAssignModal = true;
+    }
+    private void CloseAssignModal() { showAssignModal = false; assignStudent = null; assignStatus = ""; assignError = false; }
+
+    private void ToggleSubject(string? subjectName, bool isChecked)
+    {
+        if (string.IsNullOrWhiteSpace(subjectName)) return;
+        if (isChecked) selectedSubjectNames.Add(subjectName);
+        else selectedSubjectNames.Remove(subjectName);
+    }
+
+    private async Task HandleAssignSubjects()
+    {
+        if (assignStudentId <= 0 || !selectedSubjectNames.Any()) return;
+        isSaving = true; assignStatus = ""; assignError = false;
+        try
+        {
+            var existing = existingChoices.FirstOrDefault(choice => choice.StudentId == assignStudentId);
+            bool result;
+
+            if (existing != null)
+            {
+                existing.Subjects = selectedSubjectNames.ToList();
+                // The update endpoint resolves the record by studentId, not by
+                // the subject-choice row's own database id.
+                result = await SubjectService.UpdateALevelStudentSubjectChoicesAsync(existing.StudentId, existing);
+            }
+            else
+            {
+                result = await SubjectService.PostALevelSubjectsToStudentAsync(assignStudentId, selectedSubjectNames.ToList());
+            }
+
+            if (result) 
+            { 
+                pageStatus = existing != null
+                    ? $"Subjects successfully updated for student #{assignStudentId}."
+                    : $"Subjects successfully assigned to student #{assignStudentId}."; 
+                pageError = false; 
+                NotificationService.ShowSuccess(pageStatus);
+                existingChoices = await SubjectService.GetStudentALevelSubjectChoicesAsync();
+                await OnChanged.InvokeAsync();
+                CloseAssignModal(); 
+            }
+            else { assignStatus = "Failed to assign subjects. Check student ID and try again."; assignError = true; }
+        }
+        catch (Exception ex) { assignStatus = "Error: " + ex.Message; assignError = true; }
+        finally { isSaving = false; }
+    }
+}

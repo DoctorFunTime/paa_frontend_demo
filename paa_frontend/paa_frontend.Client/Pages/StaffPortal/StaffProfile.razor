@@ -1,0 +1,457 @@
+@page "/staff/profile"
+@namespace paa_frontend.Client.Pages.Staff
+@layout paa_frontend.Client.Layout.StaffPortalLayout
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+@using paa_frontend.Client.Services
+@using paa_frontend.Shared.Models
+@using static paa_frontend.Shared.Models.TeacherProfileModel
+@inject TeacherProfileServiceClient TeacherService
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Nav
+
+<style>
+    .profile-shell {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 24px 0 40px;
+    }
+
+    .profile-hero {
+        background: rgba(255,255,255,0.88);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        border: 1px solid rgba(226,232,240,0.9);
+        border-radius: 28px;
+        padding: 28px;
+        color: #0f172a;
+        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
+        margin-bottom: 20px;
+    }
+
+    .profile-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+    }
+
+    .card {
+        background: rgba(255,255,255,0.84);
+        backdrop-filter: blur(18px);
+        border: 1px solid rgba(226,232,240,0.9);
+        border-radius: 24px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+        padding: 24px;
+    }
+
+    .skeleton {
+        background: linear-gradient(90deg, #e2e8f0 25%, #f8fafc 37%, #e2e8f0 63%);
+        background-size: 400% 100%;
+        animation: profileSkeleton 1.4s ease infinite;
+        border-radius: 12px;
+    }
+
+    .profile-skeleton-hero { height: 190px; margin-bottom: 20px; border-radius: 28px; }
+    .profile-skeleton-card { height: 260px; }
+    @@keyframes profileSkeleton { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+
+    .section-title {
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: #64748b;
+        margin-bottom: 18px;
+    }
+
+    .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+
+    .field {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .label {
+        font-size: 12px;
+        font-weight: 800;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .control {
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1.5px solid #cbd5e1;
+        background: white;
+        font-size: 14px;
+        font-weight: 600;
+        color: #0f172a;
+        outline: none;
+    }
+
+        .control:focus {
+            border-color: #1a4fff;
+            box-shadow: 0 0 0 4px rgba(26, 79, 255, 0.1);
+        }
+
+        .control:disabled {
+            background: #f8fafc;
+            color: #64748b;
+            cursor: not-allowed;
+        }
+
+    .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 20px;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        border: none;
+        border-radius: 14px;
+        padding: 12px 18px;
+        font-size: 14px;
+        font-weight: 800;
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    }
+
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+
+    .btn-primary {
+        background: #1a4fff;
+        color: white;
+        box-shadow: 0 10px 24px rgba(26, 79, 255, 0.2);
+    }
+
+    .btn-secondary {
+        background: white;
+        color: #334155;
+        border: 1px solid #cbd5e1;
+    }
+
+    .btn-ghost {
+        background: white;
+        color: #334155;
+        border: 1px solid #cbd5e1;
+    }
+
+    .status {
+        margin-top: 14px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+    .status-ok {
+        background: #ecfdf5;
+        color: #047857;
+        border: 1px solid #a7f3d0;
+    }
+
+    .status-error {
+        background: #fef2f2;
+        color: #b91c1c;
+        border: 1px solid #fecaca;
+    }
+
+    @@media (max-width: 768px) {
+        .profile-shell {
+            padding: 12px 12px 32px;
+        }
+
+        .profile-hero {
+            padding: 18px;
+            border-radius: 20px;
+        }
+
+        .card {
+            padding: 16px;
+            border-radius: 18px;
+        }
+
+        .profile-grid,
+        .grid-2 {
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        .actions {
+            justify-content: stretch;
+        }
+
+            .actions .btn {
+                flex: 1 1 auto;
+            }
+    }
+
+    @@media (max-width: 420px) {
+        .profile-hero .w-16 {
+            width: 3rem;
+            height: 3rem;
+            flex-shrink: 0;
+        }
+
+        .profile-hero .text-2xl {
+            font-size: 1.25rem;
+        }
+    }
+</style>
+
+<div class="profile-shell">
+    @if (isLoading)
+    {
+        <div aria-label="Loading staff profile" role="status">
+            <div class="skeleton profile-skeleton-hero"></div>
+            <div class="profile-grid">
+                <div class="skeleton profile-skeleton-card"></div>
+                <div class="skeleton profile-skeleton-card"></div>
+            </div>
+        </div>
+    }
+    else if (currentTeacherId <= 0)
+    {
+        <div class="card">
+            <div class="text-lg font-extrabold text-slate-900 mb-2">Profile unavailable</div>
+            <div class="text-sm text-slate-600">We could not identify the current staff account from your session.</div>
+        </div>
+    }
+    else
+    {
+        <div class="profile-hero">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-5">
+                <div class="flex items-center gap-4 min-w-0">
+                    <div class="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-2xl font-black text-slate-700">
+                        @StaffInitials
+                    </div>
+                    <div class="min-w-0">
+                        <div class="text-2xl md:text-3xl font-black tracking-tight text-slate-900">@Me.FirstName @Me.LastName</div>
+                        <div class="mt-2 flex flex-wrap gap-2 text-xs font-bold">
+                            <span class="px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700">Teacher</span>
+                            <span class="px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700">ID @Me.Id</span>
+                            <span class="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700">@(Me.Status ?? "Active")</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    @if (!isEditing)
+                    {
+                        <button type="button" class="btn btn-ghost" @onclick="() => showPasswordModal = true">Change Password</button>
+                        <button type="button" class="btn btn-ghost" @onclick="BeginEdit">Edit Profile</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-ghost" @onclick="CancelEdit">Cancel</button>
+                        <button type="button" class="btn btn-primary" @onclick="SaveAsync" disabled="@isSaving">
+                            @(isSaving ? "Saving..." : "Save Changes")
+                        </button>
+                    }
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(statusMessage))
+            {
+                <div class="status @(statusIsError ? "status-error" : "status-ok")">@statusMessage</div>
+            }
+        </div>
+
+        <EditForm Model="@Me" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+
+            <div class="profile-grid">
+                <div class="card">
+                    <div class="section-title">Account Details</div>
+                    <div class="grid-2">
+                        <div class="field">
+                            <label class="label">First Name</label>
+                            <InputText class="control" @bind-Value="Me.FirstName" disabled="@(!isEditing)" />
+                        </div>
+                        <div class="field">
+                            <label class="label">Last Name</label>
+                            <InputText class="control" @bind-Value="Me.LastName" disabled="@(!isEditing)" />
+                        </div>
+                        <div class="field">
+                            <label class="label">Gender</label>
+                            <InputSelect class="control" @bind-Value="Me.Gender" disabled="@(!isEditing)">
+                                <option value="">Select gender</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </InputSelect>
+                        </div>
+                        <div class="field">
+                            <label class="label">Date of Birth</label>
+                            <InputDate class="control" @bind-Value="Me.DateOfBirth" disabled="@(!isEditing)" />
+                        </div>
+                        <div class="field">
+                            <label class="label">National ID</label>
+                            <InputText class="control" @bind-Value="Me.NationalId" disabled="@(!isEditing)" />
+                        </div>
+                        <div class="field">
+                            <label class="label">Status</label>
+                            <InputSelect class="control" @bind-Value="Me.Status" disabled="@(!isEditing)">
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                                <option value="Suspended">Suspended</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="section-title">Contact Information</div>
+                    <div class="grid-2">
+                        <div class="field">
+                            <label class="label">Primary Email</label>
+                            <InputText class="control" @bind-Value="Me.Email" type="email" disabled="@(!isEditing)" />
+                        </div>
+                        <div class="field">
+                            <label class="label">Phone Number</label>
+                            <InputText class="control" @bind-Value="Me.Phone" type="text" disabled="@(!isEditing)" />
+                        </div>
+                    </div>
+                    <div class="actions">
+                        @if (!isEditing)
+                        {
+                            <button type="button" class="btn btn-secondary mr-auto" @onclick="OpenPasswordModal">Change Password</button>
+                            <button type="button" class="btn btn-primary" @onclick="BeginEdit">Edit Details</button>
+                        }
+                        else
+                        {
+                            <button type="button" class="btn btn-secondary" @onclick="CancelEdit">Discard</button>
+                            <button type="submit" class="btn btn-primary" disabled="@isSaving">Save Changes</button>
+                        }
+                    </div>
+                </div>
+            </div>
+        </EditForm>
+        <ChangePasswordModal @bind-IsOpen="showPasswordModal" Username="@authUsername" />
+    }
+</div>
+
+@code {
+    private Teacher Me = new();
+    private bool isLoading = true;
+    private bool isEditing;
+    private bool isSaving;
+    private string? statusMessage;
+    private bool statusIsError;
+    private long currentTeacherId;
+    private bool showPasswordModal;
+    private string authUsername = string.Empty;
+
+    private async Task OpenPasswordModal()
+    {
+        authUsername = await JSRuntime.InvokeAsync<string>("sessionStorage.getItem", "primeappDemo.authUsername") ?? string.Empty;
+        showPasswordModal = true;
+        StateHasChanged();
+    }
+
+    private string StaffInitials =>
+        $"{(string.IsNullOrWhiteSpace(Me.FirstName) ? "S" : Me.FirstName.Trim()[0].ToString().ToUpperInvariant())}{(string.IsNullOrWhiteSpace(Me.LastName) ? "T" : Me.LastName.Trim()[0].ToString().ToUpperInvariant())}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProfileAsync();
+    }
+
+    private async Task LoadProfileAsync()
+    {
+        isLoading = true;
+        statusMessage = null;
+        statusIsError = false;
+
+        try
+        {
+            var userIdValue = await JSRuntime.InvokeAsync<string?>("sessionStorage.getItem", "primeappDemo.userId");
+            if (!long.TryParse(userIdValue, out currentTeacherId) || currentTeacherId <= 0)
+            {
+                currentTeacherId = 0;
+                return;
+            }
+
+            var profile = await TeacherService.GetTeacherAsync(currentTeacherId);
+            if (profile != null)
+            {
+                Me = profile;
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Failed to load profile: {ex.Message}";
+            statusIsError = true;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void BeginEdit()
+    {
+        isEditing = true;
+        statusMessage = null;
+        statusIsError = false;
+    }
+
+    private void CancelEdit()
+    {
+        isEditing = false;
+        _ = LoadProfileAsync();
+    }
+
+    private async Task SaveAsync()
+    {
+        if (currentTeacherId <= 0)
+        {
+            statusMessage = "Unable to save because the current staff account could not be identified.";
+            statusIsError = true;
+            return;
+        }
+
+        isSaving = true;
+        statusMessage = null;
+        statusIsError = false;
+
+        try
+        {
+            var response = await TeacherService.UpdateTeacherAsync(currentTeacherId, Me);
+            if (response.IsSuccessStatusCode)
+            {
+                statusMessage = "Profile updated successfully.";
+                statusIsError = false;
+                isEditing = false;
+            }
+            else
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                statusMessage = string.IsNullOrWhiteSpace(body)
+                    ? $"Profile update failed with status {(int)response.StatusCode}."
+                    : body;
+                statusIsError = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Save failed: {ex.Message}";
+            statusIsError = true;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}

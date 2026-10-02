@@ -1,0 +1,249 @@
+@using paa_frontend.Client.Services.Admin
+@using static paa_frontend.Shared.Models.Admin.SubjectsModel
+@inject StudentSubjectServiceClient SubjectService
+@inject paa_frontend.Client.Services.NotificationService NotificationService
+
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+    <div>
+        <h2 class="text-xl font-extrabold text-slate-900 tracking-tight mb-1">Subjects Catalogue</h2>
+        <p class="text-sm font-medium text-slate-500">Manage the list of subjects available for Form 5 &amp; 6 students.</p>
+    </div>
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0 w-full md:w-auto">
+        <button class="shrink-0 px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-full text-sm font-bold shadow-md transition-all flex items-center gap-2"
+                @onclick="OpenAddModal">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Subject
+        </button>
+    </div>
+</div>
+
+
+@if (!string.IsNullOrEmpty(pageStatus))
+{
+    <div class="mb-5 p-4 rounded-2xl flex items-center gap-3 text-sm font-bold @(pageError ? "bg-rose-50 text-rose-700 border border-rose-200" : "bg-violet-50 text-violet-700 border border-violet-200")">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        @pageStatus
+    </div>
+}
+
+<div class="bg-white/70 backdrop-blur-sm border border-slate-200 rounded-3xl p-6 md:p-8 shadow-sm mb-8">
+    <div class="flex flex-col sm:flex-row items-center gap-3 mb-6">
+        <div class="relative flex-1 w-full max-w-sm">
+            <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            </span>
+            <input class="w-full py-2.5 pl-10 pr-4 bg-white border border-slate-200 rounded-full text-sm font-medium focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100 transition-all placeholder:text-slate-400"
+                   type="text" placeholder="Search subjects..." value="@searchTerm" @oninput="OnSearch" />
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            @for (int i = 0; i < 6; i++)
+            {
+                <div class="bg-white/60 border border-slate-200/60 rounded-2xl p-5 animate-pulse">
+                    <div class="w-10 h-10 rounded-xl bg-slate-200 mb-3"></div>
+                    <div class="w-2/3 h-4 bg-slate-200 rounded mb-2"></div>
+                </div>
+            }
+        </div>
+    }
+    else if (!filteredSubjects.Any())
+    {
+        <div class="text-center py-16">
+            <div class="w-16 h-16 bg-violet-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-violet-400">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            </div>
+            <h3 class="text-lg font-extrabold text-slate-900 mb-2">No subjects found</h3>
+            <p class="text-sm text-slate-500 mb-6">@(subjects?.Any() == true ? "Try a different search term." : "Add A-Level subjects to get started.")</p>
+            <button class="px-6 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-full text-sm font-bold transition-all shadow-md" @onclick="OpenAddModal">Add First Subject</button>
+        </div>
+    }
+    else
+    {
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            @{ int ci = 0; }
+            @foreach (var subject in filteredSubjects)
+            {
+                var (bg, fg) = SubjectColor(ci);
+                <div class="bg-white/80 border border-slate-200 rounded-2xl p-5 hover:shadow-md transition-all group flex flex-col">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-extrabold shrink-0" style="background:@bg;color:@fg;">
+                            @(string.IsNullOrWhiteSpace(subject.SubjectName) ? "S" : new string(subject.SubjectName.Trim().Take(2).ToArray()).ToUpper())
+                        </div>
+                        <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button class="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-violet-600 hover:border-violet-200 hover:bg-violet-50 flex items-center justify-center transition-all shadow-sm" title="Edit" @onclick="() => OpenEditModal(subject)">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            </button>
+                            <button class="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 flex items-center justify-center transition-all shadow-sm" title="Delete" @onclick="() => ConfirmDelete(subject)">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="text-base font-extrabold text-slate-900">@subject.SubjectName</div>
+                    <div class="text-[length:0.65rem] font-mono font-bold text-slate-400 mt-1">ID: @subject.Id</div>
+                </div>
+                ci++;
+            }
+        </div>
+    }
+</div>
+
+<!-- Add/Edit Modal -->
+@if (showEditModal)
+{
+    <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4" @onclick="CloseEditModal">
+        <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md shadow-2xl" @onclick:stopPropagation="true">
+            <div class="p-6 border-b border-slate-100">
+                <h3 class="text-lg font-extrabold text-slate-900">@(isEditing ? "Edit Subject" : "Add Subject")</h3>
+                <p class="text-xs text-slate-500 font-medium mt-0.5">@(isEditing ? "Update the A-Level subject name." : "Enter a new A-Level subject name.")</p>
+            </div>
+            <div class="p-6">
+                <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Subject Name</label>
+                <input class="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:border-violet-500 focus:ring-2 focus:ring-violet-100 outline-none transition-all placeholder:text-slate-400"
+                       placeholder="e.g. Mathematics, Physics" @bind="editSubjectName" @bind:event="oninput" @onkeydown="HandleKeyDown" />
+                @if (!string.IsNullOrEmpty(editStatus))
+                {
+                    <p class="mt-2 text-xs font-bold @(editError ? "text-rose-600" : "text-violet-600")">@editStatus</p>
+                }
+            </div>
+            <div class="px-6 pb-6 flex flex-col sm:flex-row gap-3">
+                <button class="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition-colors" @onclick="CloseEditModal">Cancel</button>
+                <button class="flex-1 px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-bold transition-colors shadow-sm flex items-center justify-center gap-2"
+                        disabled="@(isSaving || string.IsNullOrWhiteSpace(editSubjectName))" @onclick="HandleSave">
+                    @if (isSaving) { <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> }
+                    @(isEditing ? "Save Changes" : "Add Subject")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Delete Confirm -->
+@if (deleteTarget != null)
+{
+    <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4" @onclick="() => deleteTarget = null">
+        <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl" @onclick:stopPropagation="true">
+            <div class="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mb-5">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <h3 class="text-xl font-extrabold text-slate-900 mb-2">Delete subject?</h3>
+            <p class="text-sm font-medium text-slate-500 mb-8 leading-relaxed">
+                This will permanently remove <strong>@deleteTarget.SubjectName</strong>.
+            </p>
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3">
+                <button class="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition-colors" @onclick="() => deleteTarget = null">Cancel</button>
+                <button class="px-5 py-2.5 rounded-xl bg-rose-600 text-white text-sm font-bold hover:bg-rose-700 transition-colors shadow-sm" @onclick="ExecuteDelete">Delete Subject</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<SubjectsModel.ALevelSubjects>? subjects;
+    private List<SubjectsModel.ALevelSubjects> filteredSubjects = new();
+    private bool isLoading = true;
+    private string searchTerm = "";
+    private string pageStatus = "";
+    private bool pageError;
+
+    private bool showEditModal;
+    private bool isEditing;
+    private long editSubjectId;
+    private string editSubjectName = "";
+    private string editStatus = "";
+    private bool editError;
+    private bool isSaving;
+    private SubjectsModel.ALevelSubjects? deleteTarget;
+
+    private static readonly (string Bg, string Fg)[] Palette = {
+        ("rgb(245,243,255)", "#7c3aed"), ("rgb(239,246,255)", "#2563eb"),
+        ("rgb(236,253,245)", "#059669"), ("rgb(255,251,235)", "#d97706"),
+        ("rgb(255,241,242)", "#e11d48"), ("rgb(240,249,255)", "#0284c7"),
+    };
+    private (string Bg, string Fg) SubjectColor(int i) => Palette[i % Palette.Length];
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        try
+        {
+            subjects = (await SubjectService.GetALevelSubjectsAsync()).OrderBy(s => s.SubjectName).ToList();
+            ApplySearch();
+        }
+        catch (Exception ex) { pageStatus = "Error loading data: " + ex.Message; pageError = true; subjects = new(); }
+        finally { isLoading = false; }
+    }
+
+    private void OnSearch(ChangeEventArgs e) { searchTerm = e.Value?.ToString() ?? ""; ApplySearch(); }
+    private void ApplySearch() => filteredSubjects = string.IsNullOrWhiteSpace(searchTerm)
+        ? subjects?.ToList() ?? new()
+        : subjects?.Where(s => (s.SubjectName ?? "").Contains(searchTerm, StringComparison.OrdinalIgnoreCase)).ToList() ?? new();
+
+    private void OpenAddModal()  { isEditing = false; editSubjectId = 0; editSubjectName = ""; editStatus = ""; editError = false; showEditModal = true; }
+    private void OpenEditModal(SubjectsModel.ALevelSubjects s) { isEditing = true; editSubjectId = s.Id; editSubjectName = s.SubjectName ?? ""; editStatus = ""; editError = false; showEditModal = true; }
+    private void CloseEditModal() { showEditModal = false; editStatus = ""; editError = false; }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e) { if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(editSubjectName)) await HandleSave(); }
+
+    private async Task HandleSave()
+    {
+        if (string.IsNullOrWhiteSpace(editSubjectName)) return;
+        isSaving = true; editStatus = ""; editError = false;
+        try
+        {
+            var trimmed = editSubjectName.Trim();
+            bool result = isEditing
+                ? await SubjectService.UpdateALevelSubjectAsync(editSubjectId, trimmed)
+                : await SubjectService.PostAlevelSubjectAsync(trimmed);
+
+            if (result)
+            {
+                pageStatus = isEditing ? $"'{trimmed}' updated." : $"'{trimmed}' added.";
+                pageError = false;
+                NotificationService.ShowSuccess(pageStatus);
+
+                if (isEditing)
+                {
+                    // Optimistically update in-memory so the UI is instant
+                    var item = subjects?.FirstOrDefault(s => s.Id == editSubjectId);
+                    if (item != null)
+                    {
+                        item.SubjectName = trimmed;
+                        subjects = subjects?.OrderBy(s => s.SubjectName).ToList();
+                        ApplySearch();
+                    }
+                    CloseEditModal();
+                    StateHasChanged(); // Force UI update
+                }
+                else
+                {
+                    CloseEditModal();
+                    StateHasChanged();
+                    await LoadData();
+                }
+            }
+            else { editStatus = "Operation failed. Please try again."; editError = true; }
+        }
+        catch (Exception ex) { editStatus = "Error: " + ex.Message; editError = true; }
+        finally { isSaving = false; }
+    }
+
+    private void ConfirmDelete(SubjectsModel.ALevelSubjects s) => deleteTarget = s;
+
+    private async Task ExecuteDelete()
+    {
+        if (deleteTarget == null) return;
+        try
+        {
+            var result = await SubjectService.DeleteALevelSubjectAsync(deleteTarget.Id);
+            if (result) { pageStatus = $"'{deleteTarget.SubjectName}' deleted."; pageError = false; NotificationService.ShowSuccess(pageStatus); subjects?.Remove(deleteTarget); ApplySearch(); }
+            else { pageStatus = "Delete failed. The subject may still be in use."; pageError = true; }
+        }
+        catch (Exception ex) { pageStatus = "Error: " + ex.Message; pageError = true; }
+        finally { deleteTarget = null; }
+    }
+}

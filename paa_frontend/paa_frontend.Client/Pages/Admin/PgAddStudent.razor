@@ -1,0 +1,622 @@
+@page "/students/add"
+@namespace paa_frontend.Client.Pages.Admin
+@layout paa_frontend.Client.Layout.SharedFormLayout
+@using static paa_frontend.Shared.Models.Admin.AlevelClassesModel
+@using static paa_frontend.Shared.Models.Admin.OlevelClassesModel
+@using static paa_frontend.Shared.Models.StudentProfileModel
+@using paa_frontend.Shared.Models
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Net.Http.Json
+@using System.Text.Json
+@using System.Linq.Expressions
+@inject paa_frontend.Client.Services.StudentProfileServiceClient StudentService
+@inject paa_frontend.Client.Services.Admin.AlevelClassServiceClient ClassService
+@inject paa_frontend.Client.Services.Admin.OlevelClassServiceClient OClassService
+@inject paa_frontend.Client.Services.NotificationService NotificationService
+@inject NavigationManager Nav
+@inject Microsoft.JSInterop.IJSRuntime JS
+
+@if (classesLoading)
+{
+    <AdminLoadingSkeleton />
+}
+
+<div class="max-w-4xl mx-auto w-full pb-16">
+    <div class="flex items-center gap-2 text-sm text-slate-500 font-medium mb-1">
+        <a href="@DashboardHref" class="hover:text-blue-600 transition-colors">Dashboard</a>
+        <span class="text-slate-300">&rsaquo;</span>
+        <span class="text-slate-800 font-bold">New Admission</span>
+    </div>
+    
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+        <div>
+            <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight mb-2">Register New Student</h1>
+            <p class="text-sm font-medium text-slate-500">Fill in the student details to create a new record in the system.</p>
+        </div>
+        <button type="button" class="no-print inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-700 text-white text-sm font-bold shadow-sm" @onclick="PrintApplication">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+            Print application
+        </button>
+    </div>
+
+    <EditForm EditContext="@editContext" id="student-registration-form" OnValidSubmit="HandleValidSubmit" OnInvalidSubmit="HandleInvalidSubmit" class="bg-white/60 backdrop-blur-sm border border-slate-200/50 rounded-3xl p-6 md:p-10 shadow-sm animate-fade-in relative overflow-hidden">
+        <DataAnnotationsValidator />
+        
+        <!-- Decorative bg -->
+        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 to-indigo-600"></div>
+
+        @if (!string.IsNullOrWhiteSpace(formFeedbackMessage) || !string.IsNullOrWhiteSpace(submissionErrorMessage))
+        {
+            <div id="student-submit-feedback" @ref="feedbackSectionRef" tabindex="-1" class="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700 shadow-sm" aria-live="assertive">
+                @if (!string.IsNullOrWhiteSpace(formFeedbackMessage))
+                {
+                    <p class="font-bold">@formFeedbackMessage</p>
+                }
+                @if (!string.IsNullOrWhiteSpace(submissionErrorMessage))
+                {
+                    <p class="font-bold">@submissionErrorMessage</p>
+                }
+                <ValidationSummary class="validation-errors mt-3 space-y-1 text-xs font-semibold text-rose-600" />
+            </div>
+        }
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+
+            <div class="col-span-1 md:col-span-2">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Student Identity</h3>
+                <p class="text-xs text-slate-500 mb-4">These fields belong to the student's own profile.</p>
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[length:0.8rem] font-bold text-slate-700">First Name <span class="text-rose-500">*</span></label>
+                <InputText @bind-Value="newStudent.FirstName" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none" placeholder="e.g. Tinashe" />
+                <ValidationMessage For="@(() => newStudent.FirstName)" class="text-[length:0.65rem] text-rose-500 font-bold" />
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[length:0.8rem] font-bold text-slate-700">Last Name <span class="text-rose-500">*</span></label>
+                <InputText @bind-Value="newStudent.LastName" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none" placeholder="e.g. Moyo" />
+                <ValidationMessage For="@(() => newStudent.LastName)" class="text-[length:0.65rem] text-rose-500 font-bold" />
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[length:0.8rem] font-bold text-slate-700">Date of Birth</label>
+                <InputDate @bind-Value="newStudent.DateOfBirth" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none" />
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[length:0.8rem] font-bold text-slate-700">Gender</label>
+                <div class="relative">
+                    <InputSelect @bind-Value="newStudent.Gender" class="w-full bg-white border border-slate-200 rounded-xl pl-4 pr-10 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none appearance-none">
+                        <option value="">Select gender</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                    </InputSelect>
+                    <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9" /></svg>
+                    </div>
+                </div>
+                <ValidationMessage For="@(() => newStudent.Gender)" class="text-[length:0.65rem] text-rose-500 font-bold" />
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[length:0.8rem] font-bold text-slate-700">National ID</label>
+                <InputText @bind-Value="newStudent.NationalId" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none font-mono" placeholder="00-0000000X00" />
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[length:0.8rem] font-bold text-slate-700">Temporary ID <span class="text-slate-400 font-semibold">(Optional)</span></label>
+                <InputText @bind-Value="newStudent.TempId" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none font-mono" placeholder="TEMP-001" />
+                <p class="text-[length:0.65rem] text-slate-400 font-medium">Use this if you want to match later imports or transaction uploads.</p>
+            </div>
+
+            <div class="col-span-1 md:col-span-2 mt-4">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest border-t border-slate-200/60 pt-6 mb-4">Enrollment Details</h3>
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[length:0.8rem] font-bold text-slate-700">Assigned Form / Year</label>
+                <InputNumber @bind-Value="newStudent.Form" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none" min="1" max="6" />
+                <ValidationMessage For="@(() => newStudent.Form)" class="text-[length:0.65rem] text-rose-500 font-bold" />
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[length:0.8rem] font-bold text-slate-700">Classroom</label>
+                <div class="relative">
+                    @if (classesLoading)
+                    {
+                        <select class="w-full bg-slate-100 border border-slate-200 rounded-xl pl-4 pr-10 py-2.5 text-sm font-medium text-slate-400 outline-none appearance-none cursor-not-allowed" disabled>
+                            <option>&#9203; Classes loading, please wait...</option>
+                        </select>
+                    }
+                    else
+                    {
+                        <InputSelect @bind-Value="newStudent.Classroom" class="w-full bg-white border border-slate-200 rounded-xl pl-4 pr-10 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none appearance-none">
+                            <option value="">Select class preset...</option>
+                            @if (aLevelPresets.Any())
+                            {
+                                <optgroup label="── A-Level (Form 5-6) ──">
+                                    @foreach (var c in aLevelPresets)
+                                    {
+                                        <option value="@c.ClassName">@c.ClassName</option>
+                                    }
+                                </optgroup>
+                            }
+                            @if (oLevelPresets.Any())
+                            {
+                                <optgroup label="── O-Level (Form 1-4) ──">
+                                    @foreach (var c in oLevelPresets)
+                                    {
+                                        <option value="@c">@c</option>
+                                    }
+                                </optgroup>
+                            }
+                        </InputSelect>
+                    }
+                    <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9" /></svg>
+                    </div>
+                </div>
+                <p class="text-[length:0.65rem] text-slate-400 font-medium">Shows A-Level and O-Level class presets from Academics.</p>
+                <ValidationMessage For="@(() => newStudent.Classroom)" class="text-[length:0.65rem] text-rose-500 font-bold" />
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[length:0.8rem] font-bold text-slate-700">Admission Status</label>
+                <div class="relative">
+                    <InputSelect @bind-Value="newStudent.Status" class="w-full bg-white border border-slate-200 rounded-xl pl-4 pr-10 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none appearance-none">
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                        <option value="Pending">Pending</option>
+                    </InputSelect>
+                    <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9" /></svg>
+                    </div>
+                </div>
+                <ValidationMessage For="@(() => newStudent.Status)" class="text-[length:0.65rem] text-rose-500 font-bold" />
+            </div>
+
+            <div class="col-span-1 md:col-span-2 mt-4">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest border-t border-slate-200/60 pt-6 mb-2">Student Contact Details</h3>
+                <p class="text-xs text-slate-500 mb-4">Use this section for the student's main contact and address details.</p>
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[length:0.8rem] font-bold text-slate-700">Student Email <span class="text-slate-400 font-semibold">(Optional)</span></label>
+                <InputText @bind-Value="newStudent.Email" type="text" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none" placeholder="student@example.com (optional)" />
+                <ValidationMessage For="@(() => newStudent.Email)" class="text-[length:0.65rem] text-rose-500 font-bold" />
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[length:0.8rem] font-bold text-slate-700">Student Phone <span class="text-slate-400 font-semibold">(Optional)</span></label>
+                <InputText @bind-Value="newStudent.Phone" type="tel" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none" placeholder="0712345678" />
+                <p class="text-[length:0.65rem] text-slate-400 font-medium">Optional. Minor formatting mistakes will not block saving.</p>
+                <ValidationMessage For="@(() => newStudent.Phone)" class="text-[length:0.65rem] text-rose-500 font-bold" />
+            </div>
+
+            <div class="col-span-1 md:col-span-2 flex flex-col gap-1.5">
+                <label class="text-[length:0.8rem] font-bold text-slate-700">Student Physical Address <span class="text-slate-400 font-semibold">(Optional)</span></label>
+                <InputTextArea @bind-Value="newStudent.Address" rows="3" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none resize-none" placeholder="Home address..." />
+                <ValidationMessage For="@(() => newStudent.Address)" class="text-[length:0.65rem] text-rose-500 font-bold" />
+            </div>
+
+            <div class="col-span-1 md:col-span-2 mt-4">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest border-t border-slate-200/60 pt-6 mb-2">Guardian / Emergency Contact</h3>
+                <p class="text-xs text-slate-500 mb-4">These fields belong to the parent, guardian, or emergency contact and are optional unless your backend rejects missing values.</p>
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[length:0.8rem] font-bold text-slate-700">Guardian Name <span class="text-slate-400 font-semibold">(Optional)</span></label>
+                <InputText @bind-Value="newStudent.EmergencyContactDetails!.Name" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none" placeholder="e.g. Sarah Moyo" />
+                <ValidationMessage For="@(() => newStudent.EmergencyContactDetails!.Name)" class="text-[length:0.65rem] text-rose-500 font-bold" />
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[length:0.8rem] font-bold text-slate-700">Guardian Phone <span class="text-slate-400 font-semibold">(Optional)</span></label>
+                <InputText @bind-Value="newStudent.EmergencyContactDetails!.Phone" type="tel" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none" placeholder="0712345678" />
+                <p class="text-[length:0.65rem] text-slate-400 font-medium">Optional. Minor formatting mistakes will not block saving.</p>
+                <ValidationMessage For="@(() => newStudent.EmergencyContactDetails!.Phone)" class="text-[length:0.65rem] text-rose-500 font-bold" />
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[length:0.8rem] font-bold text-slate-700">Guardian Email <span class="text-slate-400 font-semibold">(Optional)</span></label>
+                <InputText @bind-Value="newStudent.EmergencyContactDetails!.Email" type="text" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none" placeholder="guardian@example.com (optional)" />
+                <p class="text-[length:0.65rem] text-slate-400 font-medium">Not compulsory. Only checked if you enter a value.</p>
+                <ValidationMessage For="@(() => newStudent.EmergencyContactDetails!.Email)" class="text-[length:0.65rem] text-rose-500 font-bold" />
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[length:0.8rem] font-bold text-slate-700">Relationship to Student <span class="text-slate-400 font-semibold">(Optional)</span></label>
+                <InputText @bind-Value="newStudent.EmergencyContactDetails!.Relationship" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none" placeholder="e.g. Mother" />
+                <ValidationMessage For="@(() => newStudent.EmergencyContactDetails!.Relationship)" class="text-[length:0.65rem] text-rose-500 font-bold" />
+            </div>
+            
+        </div>
+
+        <div class="mt-10 pt-6 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-stretch sm:items-center sm:justify-end gap-3">
+            <button type="button" class="w-full sm:w-auto px-6 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm" @onclick='() => Nav.NavigateTo("/students")'>Cancel</button>
+            <button type="submit" class="w-full sm:w-auto px-8 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-all shadow-md flex items-center justify-center gap-2" disabled="@isSubmitting">
+                @if (isSubmitting)
+                {
+                    <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> <span>Saving...</span>
+                }
+                else
+                {
+                    <span>Complete Registration</span>
+                }
+            </button>
+        </div>
+
+    </EditForm>
+
+    @if (createdStudent != null)
+    {
+        <div id="student-created-response" @ref="responseSectionRef" tabindex="-1" class="mt-8 bg-white/60 backdrop-blur-sm border border-emerald-200/50 rounded-3xl p-6 md:p-10 shadow-sm animate-fade-in relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+                </div>
+                <div>
+                    <h2 class="text-xl font-extrabold text-slate-900">Student Account Created</h2>
+                    <p class="text-sm text-slate-500">The admission record has been saved to the system.</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                <div class="bg-slate-50 rounded-xl p-4">
+                    <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Student ID</div>
+                    <div class="text-lg font-black text-slate-900 font-mono">#@createdStudent.StudentId</div>
+                </div>
+                <div class="bg-slate-50 rounded-xl p-4">
+                    <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Full Name</div>
+                    <div class="text-lg font-bold text-slate-900">@createdStudent.FirstName @createdStudent.LastName</div>
+                </div>
+
+                <!-- Credentials block — full width, highlighted -->
+                <div class="col-span-1 md:col-span-2 bg-blue-50 border border-blue-200 rounded-xl p-5">
+                    <div class="flex items-center gap-2 mb-3">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-blue-500"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                        <div class="text-xs font-bold text-blue-600 uppercase tracking-widest">Login Credentials — Share with student</div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Username</div>
+                            <div class="text-sm font-mono font-bold text-slate-900 bg-white border border-blue-100 rounded-lg px-3 py-2">@(createdStudent.Username ?? "—")</div>
+                        </div>
+                        <div>
+                            <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Temporary Password</div>
+                            <div class="text-sm font-mono font-bold text-slate-900 bg-white border border-blue-100 rounded-lg px-3 py-2">@(createdStudent.Password ?? "—")</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 rounded-xl p-4">
+                    <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Status</div>
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold @(createdStudent.Status == "ACTIVE" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700")">@createdStudent.Status</span>
+                </div>
+                <div class="bg-slate-50 rounded-xl p-4">
+                    <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Account Created</div>
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold @(createdStudent.IsCreated ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700")">
+                        @(createdStudent.IsCreated ? "Yes" : "No")
+                    </span>
+                </div>
+
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-3">
+                <button class="w-full sm:w-auto px-6 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm" @onclick='() => Nav.NavigateTo("/students")'>View All Students</button>
+                <button class="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-all shadow-md" @onclick="ResetForm">Add Another</button>
+            </div>
+        </div>
+    }
+
+    <div class="application-print-shell" aria-hidden="true">
+        <div class="application-cert-wrap">
+            <div class="application-cert-frame">
+                <div class="application-corner tl"><svg viewBox="0 0 48 48" fill="none"><path d="M2 46V12C2 6.48 6.48 2 12 2H46" stroke="#1a7f52" stroke-width="2.5" stroke-linecap="round"/><circle cx="8" cy="8" r="3" fill="#1a7f52" opacity=".6"/></svg></div>
+                <div class="application-corner tr"><svg viewBox="0 0 48 48" fill="none"><path d="M2 46V12C2 6.48 6.48 2 12 2H46" stroke="#1a7f52" stroke-width="2.5" stroke-linecap="round"/><circle cx="8" cy="8" r="3" fill="#1a7f52" opacity=".6"/></svg></div>
+                <div class="application-corner bl"><svg viewBox="0 0 48 48" fill="none"><path d="M2 46V12C2 6.48 6.48 2 12 2H46" stroke="#1a7f52" stroke-width="2.5" stroke-linecap="round"/><circle cx="8" cy="8" r="3" fill="#1a7f52" opacity=".6"/></svg></div>
+                <div class="application-corner br"><svg viewBox="0 0 48 48" fill="none"><path d="M2 46V12C2 6.48 6.48 2 12 2H46" stroke="#1a7f52" stroke-width="2.5" stroke-linecap="round"/><circle cx="8" cy="8" r="3" fill="#1a7f52" opacity=".6"/></svg></div>
+                <article class="application-sheet">
+                    <div class="application-watermark"><img src="/images/demo-logo.svg" alt="" /></div>
+                    <header class="application-header">
+                        <img src="/images/demo-logo.svg" alt="PrimeApp Demo" />
+                        <div class="application-school-name">PrimeApp Demo</div>
+                        <div class="application-motto">Equipping youngsters to compete internationally</div>
+                    </header>
+                    <div class="application-title">
+                        <h2>Student Application Form</h2>
+                        <p>Admission registration &nbsp;•&nbsp; Printed @DateTime.Today.ToString("dd MMM yyyy")</p>
+                    </div>
+
+                    <section class="application-section">
+                        <h3>Student identity</h3>
+                        <div class="application-fields">
+                            @ApplicationPrintField("First name", newStudent.FirstName)
+                            @ApplicationPrintField("Last name", newStudent.LastName)
+                            @ApplicationPrintField("Date of birth", newStudent.DateOfBirth?.ToString("dd MMM yyyy"))
+                            @ApplicationPrintField("Gender", newStudent.Gender)
+                            @ApplicationPrintField("National ID", newStudent.NationalId)
+                            @ApplicationPrintField("Temporary ID", newStudent.TempId)
+                        </div>
+                    </section>
+                    <section class="application-section">
+                        <h3>Enrollment details</h3>
+                        <div class="application-fields">
+                            @ApplicationPrintField("Assigned form / year", newStudent.Form?.ToString())
+                            @ApplicationPrintField("Classroom", newStudent.Classroom)
+                            @ApplicationPrintField("Admission status", newStudent.Status)
+                        </div>
+                    </section>
+                    <section class="application-section">
+                        <h3>Student contact details</h3>
+                        <div class="application-fields">
+                            @ApplicationPrintField("Email", newStudent.Email)
+                            @ApplicationPrintField("Phone", newStudent.Phone)
+                            @ApplicationPrintField("Physical address", newStudent.Address, true)
+                        </div>
+                    </section>
+                    <section class="application-section">
+                        <h3>Parent / guardian / emergency contact</h3>
+                        <div class="application-fields">
+                            @ApplicationPrintField("Name", newStudent.EmergencyContactDetails?.Name)
+                            @ApplicationPrintField("Relationship to student", newStudent.EmergencyContactDetails?.Relationship)
+                            @ApplicationPrintField("Phone", newStudent.EmergencyContactDetails?.Phone)
+                            @ApplicationPrintField("Email", newStudent.EmergencyContactDetails?.Email)
+                        </div>
+                    </section>
+                    <div class="application-signatures">
+                        <div><span>Parent / guardian signature</span><i></i></div>
+                        <div><span>Date</span><i></i></div>
+                    </div>
+                    <div class="application-office-use"><strong>For office use</strong><span>Received by: ____________________</span><span>Date: ______________</span></div>
+                    <footer class="application-footer">&copy; @DateTime.Now.Year PrimeApp Demo &nbsp;•&nbsp; All Rights Reserved &nbsp;•&nbsp; Official Student Application &nbsp;•&nbsp; Fictional data · Demonstration only</footer>
+                </article>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .application-print-shell { display: none; }
+    .application-cert-wrap { position: relative; width: 100%; height: 100%; padding: 5mm; box-sizing: border-box; background: #fff; }
+    .application-cert-frame { position: relative; width: 100%; height: 100%; padding: 9mm 10mm 7mm; border: 2px solid #1a7f52; outline: 4px solid rgba(26,127,82,.16); outline-offset: -9px; border-radius: 4px; box-sizing: border-box; background: #fff; }
+    .application-corner { position: absolute; z-index: 4; width: 11mm; height: 11mm; pointer-events: none; }
+    .application-corner svg { width: 100%; height: 100%; }
+    .application-corner.tl { top: 4px; left: 4px; }
+    .application-corner.tr { top: 4px; right: 4px; transform: scaleX(-1); }
+    .application-corner.bl { bottom: 4px; left: 4px; transform: scaleY(-1); }
+    .application-corner.br { bottom: 4px; right: 4px; transform: scale(-1,-1); }
+    .application-sheet { position: relative; isolation: isolate; display: flex; flex-direction: column; width: 100%; height: 100%; overflow: hidden; color: #14213a; background: #fff; }
+    .application-watermark { position: absolute; z-index: 0; inset: 0; display: grid; place-items: center; pointer-events: none; }
+    .application-watermark img { width: 145mm; height: 145mm; object-fit: contain; opacity: .065; }
+    .application-sheet > :not(.application-watermark) { position: relative; z-index: 1; }
+    .application-header { text-align: center; padding-bottom: 3mm; border-bottom: 1px dashed rgba(26,127,82,.35); }
+    .application-header img { width: 17mm; height: 17mm; margin: 0 auto 1mm; object-fit: contain; }
+    .application-school-name { font-size: 15pt; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; color: #0f172a; }
+    .application-motto { margin-top: 1mm; font-size: 7pt; font-weight: 600; color: #64748b; letter-spacing: .3px; }
+    .application-title { padding: 3mm 0 2mm; text-align: center; }
+    .application-title h2 { margin: 0; color: #047857; font-size: 13pt; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
+    .application-title p { margin: 1mm 0 0; color: #64748b; font-size: 7pt; }
+    .application-section { margin-top: 3mm; }
+    .application-section h3 { margin: 0 0 1.5mm; padding-bottom: 1mm; border-bottom: 1px solid #dbe4e0; color: #047857; font-size: 8pt; font-weight: 900; letter-spacing: .7px; text-transform: uppercase; }
+    .application-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5mm 5mm; }
+    .application-field.wide { grid-column: 1 / -1; }
+    .application-field-label { color: #64748b; font-size: 6.5pt; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; }
+    .application-field-value { min-height: 6mm; padding: 1mm 0 .5mm; border-bottom: 1px solid #b9c4d3; color: #14213a; font-size: 9pt; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .application-signatures { display: grid; grid-template-columns: 2fr 1fr; gap: 10mm; margin-top: auto; padding-top: 7mm; }
+    .application-signatures span { display: block; color: #64748b; font-size: 6.5pt; font-weight: 700; }
+    .application-signatures i { display: block; height: 10mm; border-bottom: 1px solid #64748b; }
+    .application-office-use { display: flex; justify-content: space-between; gap: 5mm; margin-top: 4mm; padding: 2mm 3mm; border: 1px solid #d7e5dc; color: #475569; font-size: 6.5pt; }
+    .application-footer { margin-top: 3mm; padding-top: 2mm; border-top: 1px dashed rgba(26,127,82,.35); color: #64748b; text-align: center; font-size: 5.8pt; letter-spacing: .4px; text-transform: uppercase; }
+    @@media print {
+        @@page { size: A4 portrait; margin: 0; }
+        html, body { width: 210mm; height: 297mm; margin: 0 !important; padding: 0 !important; overflow: hidden !important; background: #fff !important; }
+        body * { visibility: hidden !important; }
+        body *:has(.application-print-shell) { position: static !important; transform: none !important; overflow: visible !important; }
+        .application-print-shell, .application-print-shell * { visibility: visible !important; }
+        .application-print-shell { display: block !important; position: fixed !important; top: 0; left: 0; width: 210mm; height: 297mm; margin: 0; padding: 0; overflow: hidden; background: #fff; box-sizing: border-box; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    }
+</style>
+
+@code {
+    private Task PrintApplication() => JS.InvokeVoidAsync("window.print").AsTask();
+
+    private RenderFragment ApplicationPrintField(string Label, string? Value, bool Wide = false) => @<div class="application-field @(Wide ? "wide" : "")">
+        <div class="application-field-label">@Label</div>
+        <div class="application-field-value">@(string.IsNullOrWhiteSpace(Value) ? " " : Value.Trim())</div>
+    </div>;
+
+    private Student newStudent = new();
+    private EditContext editContext = default!;
+    private List<AlevelClassName> aLevelPresets = new();
+    private List<string> oLevelPresets = new();
+    private bool classesLoading = true;
+    private bool isSubmitting = false;
+    private AuthCreationResult? createdStudent;
+    private string? formFeedbackMessage;
+    private string? submissionErrorMessage;
+    private ValidationMessageStore validationMessageStore = default!;
+    private ElementReference feedbackSectionRef;
+    private ElementReference responseSectionRef;
+    [CascadingParameter(Name = "ReturnPortal")]
+    private string? ReturnPortal { get; set; }
+
+    private string DashboardHref => ReturnPortal == "burser" ? "/burser" : "/admin";
+
+    protected override void OnInitialized()
+    {
+        ResetFormModel();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        classesLoading = true;
+        try
+        {
+            var aTask = ClassService.GetAllAlevelClassNamesAsync();
+            var oTask = OClassService.GetAllOlevelClassNamesAsync();
+            await Task.WhenAll(aTask, oTask);
+
+            aLevelPresets = (aTask.Result ?? new())
+                .Where(c => !string.IsNullOrWhiteSpace(c.ClassName))
+                .OrderBy(c => c.ClassName)
+                .ToList();
+
+            oLevelPresets = (oTask.Result ?? new())
+                .Where(c => !string.IsNullOrWhiteSpace(c.ClassName))
+                .Select(c => c.ClassName!)
+                .Distinct()
+                .OrderBy(c => c)
+                .ToList();
+        }
+        catch
+        {
+            aLevelPresets = new();
+            oLevelPresets = new();
+        }
+        finally
+        {
+            classesLoading = false;
+        }
+    }
+
+    private async Task HandleInvalidSubmit(EditContext _)
+    {
+        createdStudent = null;
+        submissionErrorMessage = null;
+        formFeedbackMessage = "Please correct the highlighted fields and try again.";
+        NotificationService.ShowError(formFeedbackMessage);
+        await InvokeAsync(StateHasChanged);
+        await FocusElementAsync(feedbackSectionRef);
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        isSubmitting = true;
+        try
+        {
+            ClearCustomValidation();
+            formFeedbackMessage = null;
+            submissionErrorMessage = null;
+            createdStudent = null;
+
+            var response = await StudentService.CreateStudentAsync(newStudent);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<AuthCreationResult>();
+                if (result != null)
+                {
+                    createdStudent = result;
+                    NotificationService.ShowSuccess("Student created successfully!");
+                    await InvokeAsync(StateHasChanged);
+                    await FocusElementAsync(responseSectionRef);
+                }
+                else
+                {
+                    submissionErrorMessage = "Student was created, but the response details could not be displayed.";
+                    NotificationService.ShowError(submissionErrorMessage);
+                    await InvokeAsync(StateHasChanged);
+                    await FocusElementAsync(feedbackSectionRef);
+                }
+            }
+            else
+            {
+                submissionErrorMessage = await ExtractErrorMessageAsync(response, "Failed to create student. Please review the form and try again.");
+                NotificationService.ShowError(submissionErrorMessage);
+                await InvokeAsync(StateHasChanged);
+                await FocusElementAsync(feedbackSectionRef);
+            }
+        }
+        catch (Exception)
+        {
+            submissionErrorMessage = "Error: ";
+            NotificationService.ShowError(submissionErrorMessage);
+            await InvokeAsync(StateHasChanged);
+            await FocusElementAsync(feedbackSectionRef);
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void ResetForm()
+    {
+        createdStudent = null;
+        formFeedbackMessage = null;
+        submissionErrorMessage = null;
+        ResetFormModel();
+    }
+
+    private void ResetFormModel()
+    {
+        newStudent = new Student
+        {
+            Gender = string.Empty,
+            Status = "Active",
+            EmergencyContactDetails = new EmergencyContactDetails()
+        };
+        editContext = new EditContext(newStudent);
+        validationMessageStore = new ValidationMessageStore(editContext);
+        editContext.OnFieldChanged += (_, __) => ClearCustomValidation();
+    }
+
+    private void ClearCustomValidation()
+    {
+        validationMessageStore.Clear();
+        editContext.NotifyValidationStateChanged();
+    }
+
+    private void AddFieldError<TField>(Expression<Func<TField>> accessor, string message)
+    {
+        validationMessageStore.Clear();
+        validationMessageStore.Add(FieldIdentifier.Create(accessor), message);
+        editContext.NotifyValidationStateChanged();
+    }
+
+    private static async Task FocusElementAsync(ElementReference element)
+    {
+        try
+        {
+            await element.FocusAsync();
+        }
+        catch
+        {
+        }
+    }
+
+    private static async Task<string> ExtractErrorMessageAsync(HttpResponseMessage response, string fallbackMessage)
+    {
+        var raw = await response.Content.ReadAsStringAsync();
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return fallbackMessage;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(raw);
+            var root = document.RootElement;
+
+            foreach (var propertyName in new[] { "message", "error", "title", "detail" })
+            {
+                if (root.TryGetProperty(propertyName, out var property) && property.ValueKind == JsonValueKind.String)
+                {
+                    var value = property.GetString();
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        return value!;
+                    }
+                }
+            }
+        }
+        catch (JsonException)
+        {
+        }
+
+        return raw.Trim();
+    }
+}

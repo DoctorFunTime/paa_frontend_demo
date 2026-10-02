@@ -1,0 +1,246 @@
+@page "/burser/exchange-rates"
+@namespace paa_frontend.Client.Pages.Burser
+@layout paa_frontend.Client.Layout.BurserPortalLayout
+@using paa_frontend.Client.Services.StudentsPortal
+@using paa_frontend.Shared.Models
+@inject FinanceServiceClient FinanceService
+@inject paa_frontend.Client.Services.NotificationService NotificationService
+
+<div class="max-w-6xl mx-auto pb-12">
+    <div class="mb-8 animate-fade-in">
+        <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight mb-2">Exchange Rates</h1>
+        <p class="text-sm font-medium text-slate-500">Set the rate used on the effective date, then verify it in the configured-rates list. New transactions use the rate active on their payment date.</p>
+    </div>
+
+    <div class="mb-6 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
+        <div class="font-black">How exchange rates work</div>
+        <div class="mt-1 font-medium text-sky-900/70">Enter how many USD one unit of the selected currency is worth. Example: if 1 ZIG = 0.03 USD, enter <strong>0.03</strong>. Rates are retained by effective date for auditability.</div>
+    </div>
+
+
+
+    @if (isLoading)
+    {
+        <div class="bg-white/80 border border-slate-200 rounded-3xl p-10 text-center text-slate-500">
+            Loading exchange rates...
+        </div>
+    }
+    else
+    {
+        <div class="grid grid-cols-1 lg:grid-cols-[0.85fr_1.15fr] gap-6">
+            <div class="bg-white/80 border border-slate-200 rounded-3xl p-6 shadow-sm">
+                <h2 class="text-xl font-extrabold text-slate-900 tracking-tight mb-2">Rate Editor</h2>
+                <p class="text-sm font-medium text-slate-500 mb-5">Step 1 — add or update a rate.</p>
+
+                <div class="grid grid-cols-1 gap-3 mb-5">
+                    <label class="text-xs font-black uppercase tracking-widest text-slate-500">Currency code<input class="mt-1 w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium" placeholder="e.g. ZIG" @bind="editingRate.CurrencyCode" /></label>
+                    <label class="text-xs font-black uppercase tracking-widest text-slate-500">Rate to USD<input type="number" step="0.000001" class="mt-1 w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium" placeholder="e.g. 0.03" @bind="editingRate.RateToUsd" /></label>
+                    <label class="text-xs font-black uppercase tracking-widest text-slate-500">Effective date<input type="date" class="mt-1 w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium" @bind-value="effectiveDateValue" @bind-value:format="yyyy-MM-dd" /></label>
+                </div>
+
+                <div class="flex gap-3 mb-6">
+                    <button class="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-800 disabled:opacity-75 text-white text-sm font-bold shadow-sm flex items-center gap-2" @onclick="SaveRateAsync" disabled="@isSavingRate">
+                        @if (isSavingRate)
+                        {
+                            <svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            <span>Saving...</span>
+                        }
+                        else
+                        {
+                            <span>Save Rate</span>
+                        }
+                    </button>
+                    <button class="px-5 py-3 rounded-xl bg-white border border-slate-200 text-slate-600 text-sm font-bold shadow-sm hover:bg-slate-50" @onclick="ResetEditor">
+                        Clear
+                    </button>
+                </div>
+
+                <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4">
+                    <div class="text-xs font-black uppercase tracking-widest text-slate-400 mb-2">Step 2 — check a conversion</div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <input type="number" step="0.01" class="w-full py-3 px-4 bg-white border border-slate-200 rounded-xl text-sm font-medium" placeholder="Amount" @bind="convertAmount" />
+                        <input class="w-full py-3 px-4 bg-white border border-slate-200 rounded-xl text-sm font-medium" placeholder="From" @bind="convertFromCurrency" />
+                        <input class="w-full py-3 px-4 bg-white border border-slate-200 rounded-xl text-sm font-medium" placeholder="To" @bind="convertToCurrency" />
+                    </div>
+                    <button class="mt-3 px-5 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:bg-slate-950 disabled:opacity-75 text-white text-sm font-bold shadow-sm flex items-center gap-2" @onclick="ConvertAsync" disabled="@isConverting">
+                        @if (isConverting)
+                        {
+                            <svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            <span>Converting...</span>
+                        }
+                        else
+                        {
+                            <span>Convert</span>
+                        }
+                    </button>
+                    @if (!string.IsNullOrWhiteSpace(convertResult))
+                    {
+                        <div class="mt-3 text-sm font-bold text-slate-700">@convertResult</div>
+                    }
+                </div>
+            </div>
+
+            <div class="bg-white/80 border border-slate-200 rounded-3xl p-6 shadow-sm">
+                <h2 class="text-xl font-extrabold text-slate-900 tracking-tight mb-5">Configured Rates</h2>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-slate-50 border-b border-slate-200 text-[length:0.7rem] font-black text-slate-400 uppercase tracking-widest">
+                            <tr>
+                                <th class="py-3 px-4">Currency</th>
+                                <th class="py-3 px-4">Rate To USD</th>
+                                <th class="py-3 px-4">Effective Date</th>
+                                <th class="py-3 px-4 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-sm font-medium text-slate-700">
+                            @foreach (var rate in exchangeRates.OrderByDescending(r => r.EffectiveDate).ThenBy(r => r.CurrencyCode))
+                            {
+                                <tr>
+                                    <td class="py-3 px-4 font-black text-slate-900">@rate.CurrencyCode</td>
+                                    <td class="py-3 px-4">@rate.RateToUsd</td>
+                                    <td class="py-3 px-4">@rate.EffectiveDate</td>
+                                    <td class="py-3 px-4 text-right">
+                                        <button class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-600" @onclick="() => EditRate(rate)">
+                                            Edit
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isLoading = true;
+    private string convertResult = string.Empty;
+
+    private List<ExchangeRateDto> exchangeRates = new();
+    private ExchangeRateDto editingRate = new() { CurrencyCode = "USD", RateToUsd = 1m };
+    private DateTime effectiveDateValue = DateTime.Today;
+
+    private decimal convertAmount = 1m;
+    private string convertFromCurrency = "USD";
+    private string convertToCurrency = "USD";
+
+    private bool dataLoadAttempted;
+
+    protected override Task OnInitializedAsync()
+    {
+        return Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || dataLoadAttempted) return;
+        dataLoadAttempted = true;
+
+        await LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+        try
+        {
+            exchangeRates = await FinanceService.GetExchangeRatesAsync() ?? new();
+        }
+        catch (Exception)
+        {
+            NotificationService.ShowError($"Could not load exchange rates");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ResetEditor()
+    {
+        editingRate = new ExchangeRateDto { CurrencyCode = "USD", RateToUsd = 1m };
+        effectiveDateValue = DateTime.Today;
+        convertResult = string.Empty;
+    }
+
+    private void EditRate(ExchangeRateDto rate)
+    {
+        editingRate = new ExchangeRateDto
+        {
+            Id = rate.Id,
+            CurrencyCode = rate.CurrencyCode,
+            RateToUsd = rate.RateToUsd,
+            EffectiveDate = rate.EffectiveDate
+        };
+        effectiveDateValue = ParseDateOrToday(rate.EffectiveDate);
+    }
+
+    private async Task SaveRateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(editingRate.CurrencyCode))
+        {
+            NotificationService.ShowError("Currency code is required.");
+            return;
+        }
+        isSavingRate = true;
+        try
+        {
+            editingRate.EffectiveDate = effectiveDateValue.ToString("yyyy-MM-dd");
+            await FinanceService.SaveExchangeRateAsync(editingRate);
+            ResetEditor();
+            await LoadAsync();
+            NotificationService.ShowSuccess("Exchange rate saved.");
+        }
+        catch (Exception)
+        {
+            NotificationService.ShowError($"Could not save exchange rate");
+        }
+        finally
+        {
+            isSavingRate = false;
+        }
+    }
+
+    private async Task ConvertAsync()
+    {
+        if (string.IsNullOrWhiteSpace(convertFromCurrency) || string.IsNullOrWhiteSpace(convertToCurrency))
+        {
+            NotificationService.ShowError("Both source and destination currencies are required.");
+            return;
+        }
+        isConverting = true;
+        try
+        {
+            var result = await FinanceService.ConvertCurrencyAsync(convertAmount, convertFromCurrency, convertToCurrency);
+            if (result is not null && result.TryGetValue("convertedAmount", out var converted))
+            {
+                convertResult = $"{convertAmount:N2} {convertFromCurrency.ToUpperInvariant()} = {converted} {convertToCurrency.ToUpperInvariant()}";
+                NotificationService.ShowSuccess("Conversion completed.");
+            }
+            else
+            {
+                NotificationService.ShowError("Conversion returned invalid response.");
+            }
+        }
+        catch (Exception)
+        {
+            NotificationService.ShowError($"Conversion failed");
+        }
+        finally
+        {
+            isConverting = false;
+        }
+    }
+
+    private bool isSavingRate = false;
+    private bool isConverting = false;
+
+    private static DateTime ParseDateOrToday(string? raw)
+    {
+        return DateTime.TryParse(raw, out var parsed) ? parsed : DateTime.Today;
+    }
+}

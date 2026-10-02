@@ -1,0 +1,59 @@
+@page "/"
+@namespace paa_frontend.Client.Pages
+@layout paa_frontend.Client.Layout.EmptyLayout
+@inject NavigationManager NavManager
+@inject AuthenticationStateProvider AuthStateProvider
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+
+<div class="flex h-screen w-full items-center justify-center bg-[#f2f3f7]">
+    <div class="flex flex-col items-center gap-6">
+        <div class="w-16 h-16 rounded-2xl bg-white border border-black/10 shadow-xl flex items-center justify-center overflow-hidden animate-pulse p-1" style="box-sizing: border-box;">
+             <img src="/images/demo-logo.svg" alt="PrimeApp Demo" class="w-full h-full object-contain" />
+        </div>
+        <div class="flex flex-col items-center gap-2">
+            <h1 class="text-[#0d1117] font-semibold text-lg tracking-tight">PrimeApp Demo</h1>
+            <p class="text-[#9097a8] text-sm">Initializing secure session...</p>
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // 1. Ask our custom provider: Is anyone logged in right now? 
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        // 2. Are they logged in?
+        if (user.Identity != null && user.Identity.IsAuthenticated)
+        {
+            // Traffic Cop: Route them based on their Role!
+            if (user.IsInRole("ADMIN") || user.IsInRole("SUPERUSER") || user.IsInRole("SUPER"))
+            {
+                NavManager.NavigateTo(user.IsInRole("SUPER") ? "/super" : "/admin");
+            }
+            else if (user.IsInRole("STUDENT"))
+            {
+                NavManager.NavigateTo("/portal");
+            }
+            else if (user.IsInRole("STAFF") || user.IsInRole("TEACHER"))
+            {
+                NavManager.NavigateTo("/staff");
+            }
+            else if (user.IsInRole("BURSER"))
+            {
+                NavManager.NavigateTo("/burser");
+            }
+            else
+            {
+                NavManager.NavigateTo("/login");
+            }
+        }
+        else
+        {
+            // No token found. Send them straight to the login screen!
+            NavManager.NavigateTo("/login");
+        }
+    }
+}

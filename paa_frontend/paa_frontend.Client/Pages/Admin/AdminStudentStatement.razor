@@ -1,0 +1,478 @@
+@page "/admin/student-statement"
+@namespace paa_frontend.Client.Pages.Admin
+@layout paa_frontend.Client.Layout.SharedFormLayout
+@using System.Text.Json
+@using Microsoft.JSInterop
+@using paa_frontend.Client.Services
+@using paa_frontend.Shared.Models
+@inject IJSRuntime JSRuntime
+@inject StudentProfileServiceClient StudentService
+@inject FinanceServiceClient FinanceService
+@inject NavigationManager Nav
+
+@if (isLoading)
+{
+    <AdminLoadingSkeleton />
+}
+
+<style>
+    @@media print {
+        header, .fixed, .no-print, img:not(.print-logo) {
+            display: none !important;
+        }
+
+        .min-h-screen, main, .max-w-\[1250px\] {
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            min-height: 0 !important;
+        }
+
+            .min-h-screen > *:not(main),
+            main > *:not(.max-w-\[1250px\]),
+            .max-w-\[1250px\] > *:not(.print-area) {
+                display: none !important;
+            }
+
+        .print-area {
+            display: block !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+            background: white !important;
+            box-sizing: border-box !important;
+        }
+
+            .print-area .px-10, .print-area .p-10 {
+                padding-left: 2mm !important;
+                padding-right: 2mm !important;
+                padding-top: 2mm !important;
+                padding-bottom: 2mm !important;
+            }
+
+            .print-area, .print-area * {
+                font-size: 11px !important;
+            }
+
+                .print-area h2 {
+                    font-size: 18px !important;
+                }
+
+                .print-area h3 {
+                    font-size: 14px !important;
+                }
+
+                .print-area table th, .print-area table td {
+                    padding: 4px 6px !important;
+                    font-size: 10px !important;
+                }
+
+        body, html {
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100% !important;
+            overflow: hidden !important;
+        }
+
+        @@page {
+            size: A4 portrait;
+            margin: 2mm !important;
+        }
+    }
+</style>
+
+<div class="max-w-[1250px] mx-auto pb-12">
+
+    <!-- Breadcrumb -->
+    <div class="flex items-center gap-2 text-sm text-slate-500 font-medium mb-1 no-print">
+        <a href="/admin" class="hover:text-blue-600 transition-colors">Dashboard</a>
+        <span class="text-slate-300">&rsaquo;</span>
+        <span class="text-slate-800 font-bold">Student Statement</span>
+    </div>
+
+    <!-- Page Header -->
+    <div class="mb-8 animate-fade-in flex flex-col md:flex-row md:items-end justify-between gap-4 no-print">
+        <div>
+            <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight mb-2">Student Statement</h1>
+            <p class="text-sm font-medium text-slate-500">View and print individual student account statements.</p>
+        </div>
+        <button class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-bold transition-all shadow-md shrink-0 no-print" @onclick="PrintDocument">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="inline mr-2"><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></svg>
+            Print Statement
+        </button>
+    </div>
+
+    <!-- Student Search + Date Range -->
+    <div class="mb-6 p-4 bg-white/80 border border-slate-200 rounded-2xl flex flex-col lg:flex-row lg:items-end gap-4 shadow-sm no-print animate-fade-in-down">
+        <div class="flex-1">
+            <label class="block text-[length:0.65rem] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Student</label>
+            <div class="relative">
+                <input class="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:border-blue-500 transition-colors"
+                       placeholder="Search by name, ID, classroom..."
+                       @bind="studentSearchTerm"
+                       @bind:event="oninput"
+                       @onfocus="OpenStudentSearch" />
+                @if (showStudentMatches)
+                {
+                    <div class="absolute z-20 mt-2 w-full max-h-72 overflow-auto rounded-2xl border border-slate-200 bg-white shadow-xl">
+                        @if (FilteredStudents.Any())
+                        {
+                            @foreach (var student in FilteredStudents)
+                            {
+                                <button type="button"
+                                        class="w-full text-left px-4 py-3 border-b border-slate-100 last:border-b-0 hover:bg-slate-50 transition-colors"
+                                        @onclick="() => SelectStudentAsync(student)">
+                                    <div class="text-sm font-black text-slate-900">@student.LastName, @student.FirstName</div>
+                                    <div class="text-xs font-bold text-slate-500 mt-1">ID: @student.Id | @(FormatClassroom(student.Form, student.Classroom))</div>
+                                </button>
+                            }
+                        }
+                        else
+                        {
+                            <div class="px-4 py-3 text-sm font-medium text-slate-500">No students match that search.</div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+        <div>
+            <label class="block text-[length:0.65rem] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Start</label>
+            <input type="date" class="py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:border-blue-500 transition-colors"
+                   @bind-value="periodStartValue" @bind-value:format="yyyy-MM-dd" />
+        </div>
+        <div>
+            <label class="block text-[length:0.65rem] font-bold text-slate-500 uppercase tracking-widest mb-1.5">End</label>
+            <input type="date" class="py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:border-blue-500 transition-colors"
+                   @bind-value="periodEndValue" @bind-value:format="yyyy-MM-dd" />
+        </div>
+        @if (selectedStudent is not null)
+        {
+            <button class="px-5 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors"
+                    @onclick="RefreshStatementAsync">
+                Refresh
+            </button>
+        }
+    </div>
+
+    @if (!string.IsNullOrEmpty(loadError))
+    {
+        <div class="bg-rose-50 border border-rose-200 rounded-2xl p-5 text-rose-700 font-medium mb-6 no-print">
+            @loadError
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="bg-white/80 border border-slate-200 rounded-3xl p-12 text-center text-slate-500 no-print">
+            <svg class="animate-spin h-6 w-6 mx-auto mb-3 text-slate-400" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+            </svg>
+            Loading...
+        </div>
+    }
+
+    <!-- Statement Print Area -->
+    <div class="print-area relative bg-white w-full mx-auto shadow-xl border border-slate-200 overflow-hidden animate-fade-in-up">
+
+        <!-- Print Watermark -->
+        <div class="hidden absolute inset-0 opacity-[0.03] flex items-center justify-center pointer-events-none">
+            <img src="/images/demo-logo.svg" alt="" class="w-[450px] h-[450px] object-contain print-logo" />
+        </div>
+
+        <div class="relative z-10 px-10 pt-10 pb-8 flex flex-col gap-4">
+
+            <!-- Print Header -->
+            <div class="flex justify-between items-start gap-4 pb-4 border-b border-dashed border-stone-400 w-full">
+                <div class="flex gap-3">
+                    <img src="/images/demo-logo.svg" alt="PrimeApp Demo" class="w-16 h-16 object-contain print-logo" />
+                    <div>
+                        <div class="text-[1.35rem] font-black leading-tight uppercase text-slate-900">PrimeApp Demo</div>
+                        <div class="text-[0.72rem] font-semibold mt-1 text-slate-500">Equipping youngsters to compete internationally</div>
+                        <div class="text-[0.72rem] mt-2 text-slate-500">0783841141 / 0785638463</div>
+                        <div class="text-[0.72rem] text-slate-500">cliftonmataruse2@gmail.com</div>
+                    </div>
+                </div>
+                <div class="text-right text-[0.8rem] leading-tight font-semibold text-slate-800">
+                    <div>20440</div>
+                    <div>VICTORY</div>
+                    <div>PARK, RUWA</div>
+                </div>
+            </div>
+
+            <!-- Report Title -->
+            <div class="flex justify-between items-center py-2">
+                <h3 class="text-lg font-black text-blue-700 uppercase tracking-widest">Student Statement</h3>
+                <div class="text-xs text-slate-500 font-bold">
+                    Statement Date: @DateTime.Today.ToString("dd MMM yyyy")
+                </div>
+            </div>
+        </div>
+
+        <!-- Statement Body -->
+        <div class="relative z-10 p-10 pt-2">
+            @if (selectedStudent is null)
+            {
+                <div class="text-center py-24 text-slate-400">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="mx-auto mb-4 text-slate-300">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                    </svg>
+                    <div class="text-sm font-bold text-slate-500">Choose a student above to load their statement.</div>
+                </div>
+            }
+            else
+            {
+                <!-- Student info + balance summary -->
+                <div class="flex justify-between items-start mb-8">
+                    <div>
+                        <div class="text-sm font-black text-slate-900">@selectedStudent.FirstName @selectedStudent.LastName</div>
+                        <div class="text-xs font-bold text-slate-500 mt-1">
+                            @(FormatClassroom(selectedStudent.Form, selectedStudent.Classroom)) | ID: @selectedStudent.Id
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs font-bold text-slate-400 uppercase tracking-widest">Current Balance</div>
+                        <div class="text-xl font-black @(currentBalance > 0 ? "text-rose-600" : currentBalance < 0 ? "text-blue-600" : "text-emerald-600")">
+                            @FormatBalance(currentBalance)
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statement table -->
+                @if (!studentRows.Any())
+                {
+                    <div class="text-center py-12 text-slate-400 text-sm font-medium">
+                        No transactions found for this student.
+                    </div>
+                }
+                else
+                {
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="bg-slate-100 border-b-2 border-slate-900">
+                            <tr>
+                                <th class="py-3 px-2 font-black uppercase">Date</th>
+                                <th class="py-3 px-2 font-black uppercase">Reference</th>
+                                <th class="py-3 px-2 font-black uppercase">Description</th>
+                                <th class="py-3 px-2 font-black uppercase text-right">Debit</th>
+                                <th class="py-3 px-2 font-black uppercase text-right">Credit</th>
+                                <th class="py-3 px-2 font-black uppercase text-right">Balance</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-200 font-medium text-slate-700">
+                            @foreach (var row in studentRows)
+                            {
+                                <tr>
+                                    <td class="py-3 px-2">@row.When.ToString("dd MMM yyyy")</td>
+                                    <td class="py-3 px-2">@row.Reference</td>
+                                    <td class="py-3 px-2">@row.Description</td>
+                                    <td class="py-3 px-2 text-right text-rose-700">@FormatMoneyOrDash(row.Charge)</td>
+                                    <td class="py-3 px-2 text-right text-emerald-700">@FormatMoneyOrDash(row.Paid)</td>
+                                    <td class="py-3 px-2 text-right font-black @(row.RunningBalance > 0 ? "text-rose-600" : row.RunningBalance < 0 ? "text-blue-600" : "text-emerald-600")">
+                                        @if (row.RunningBalance > 0)
+                                        {
+                                            <span>Debit @row.RunningBalance.ToString("C")</span>
+                                        }
+                                        else if (row.RunningBalance < 0)
+                                        {
+                                            <span>Credit @Math.Abs(row.RunningBalance).ToString("C")</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Nil</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public int? StudentId { get; set; }
+
+    private sealed class StudentStatementRow
+    {
+        public DateTime When { get; init; }
+        public string Reference { get; init; } = string.Empty;
+        public string Description { get; init; } = string.Empty;
+        public decimal Charge { get; init; }
+        public decimal Paid { get; init; }
+        public decimal RunningBalance { get; init; }
+        public string Status { get; init; } = string.Empty;
+    }
+
+    private bool isLoading = true;
+    private string loadError = string.Empty;
+
+    private List<StudentProfileModel.Student> students = new();
+    private StudentProfileModel.Student? selectedStudent;
+    private int selectedStudentId;
+    private FinancialStatementDto? statement;
+    private List<PaymentRecord> paymentHistory = new();
+    private List<StudentStatementRow> studentRows = new();
+    private decimal currentBalance;
+    private string studentSearchTerm = string.Empty;
+    private bool showStudentMatches;
+
+    private DateTime periodStartValue = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateTime periodEndValue = DateTime.Today;
+
+    private IEnumerable<StudentProfileModel.Student> FilteredStudents =>
+        students
+            .OrderBy(s => s.LastName)
+            .ThenBy(s => s.FirstName)
+            .Where(s => string.IsNullOrWhiteSpace(studentSearchTerm) || MatchesStudentSearch(s, studentSearchTerm))
+            .Take(20);
+
+    protected override Task OnInitializedAsync()
+    {
+        // Financial statements are temporarily unavailable in the admin portal.
+        Nav.NavigateTo("/students");
+        return Task.CompletedTask;
+    }
+
+    private async Task LoadSelectedStudentAsync()
+    {
+        if (selectedStudentId <= 0)
+        {
+            selectedStudent = null;
+            studentRows = new();
+            currentBalance = 0;
+            return;
+        }
+
+        selectedStudent = students.FirstOrDefault(s => s.Id == selectedStudentId);
+        if (selectedStudent is not null)
+            studentSearchTerm = BuildStudentDisplayName(selectedStudent);
+
+        try { statement = await FinanceService.GetFinancialStatementAsync(selectedStudentId); }
+        catch { statement = null; }
+
+        try { paymentHistory = await FinanceService.GetPaymentHistoryAsync(selectedStudentId) ?? new(); }
+        catch (Exception ex)
+        {
+            paymentHistory = new();
+            loadError = $"Could not load payment history. {ex.Message}";
+        }
+
+        currentBalance = ExtractDecimal(statement?.AccountSummary, "balance");
+        studentRows = BuildStudentStatementRows(statement, paymentHistory);
+    }
+
+    private void OpenStudentSearch() => showStudentMatches = true;
+
+    private async Task SelectStudentAsync(StudentProfileModel.Student student)
+    {
+        selectedStudentId = student.Id;
+        studentSearchTerm = BuildStudentDisplayName(student);
+        showStudentMatches = false;
+        loadError = string.Empty;
+        await LoadSelectedStudentAsync();
+    }
+
+    private async Task RefreshStatementAsync() => await LoadSelectedStudentAsync();
+
+    private async Task PrintDocument() => await JSRuntime.InvokeVoidAsync("window.print");
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private static List<StudentStatementRow> BuildStudentStatementRows(FinancialStatementDto? statement, List<PaymentRecord> payments)
+    {
+        var rows = new List<StudentStatementRow>();
+        var runningBalance = 0m;
+        var totalCharged = ExtractDecimal(statement?.AccountSummary, "totalCharged");
+
+        if (totalCharged > 0)
+        {
+            runningBalance += totalCharged;
+            rows.Add(new StudentStatementRow
+            {
+                When = ParseDate(statement?.GeneratedAt) ?? DateTime.Today,
+                Reference = "ACCOUNT",
+                Description = "Total charges posted to account",
+                Charge = totalCharged,
+                Paid = 0,
+                RunningBalance = runningBalance,
+                Status = "Fees billed"
+            });
+        }
+
+        foreach (var payment in payments
+            .OrderBy(p => ParseDate(p.Date) ?? DateTime.Today)
+            .ThenBy(p => p.PaymentReference))
+        {
+            var paidAmount = payment.AmountUsd > 0 ? payment.AmountUsd : payment.Amount;
+            runningBalance -= paidAmount;
+            rows.Add(new StudentStatementRow
+            {
+                When = ParseDate(payment.Date) ?? DateTime.Today,
+                Reference = payment.PaymentReference ?? string.Empty,
+                Description = payment.Description ?? "Payment",
+                Charge = 0,
+                Paid = paidAmount,
+                RunningBalance = runningBalance,
+                Status = payment.IsConfirmed ? "Payment received" : (payment.Status ?? string.Empty)
+            });
+        }
+
+        return rows;
+    }
+
+    private static decimal ExtractDecimal(Dictionary<string, object>? source, string key)
+    {
+        if (source is null || !source.TryGetValue(key, out var value) || value is null)
+            return 0;
+
+        if (value is JsonElement element)
+        {
+            if (element.ValueKind == JsonValueKind.Number && element.TryGetDecimal(out var d)) return d;
+            if (element.ValueKind == JsonValueKind.String && decimal.TryParse(element.GetString(), out var s)) return s;
+        }
+
+        return decimal.TryParse(value.ToString(), out var parsed) ? parsed : 0;
+    }
+
+    private static DateTime? ParseDate(string? raw) =>
+        DateTime.TryParse(raw, out var parsed) ? parsed : null;
+
+    private static string FormatMoneyOrDash(decimal amount) =>
+        amount == 0 ? "--" : amount.ToString("C");
+
+    private static string FormatBalance(decimal amount) =>
+        amount > 0 ? $"Amount due {amount:C}" :
+        amount < 0 ? $"Advance payment {Math.Abs(amount):C}" :
+        "Settled";
+
+    private static bool MatchesStudentSearch(StudentProfileModel.Student student, string term)
+    {
+        var query = term.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(query)) return true;
+        return BuildStudentDisplayName(student).ToLowerInvariant().Contains(query)
+            || student.Id.ToString().Contains(query)
+            || (student.Classroom?.ToLowerInvariant().Contains(query) ?? false);
+    }
+
+    private static string FormatClassroom(int? form, string? classroom)
+    {
+        if (form.HasValue && !string.IsNullOrWhiteSpace(classroom))
+            return classroom.StartsWith("Form", StringComparison.OrdinalIgnoreCase) ? classroom : $"Form {form} {classroom}";
+        if (form.HasValue) return $"Form {form}";
+        return classroom ?? string.Empty;
+    }
+
+    private static string BuildStudentDisplayName(StudentProfileModel.Student student) =>
+        $"{student.LastName}, {student.FirstName} ({FormatClassroom(student.Form, student.Classroom)})";
+}

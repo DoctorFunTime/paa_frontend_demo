@@ -1,0 +1,523 @@
+@page "/burser/student-finance"
+@namespace paa_frontend.Client.Pages.Burser
+@layout paa_frontend.Client.Layout.BurserPortalLayout
+@using paa_frontend.Shared.Models
+@using static paa_frontend.Shared.Models.StudentProfileModel
+@inject FinanceServiceClient FinanceService
+@inject NavigationManager Nav
+
+<CascadingValue Name="PageTitle" Value="@("Finance")">
+
+<style>
+/* ── FINANCE PORTAL GRID ── */
+.portal-grid { 
+    display: grid; 
+    grid-template-columns: repeat(12, 1fr); 
+    gap: 40px; 
+    padding: 0 40px 60px 40px;
+}
+.col-8 { grid-column: span 8; }
+.col-4 { grid-column: span 4; }
+
+/* ── HEADER ANCHOR (DYNAMIZED) ── */
+.banner-outer {
+    background: rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-top: 1px solid rgba(255, 255, 255, 0.5);
+    border-left: 1px solid rgba(255, 255, 255, 0.35);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.1) inset, 0 12px 40px rgba(0,0,0,0.15);
+    border-radius: 28px;
+    color: var(--ink);
+    padding: 24px 32px 32px;
+    position: relative; overflow: hidden;
+    margin: 16px 16px 0;
+}
+.banner-outer::before {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 450px; height: 100%;
+    background-image: url("data:image/svg+xml,%3Csvg width='32' height='55' viewBox='0 0 32 55' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cpath d='M16 9.613L32 18.846v18.468l-16 9.233-16-9.233V18.846zm0 1.155l-15 8.658v17.316l15 8.658 15-8.658V19.426zM15 48.24l-14-8.08V23.84l14-8.08v32.48zm2-32.48l14 8.08v16.32l-14 8.08V15.76z' fill='%23ffffff' fill-opacity='0.05'/%3E%3C/g%3E%3C/svg%3E");
+    -webkit-mask-image: linear-gradient(to left, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%);
+    mask-image: linear-gradient(to left, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%);
+    pointer-events: none;
+}
+.banner-inner { max-width: 1360px; margin: 0 auto; display: flex; align-items: center; gap: 40px; position: relative; z-index: 2; }
+.banner-stats { display: flex; gap: 48px; margin-left: auto; }
+.banner-stat { text-align: right; }
+.banner-stat-label { font-size: 10px; color: var(--ink3); text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700; margin-bottom: 4px; }
+.banner-stat-val { font-size: 32px; font-weight: 800; font-family: 'DM Mono', monospace; line-height: 1; letter-spacing: -1.5px; }
+
+/* ── DE-BOXING ── */
+.section-label { 
+    font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; 
+    color: var(--ink3); margin-bottom: 24px; display: flex; align-items: center; gap: 10px;
+}
+.section-divider { border-bottom: 1px solid #f2f2f2; margin: 40px 0; }
+
+/* ── FLAT DATA TABLES ── */
+.flat-table { width: 100%; border-collapse: collapse; }
+.flat-table th { 
+    padding: 12px 0; text-align: left; font-size: 10px; font-weight: 800; 
+    color: var(--ink3); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #f0f0f0;
+}
+.flat-table td { padding: 16px 0; border-bottom: 1px solid #f8f8f8; font-size: 14px; color: var(--ink); }
+.flat-table tr:last-child td { border-bottom: none; }
+.amount-cell { font-family: 'DM Mono', monospace; font-weight: 700; text-align: right; }
+
+/* ── PAYMENT COMPONENTS ── */
+.payment-box { padding: 0px; border-radius: 24px; background: transparent; border: none; }
+.method-picker { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
+.method-item {
+    display: flex; align-items: center; gap: 16px; padding: 16px; 
+    border-radius: 12px; border: 1px solid rgba(255,255,255,0.4); cursor: pointer; transition: all 0.2s; background: rgba(255,255,255,0.3);
+}
+.method-item:hover { border-color: var(--red); background: var(--red-dim); }
+.method-item.active { border-color: var(--red); border-width: 2px; box-shadow: 0 8px 20px rgba(200,16,46,0.08); }
+.method-logo { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: #f9f9f9; padding: 4px; overflow: hidden; }
+.method-info { flex: 1; }
+.method-name { font-size: 14px; font-weight: 700; color: var(--ink); }
+.method-desc { font-size: 11px; color: var(--ink3); }
+
+/* ── INPUTS & BUTTONS ── */
+.flat-input { 
+    width: 100%; padding: 18px; border: 1px solid rgba(255,255,255,0.4); border-radius: 12px; 
+    font-size: 24px; font-weight: 800; font-family: 'DM Mono', monospace; background: rgba(255,255,255,0.45); outline: none; transition: border-color 0.2s;
+}
+.flat-input:focus { border-color: var(--red); }
+.primary-btn { 
+    width: 100%; padding: 16px; border-radius: 14px; border: none; 
+    background: var(--red); color: white; font-size: 15px; font-weight: 800; 
+    cursor: pointer; transition: all 0.25s; box-shadow: 0 10px 25px rgba(200,16,46,0.3);
+}
+.primary-btn:hover { transform: translateY(-3px); box-shadow: 0 15px 35px rgba(200,16,46,0.4); }
+
+/* ── ANIMATIONS ── */
+@@keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+.a1 { animation: fadeUp 0.5s ease both; }
+.a2 { animation: fadeUp 0.5s 0.1s ease both; }
+.a3 { animation: fadeUp 0.5s 0.2s ease both; }
+
+/* ── MOBILE ── */
+@@media(max-width: 1000px) {
+    .portal-grid { display: flex; flex-direction: column-reverse; padding: 0 20px 40px 20px; gap: 0; }
+    .col-8, .col-4 { width: 100%; }
+    .banner-stats { display: none; }
+    .banner-outer { margin: 12px 0 0; border-radius: 22px; padding: 20px; }
+    .banner-inner { gap: 16px; align-items: flex-start; }
+    .banner-info { min-width: 0; }
+    .banner-name { font-size: 20px; }
+    .flat-table { min-width: 560px; }
+    .portal-grid .glass-card { overflow-x: auto; }
+}
+@@media(max-width: 640px) {
+    .portal-grid { padding: 0 0 28px; }
+    .banner-meta { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .banner-badges { flex-wrap: wrap; }
+    .portal-grid { gap: 0; }
+}
+</style>
+
+
+
+    <!-- 1. STUDENT BANNER (HEADER ANCHOR) -->
+    <div class="banner-outer">
+        <div class="banner-glow"></div>
+        <div class="banner-inner a1">
+            <div class="banner-avatar">@StudentInitials</div>
+            <div class="banner-info">
+                <div class="banner-name">@Me.FirstName @Me.LastName</div>
+                <div class="banner-meta">
+                    <span class="banner-meta-item">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                        Finance Account · @CurrentTerm @CurrentTermYear
+                    </span>
+                    <span class="banner-meta-item">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        @FormatClassroom(Me.Form, Me.Classroom)
+                    </span>
+                </div>
+                <div class="banner-badges">
+                    <span class="banner-badge" style="background:rgba(200,16,46,0.15);color:#c8102e;">@Me.Status</span>
+                    <span class="banner-badge" style="background:rgba(0,0,0,0.05);color:var(--ink2);">ID @Me.Id</span>
+                </div>
+            </div>
+            
+            <div class="banner-stats">
+                <div class="banner-stat">
+                    <div class="banner-stat-label">Balance Owing</div>
+                    <div class="banner-stat-val" style="color:@(AccountSummary?.Balance > 0 ? "#ff8a8a" : "#6ee7b7");">
+                        @(AccountSummary?.Balance <= 0 ? "CLEAR" : "$" + AccountSummary?.Balance.ToString("N2"))
+                    </div>
+                </div>
+                <div class="banner-stat">
+                    <div class="banner-stat-label">Total Paid</div>
+                    <div class="banner-stat-val" style="color:#6ee7b7;">$@(AccountSummary?.TotalPaid.ToString("N2") ?? "0.00")</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mx-4 lg:mx-10 mt-5 grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div class="rounded-xl border border-slate-200 bg-white/70 px-3 py-3"><div class="text-[10px] font-black uppercase tracking-widest text-slate-400">1 · Review</div><div class="mt-1 text-xs font-bold text-slate-700">Check current charges</div></div>
+        <div class="rounded-xl border border-slate-200 bg-white/70 px-3 py-3"><div class="text-[10px] font-black uppercase tracking-widest text-slate-400">2 · Choose</div><div class="mt-1 text-xs font-bold text-slate-700">Select how the student pays</div></div>
+        <div class="rounded-xl border border-slate-200 bg-white/70 px-3 py-3"><div class="text-[10px] font-black uppercase tracking-widest text-slate-400">3 · Confirm</div><div class="mt-1 text-xs font-bold text-slate-700">Wait for payment confirmation</div></div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(loadError))
+    {
+        <div class="status-banner error a1" style="margin: 20px 40px -20px 40px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span class="status-banner-text">@loadError</span>
+            <button class="status-banner-close" @onclick="()=>loadError=string.Empty">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+    }
+
+    <div class="portal-grid">
+        
+        <!-- LEFT CONTENT (SPAN 8) -->
+        <div class="col-8 a2 glass-card" style="margin-top:40px;padding:24px;">
+            
+            <!-- CURRENT INVOICE -->
+            <div class="section-label">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+                Current Statement items
+            </div>
+
+            @if (isLoading) {
+                @for(int i=0;i<4;i++){<div class="skeleton" style="height:52px;margin-bottom:8px;border-radius:12px;"></div>}
+            }
+            else if (Invoice?.Items != null && Invoice.Items.Any())
+            {
+                <table class="flat-table">
+                    <thead>
+                        <tr>
+                            <th>Transaction Description</th>
+                            <th style="text-align:right;">Amount (USD)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Invoice.Items)
+                        {
+                            <tr>
+                                <td style="font-weight:600;color:var(--ink);">@item.Description</td>
+                                <td class="amount-cell">$@item.Amount.ToString("N2")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                <div style="display:flex;justify-content:flex-end;margin-top:24px;padding-top:16px;border-top:2px solid #f0f0f0;">
+                    <div style="text-align:right;">
+                        <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:1px;font-weight:800;margin-bottom:4px;">Account Total</div>
+                        <div style="font-size:24px;font-weight:800;font-family:'DM Mono',monospace;color:var(--ink);">$@Invoice.Items.Sum(i=>i.Amount).ToString("N2")</div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div style="padding:60px;text-align:center;background:#fcfcfc;border-radius:24px;color:var(--ink3);font-size:13.5px;">No active invoice items found for this term.</div>
+            }
+
+            <div class="section-divider"></div>
+
+            <!-- PAYMENT HISTORY -->
+            <div class="section-label">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Recent Payment History
+            </div>
+
+            @if (isLoading) {
+                @for(int i=0;i<3;i++){<div class="skeleton" style="height:60px;margin-bottom:12px;border-radius:12px;"></div>}
+            }
+            else if (paymentHistory == null || !paymentHistory.Any())
+            {
+                <div style="padding:40px;text-align:center;color:var(--ink3);font-size:13px;border:1.5px dashed #eee;border-radius:16px;">No payments recorded yet.</div>
+            }
+            else
+            {
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                    @foreach (var p in paymentHistory.Take(12))
+                    {
+                        <div style="display:flex;align-items:center;padding:16px 0;border-bottom:1px solid #f8f8f8;">
+                            <div style="width:40px;height:40px;border-radius:10px;background:#f9f9f9;display:flex;align-items:center;justify-content:center;margin-right:16px;color:var(--ink2);">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                            </div>
+                            <div style="flex:1;">
+                                <div style="font-size:14px;font-weight:700;color:var(--ink);">@(p.PaymentMethod ?? "Account Credit")</div>
+                                <div style="font-size:11px;color:var(--ink3);margin-top:2px;">Ref: @(p.Reference ?? "N/A") · @(DateTime.TryParse(p.Date, out var dt) ? dt.ToString("dd MMM yyyy") : (p.Date ?? "—"))</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:14px;font-weight:800;color:var(--green);font-family:'DM Mono',monospace;">+$@p.Amount.ToString("N2")</div>
+                                <div style="font-size:10px;color:rgba(26,127,82,0.6);font-weight:700;text-transform:uppercase;">Confirmed</div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+
+        </div>
+
+        <!-- RIGHT CONTENT (SPAN 4) -->
+        <div class="col-4 a3 glass-card" style="margin-top:40px;">
+            <div class="payment-box" style="position:sticky;top:40px;">
+                @if (paymentState == "success")
+                {
+                    <div style="text-align:center;padding:20px 0;">
+                        <div style="width:64px;height:64px;border-radius:50%;background:var(--green-dim);display:flex;align-items:center;justify-content:center;margin:0 auto 24px;color:var(--green);">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                        </div>
+                        <div style="font-size:20px;font-weight:800;color:var(--ink);margin-bottom:8px;">Payment Initiated</div>
+                        <div style="font-size:13px;color:var(--ink3);line-height:1.6;margin-bottom:32px;">
+                            @if (selectedMethod == "Bank Transfer" && bankDetails != null)
+                            { @("Your transfer reference has been generated. Please use the details below.") }
+                            else
+                            { @("Please check your mobile device for the payment authorization prompt.") }
+                        </div>
+
+                        @if (selectedMethod == "Bank Transfer" && bankDetails != null)
+                        {
+                            <div style="text-align:left;background:white;border-radius:16px;padding:20px;border:1.5px solid #eee;margin-bottom:24px;">
+                                @foreach (var (lbl, val) in new[]{
+                                    ("Bank", bankDetails.BankName),
+                                    ("Account Name", bankDetails.AccountName),
+                                    ("Account Number", bankDetails.AccountNumber),
+                                    ("Branch", bankDetails.BranchCode),
+                                    ("Amount", "$" + bankDetails.Amount.ToString("N2")),
+                                })
+                                {
+                                    <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f8f8f8;font-size:13px;">
+                                        <span style="color:var(--ink3);font-weight:600;">@lbl</span>
+                                        <span style="color:var(--ink);font-weight:700;font-family:'DM Mono',monospace;">@val</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrEmpty(successRef))
+                        {
+                            <div style="background:var(--ink);border-radius:16px;padding:24px;margin-bottom:32px;text-align:center;">
+                                <div style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1.5px;font-weight:800;margin-bottom:8px;">Transaction Reference</div>
+                                <div style="font-size:24px;font-weight:800;color:white;font-family:'DM Mono',monospace;letter-spacing:2px;">@successRef</div>
+                            </div>
+                        }
+
+                        <button @onclick="ResetPayment" class="primary-btn" style="background:var(--ink);box-shadow:none;">
+                            Make Another Payment
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    <div class="section-label" style="margin-bottom:8px;">Secure Payment</div>
+                    <div style="font-size:13px;color:var(--ink3);margin-bottom:32px;">Choose a method and enter amount</div>
+
+                    @if (!string.IsNullOrEmpty(payError))
+                    {
+                        <div style="padding:16px;background:var(--red-dim);border-radius:12px;color:var(--red);font-size:13px;font-weight:600;margin-bottom:24px;border:1.5px solid rgba(200,16,46,0.1);">
+                            @payError
+                        </div>
+                    }
+
+                    <div style="margin-bottom:32px;">
+                        <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--ink3);margin-bottom:12px;letter-spacing:1px;">Amount (USD)</div>
+                        <div style="position:relative;">
+                            <span style="position:absolute;left:20px;top:50%;transform:translateY(-50%);font-size:24px;font-weight:800;color:var(--ink2);">$</span>
+                            <input class="flat-input" style="padding-left:44px;" type="number" @bind="payAmount" step="0.01" />
+                        </div>
+                        @if (QuickAmounts.Any())
+                        {
+                            <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+                                @foreach (var q in QuickAmounts)
+                                {
+                                    <button @onclick="()=>payAmount=q" style="padding:6px 12px;background:white;border:1.5px solid #eee;border-radius:8px;font-size:12px;font-weight:700;color:var(--ink2);cursor:pointer;">$@q</button>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <div style="margin-bottom:32px;">
+                        <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--ink3);margin-bottom:12px;letter-spacing:1px;">Payment Method</div>
+                        <div class="method-picker">
+                            @foreach (var (mKey, mLab, mLogo, mText, mColor, mBg, mDesc) in new[]{
+                                ("EcoCash", "EcoCash", "/images/ecocash-seeklogo.png", "", "#C8102E", "rgba(200,16,46,0.06)", "Instant mobile wallet"),
+                                ("InnBucks", "InnBucks", "/images/innbucks logo dark.jpeg", "", "#1a7f52", "rgba(26,127,82,0.06)", "Quick mobile payment"),
+                                ("Bank Transfer", "Bank Transfer", "", "BANK", "#111111", "rgba(17,17,17,0.07)", "Traditional wire transfer")
+                            })
+                            {
+                                <div class="method-item @(selectedMethod == mKey ? "active" : "")" @onclick="()=>selectedMethod=mKey">
+                                    <div class="method-logo">
+                                        @if(!string.IsNullOrEmpty(mLogo)){ <img src="@mLogo" style="width:100%;height:100%;object-fit:contain;"/> }
+                                        else { <span style="font-size:10px;font-weight:800;color:@mColor;">@mText</span> }
+                                    </div>
+                                    <div class="method-info">
+                                        <div class="method-name">@mLab</div>
+                                        <div class="method-desc">@mDesc</div>
+                                    </div>
+                                    @if(selectedMethod == mKey){
+                                        <div style="color:var(--red);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    @if (selectedMethod is "EcoCash" or "InnBucks")
+                    {
+                        <div style="margin-bottom:32px;">
+                            <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--ink3);margin-bottom:12px;letter-spacing:1px;">Mobile Number</div>
+                            <input class="flat-input" style="font-size:18px;padding:14px;" type="tel" placeholder="07XXXXXXXX" @bind="mobilePhone" />
+                        </div>
+                    }
+
+                    <button class="primary-btn" disabled="@(isProcessing || payAmount <= 0)" 
+                            @onclick='async () => { if(selectedMethod=="Bank Transfer") await ProcessBankTransfer(); else await ProcessMobilePayment(); }'>
+                        @if (isProcessing) { <span>Processing...</span> }
+                        else {
+                            <span>@(selectedMethod == "Bank Transfer" ? "Request Bank Details" : $"Pay ${payAmount:N2}")</span>
+                        }
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+
+</CascadingValue>
+
+@code {
+    private Student Me = new()
+    {
+        Id = 1001, FirstName = "Chiedza", LastName = "Mutasa",
+        Form = 4, Classroom = "4A",
+    };
+
+    private string StudentInitials => $"{Me.FirstName?[0]}{Me.LastName?[0]}";
+
+    private string CurrentTermYear = DateTime.Now.Year.ToString();
+    private string CurrentTermCode = "TERM_2";
+    private string CurrentTerm     = "Term 2";
+
+    private AccountSummary?       AccountSummary  { get; set; }
+    private InvoiceDto?           Invoice         { get; set; }
+    private List<PaymentRecord>?  paymentHistory;
+
+    private bool   isLoading    = true;
+    private string loadError    = string.Empty;
+    private string payError     = string.Empty;
+    private string paymentState = string.Empty;
+    private bool   isProcessing = false;
+
+    private string  selectedMethod = "EcoCash";
+    private decimal payAmount;
+    private string  mobilePhone    = string.Empty;
+    private string  successRef     = string.Empty;
+    private string  paynowInstructions = string.Empty;
+    private BankTransferResponse? bankDetails = null;
+
+    private List<decimal> QuickAmounts => new List<decimal> { 25, 50, 100,
+        AccountSummary?.Balance ?? 0 }.FindAll(q => q > 0 && q <= (AccountSummary?.Balance ?? 0));
+
+    private bool dataLoadAttempted;
+
+    protected override Task OnInitializedAsync()
+    {
+        return Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || dataLoadAttempted) return;
+        dataLoadAttempted = true;
+
+        await LoadDataAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        loadError = string.Empty;
+        try
+        {
+            var summaryTask = FinanceService.GetAccountSummaryAsync(Me.Id);
+            var invoiceTask = FinanceService.GetOrCreateInvoiceAsync(Me.Id, CurrentTermYear, CurrentTermCode);
+            var historyTask = FinanceService.GetPaymentHistoryAsync(Me.Id);
+            await Task.WhenAll(summaryTask, invoiceTask, historyTask);
+            AccountSummary = summaryTask.Result;
+            Invoice        = invoiceTask.Result;
+            paymentHistory = historyTask.Result;
+            payAmount      = AccountSummary?.Balance ?? 0;
+        }
+        catch (Exception ex)
+        {
+            loadError = $"Could not load financial data. Please refresh. ({ex.Message})";
+        }
+        finally { isLoading = false; }
+    }
+
+    private async Task ProcessMobilePayment()
+    {
+        payError = string.Empty;
+        isProcessing = true;
+        try
+        {
+            var response = await FinanceService.InitiateMobilePaymentAsync(
+                studentId: Me.Id, amount: payAmount, mobileNumber: mobilePhone,
+                term: CurrentTerm, termYear: int.Parse(CurrentTermYear), paymentMethod: "PAYNOW_MOBILE");
+            if (response?.Status == "ERROR") { payError = response.Message ?? "Payment initiation failed."; return; }
+            successRef = response?.PaymentReference ?? string.Empty;
+            paynowInstructions = response?.Instructions ?? string.Empty;
+            paymentState = "success";
+            await LoadDataAsync();
+        }
+        catch (Exception ex) { payError = $"Payment failed: {ex.Message}"; }
+        finally { isProcessing = false; }
+    }
+
+    private async Task ProcessBankTransfer()
+    {
+        payError = string.Empty;
+        isProcessing = true;
+        try
+        {
+            var response = await FinanceService.InitiateBankTransferAsync(
+                studentId: Me.Id, amount: payAmount, term: CurrentTerm, termYear: int.Parse(CurrentTermYear));
+            if (response?.Status == "ERROR") { payError = response.Message ?? "Could not generate bank transfer reference."; return; }
+            successRef  = response?.PaymentReference ?? string.Empty;
+            bankDetails = new BankTransferResponse {
+                PaymentReference = response?.PaymentReference,
+                BankName = "Demo Bank (fictional)", AccountName = "PrimeApp Demo",
+                AccountNumber = "DEMO-NOT-A-BANK-ACCOUNT", BranchCode = "DEMO", Amount = payAmount,
+            };
+            paymentState = "success";
+        }
+        catch (Exception ex) { payError = $"Could not initiate bank transfer: {ex.Message}"; }
+        finally { isProcessing = false; }
+    }
+
+    private async Task ResetPayment()
+    {
+        paymentState = string.Empty; payError = string.Empty;
+        mobilePhone = string.Empty; bankDetails = null;
+        paynowInstructions = string.Empty; successRef = string.Empty;
+        await LoadDataAsync();
+        payAmount = AccountSummary?.Balance ?? 0;
+    }
+
+    private static string FormatClassroom(int? form, string? classroom)
+    {
+        if (form.HasValue && !string.IsNullOrWhiteSpace(classroom))
+        {
+            if (classroom.StartsWith("Form", StringComparison.OrdinalIgnoreCase))
+            {
+                return classroom;
+            }
+            return $"Form {form} {classroom}";
+        }
+        if (form.HasValue) return $"Form {form}";
+        return classroom ?? string.Empty;
+    }
+}

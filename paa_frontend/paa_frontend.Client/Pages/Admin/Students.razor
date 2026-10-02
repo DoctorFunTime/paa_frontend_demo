@@ -1,0 +1,1218 @@
+@page "/students"
+@namespace paa_frontend.Client.Pages.Admin
+@layout paa_frontend.Client.Layout.AdminPortalLayout
+@using paa_frontend.Client.Services
+@using static paa_frontend.Shared.Models.StudentProfileModel
+@using Microsoft.JSInterop
+@inject StudentProfileServiceClient StudentService
+@inject paa_frontend.Client.Services.Admin.StudentSubjectServiceClient SubjectService
+@inject NotificationService NotificationService
+@inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
+
+<div class="page-wrap @(isPrintingClassList ? "print-class-list" : "")">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+    <div>
+        <div class="flex items-center gap-2 text-sm text-slate-500 font-medium mb-1">
+            <a href="/admin" class="hover:text-blue-600 transition-colors">Dashboard</a>
+            <span class="text-slate-300">&rsaquo;</span>
+            <span class="text-slate-800 font-bold">Students Management</span>
+        </div>
+        <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight mb-1">Students</h1>
+        <p class="text-sm font-medium text-slate-500">Manage the student directory and class information.</p>
+    </div>
+    <div class="flex w-full md:w-auto flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <button class="px-4 py-2 bg-white/60 hover:bg-white backdrop-blur-sm border border-slate-200/60 rounded-full text-xs font-semibold text-slate-600 transition-colors shadow-sm flex items-center justify-center gap-2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+            Export
+        </button>
+        <a href="/students/bulk-import" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-xs font-bold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /><path d="M5 21h14" /></svg>
+            Bulk Import
+        </a>
+        <a href="/students/add?returnPortal=admin" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs font-bold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+            New Student
+        </a>
+    </div>
+</div>
+
+<!-- Premium Tab Navigation -->
+<div class="flex items-center gap-2 overflow-x-auto hide-scrollbar bg-slate-200/50 backdrop-blur border border-slate-200/50 p-1.5 rounded-2xl mb-8 shadow-sm">
+    @foreach (var tab in tabs)
+    {
+        <button class="px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all duration-300 relative @(activeTab == tab ? "text-blue-700 bg-white shadow-sm" : "text-slate-500 hover:text-slate-800 hover:bg-white/50")" @onclick="() => SetActiveTab(tab)">
+            @tab
+        </button>
+    }
+</div>
+
+@if (activeTab == "Directory")
+{
+    <div class="animate-fade-in">
+        <!-- ── Stats Ribbon (Glass style) ─────────────────────────────────── -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-px bg-slate-200/50 backdrop-blur border border-slate-200/50 rounded-2xl overflow-hidden mb-8">
+            <div class="bg-white/80 p-4 sm:p-5">
+                <div class="text-[length:0.65rem] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Active students</div>
+                <div class="text-3xl font-extrabold text-blue-600 tracking-tighter mb-2">@ActiveStudentCount</div>
+                <span class="px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 text-xs font-bold">Currently enrolled</span>
+            </div>
+            <div class="bg-white/80 p-4 sm:p-5">
+                <div class="text-[length:0.65rem] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Joined (30 days)</div>
+                <div class="text-3xl font-extrabold text-emerald-500 tracking-tighter mb-2">@JoinedLast30DaysCount</div>
+                <span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-xs font-bold">New students</span>
+            </div>
+            <div class="bg-white/80 p-4 sm:p-5">
+                <div class="text-[length:0.65rem] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Transferred in (30 days)</div>
+                <div class="text-3xl font-extrabold text-slate-700 tracking-tighter mb-2">@TransferredLast30DaysCount</div>
+                <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs font-bold shadow-sm">Recent transfers</span>
+            </div>
+            <div class="bg-white/80 p-4 sm:p-5">
+                <div class="text-[length:0.65rem] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Showing</div>
+                <div class="text-3xl font-extrabold text-slate-900 tracking-tighter mb-2">@filteredStudents.Count</div>
+                <span class="px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 text-xs font-bold">Filtered</span>
+            </div>
+        </div>
+
+        <!-- ── Top Toolbar ─────────────────────────────────────────────── -->
+        <div class="flex flex-col xl:flex-row xl:items-center gap-4 mb-4">
+            <div class="relative w-full xl:flex-1 xl:max-w-sm">
+                <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg></span>
+                <input class="w-full py-2.5 pl-10 pr-4 bg-white/70 border border-slate-200 rounded-full text-sm font-medium focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400" type="text" placeholder="Search by name, email, temp ID or ID..." value="@searchTerm" @oninput="OnSearch" />
+            </div>
+
+            <!-- Toggles -->
+            <div class="flex items-center gap-2 overflow-x-auto pb-2 xl:pb-0 hide-scrollbar">
+                <!-- Status Filter -->
+                <div class="flex bg-white/60 p-1 border border-slate-200 rounded-full shadow-sm shrink-0">
+                    <button class="px-4 py-1.5 rounded-full text-xs font-bold transition-colors @(string.IsNullOrEmpty(statusFilter) ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800")" @onclick="() => OnStatusChange(string.Empty)">All</button>
+                    <button class="px-4 py-1.5 rounded-full text-xs font-bold transition-colors @(statusFilter == "Active" ? "bg-emerald-500 text-white shadow-sm" : "text-slate-500 hover:text-slate-800")" @onclick='() => OnStatusChange("Active")'>Active</button>
+                    <button class="px-4 py-1.5 rounded-full text-xs font-bold transition-colors @(statusFilter == "Inactive" ? "bg-slate-400 text-white shadow-sm" : "text-slate-500 hover:text-slate-800")" @onclick='() => OnStatusChange("Inactive")'>Inactive</button>
+                </div>
+
+                <!-- Form Dropdown -->
+                <div class="relative shrink-0">
+                    <select class="appearance-none pl-4 pr-9 py-2 bg-white/60 border border-slate-200 rounded-full text-xs font-bold text-slate-600 focus:outline-none focus:border-blue-500" value="@filterForm" @onchange='e => { filterForm = e.Value?.ToString() ?? ""; ApplyFilters(); }'>
+                        <option value="">All Forms</option>
+                        @for (int f = 1; f <= 6; f++)
+                        {
+                            <option value="@f">Form @f</option>
+                        }
+                    </select>
+                    <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9" /></svg></div>
+                </div>
+
+                <!-- Class Dropdown -->
+                <div class="relative shrink-0">
+                    <select class="appearance-none pl-4 pr-9 py-2 bg-white/60 border border-slate-200 rounded-full text-xs font-bold text-slate-600 focus:outline-none focus:border-blue-500" value="@filterClass" @onchange='e => { filterClass = e.Value?.ToString() ?? ""; ApplyFilters(); }'>
+                        <option value="">All Classes</option>
+                        @foreach (var classroom in StudentClassOptions)
+                        {
+                            <option value="@classroom">@classroom</option>
+                        }
+                    </select>
+                    <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9" /></svg></div>
+                </div>
+
+                <!-- Gender Dropdown -->
+                <div class="relative shrink-0">
+                    <select class="appearance-none pl-4 pr-9 py-2 bg-white/60 border border-slate-200 rounded-full text-xs font-bold text-slate-600 focus:outline-none focus:border-blue-500" value="@filterGender" @onchange='e => { filterGender = e.Value?.ToString() ?? ""; ApplyFilters(); }'>
+                        <option value="">All Genders</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                    </select>
+                    <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9" /></svg></div>
+                </div>
+            </div>
+
+            <!-- Right side controls -->
+            <div class="w-full xl:w-auto xl:ml-auto flex items-center justify-between xl:justify-end gap-3 sm:gap-4 shrink-0">
+                <span class="text-xs font-bold text-slate-400 shrink-0">@filteredStudents.Count matches</span>
+                <div class="flex bg-white/60 border border-slate-200 rounded-full p-1 shadow-sm">
+                    <button class="w-8 h-8 rounded-full flex items-center justify-center transition-colors @(viewMode == "table" ? "bg-white shadow text-blue-600" : "text-slate-400 hover:text-slate-700")" @onclick="SetTableView">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="3" y1="15" x2="21" y2="15" /><line x1="9" y1="9" x2="9" y2="21" /></svg>
+                    </button>
+                    <button class="w-8 h-8 rounded-full flex items-center justify-center transition-colors @(viewMode == "grid" ? "bg-white shadow text-blue-600" : "text-slate-400 hover:text-slate-700")" @onclick="SetGridView">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Main View Area ─────────────────────────────────────────── -->
+        @if (viewMode == "table")
+        {
+            <div class="bg-white/70 backdrop-blur-sm border border-slate-200 rounded-2xl shadow-sm overflow-hidden mb-8">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse min-w-[800px]">
+                        <thead class="bg-slate-50/50 border-b border-slate-200 text-[length:0.65rem] font-bold text-slate-400 uppercase tracking-widest">
+                            <tr>
+                                <th class="py-3 px-4 w-12 text-center pointer-events-auto">
+                                    <input type="checkbox" class="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer" @onclick="ToggleSelectAll" />
+                                </th>
+                                <th class="py-3 px-4 cursor-pointer hover:text-blue-600 transition-colors @(sortField == "Name" ? "text-blue-600" : "")" @onclick='() => SortBy("Name")'>
+                                    Student @SortIcon("Name")
+                                </th>
+                                <th class="py-3 px-4">Contact</th>
+                                <th class="py-3 px-4 cursor-pointer hover:text-blue-600 transition-colors @(sortField == "Form" ? "text-blue-600" : "")" @onclick='() => SortBy("Form")'>
+                                    Year / Class @SortIcon("Form")
+                                </th>
+                                <th class="py-3 px-4">Gender</th>
+                                <th class="py-3 px-4">DOB</th>
+                                <th class="py-3 px-4">Status</th>
+                                <th class="py-3 px-4 w-24"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-sm font-medium text-slate-700 divide-y divide-slate-100">
+                            @if (students == null)
+                            {
+                                @for (int i = 0; i < 8; i++)
+                                {
+                                    <tr class="animate-pulse">
+                                        <td class="py-4 px-4 text-center"><div class="w-4 h-4 bg-slate-200 rounded mx-auto"></div></td>
+                                        <td class="py-4 px-4">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-10 h-10 rounded-xl bg-slate-200 shrink-0"></div>
+                                                <div class="flex flex-col gap-1.5"><div class="w-24 h-3 bg-slate-200 rounded"></div><div class="w-16 h-2 bg-slate-100 rounded"></div></div>
+                                            </div>
+                                        </td>
+                                        <td class="py-4 px-4"><div class="w-32 h-3 bg-slate-200 rounded"></div></td>
+                                        <td class="py-4 px-4"><div class="w-16 h-5 bg-slate-200 rounded-md"></div></td>
+                                        <td class="py-4 px-4"><div class="w-10 h-3 bg-slate-200 rounded"></div></td>
+                                        <td class="py-4 px-4"><div class="w-20 h-3 bg-slate-200 rounded"></div></td>
+                                        <td class="py-4 px-4"><div class="w-16 h-5 bg-slate-200 rounded-full"></div></td>
+                                        <td></td>
+                                    </tr>
+                                }
+                            }
+                            else if (!pagedStudents.Any())
+                            {
+                                <tr>
+                                    <td colspan="8" class="py-16 text-center">
+                                        <div class="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-slate-400">
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+                                        </div>
+                                        <div class="text-sm font-bold text-slate-800 mb-1">No students found</div>
+                                        <p class="text-xs text-slate-500 font-medium">Try adjusting your filters or search term.</p>
+                                    </td>
+                                </tr>
+                            }
+                            else
+                            {
+                                int ri = 0;
+                                @foreach (var s in pagedStudents)
+                                {
+                                    var (bg, fg) = AvatarColor(ri);
+                                    bool sel = selectedIds.Contains(s.Id);
+                                    string ini = (s.FirstName?.FirstOrDefault().ToString() ?? "") + (s.LastName?.FirstOrDefault().ToString() ?? "");
+                                    int sid = s.Id;
+                                    bool isALevel = IsALevelStudent(s);
+                                    var subjectChoices = GetALevelSubjectChoicesForStudent(s.Id);
+
+                                    <tr class="hover:bg-blue-50/50 transition-colors group cursor-pointer" @onclick="() => NavigateToStudent(sid)">
+                                        <td class="py-3 px-4 text-center" @onclick:stopPropagation="true">
+                                            <input type="checkbox" checked="@sel" @onchange="e => ToggleSelect(s.Id, (bool)e.Value!)" class="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer" />
+                                        </td>
+                                        <td class="py-3 px-4">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-extrabold shrink-0" style="background:@bg;color:@fg;">@ini</div>
+                                                <div>
+                                                    <div class="text-sm font-bold text-slate-900 group-hover:text-blue-700 transition-colors">@s.FirstName @s.LastName</div>
+                                                    <div class="text-[length:0.65rem] font-mono font-bold text-slate-400 mt-0.5">@(string.IsNullOrEmpty(s.NationalId) ? "No national ID" : s.NationalId)</div>
+                                                    <div class="text-[length:0.65rem] font-mono font-bold text-slate-400 mt-0.5">@(string.IsNullOrEmpty(s.TempId) ? "No temp ID" : s.TempId)</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="py-3 px-4 max-w-[200px] truncate">
+                                            @if (!string.IsNullOrEmpty(s.Email))
+                                            {
+                                                <div class="flex items-center gap-1.5 text-xs text-slate-600 truncate"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" class="shrink-0" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>@s.Email</div>
+                                            }
+                                            @if (!string.IsNullOrEmpty(s.Phone))
+                                            {
+                                                <div class="flex items-center gap-1.5 text-xs text-slate-600 truncate mt-1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" class="shrink-0" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.56 1.18h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.91a16 16 0 0 0 6.06 6.06l1.79-1.79a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" /></svg>@s.Phone</div>
+                                            }
+                                            @if (string.IsNullOrEmpty(s.Email) && string.IsNullOrEmpty(s.Phone))
+                                            {
+                                                <span class="text-xs text-slate-400">&mdash;</span>
+                                            }
+                                        </td>
+                                        <td class="py-3 px-4">
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <span class="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-xs font-extrabold text-slate-700 shadow-sm">Form @s.Form</span>
+                                                @if (!string.IsNullOrEmpty(s.Classroom))
+                                                {
+                                                    <span class="text-[length:0.65rem] font-bold text-slate-400">@s.Classroom</span>
+                                                }
+                                            </div>
+                                            @if (isALevel)
+                                            {
+                                                <div class="mt-2 flex flex-wrap gap-1">
+                                                    @if (subjectChoices != null && subjectChoices.Subjects.Any())
+                                                    {
+                                                        @foreach (var subject in subjectChoices.Subjects.Take(3))
+                                                        {
+                                                            <span class="px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[length:0.6rem] font-bold">@subject</span>
+                                                        }
+                                                        @if (subjectChoices.Subjects.Count > 3)
+                                                        {
+                                                            <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[length:0.6rem] font-bold">+@(subjectChoices.Subjects.Count - 3)</span>
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-[length:0.65rem] font-medium text-slate-400 italic">No subjects assigned</span>
+                                                    }
+                                                </div>
+                                            }
+                                        </td>
+                                        <td class="py-3 px-4 text-xs font-bold text-slate-500">@(s.Gender ?? "—")</td>
+                                        <td class="py-3 px-4 font-mono text-[length:0.7rem] font-bold text-slate-500">@(s.DateOfBirth.HasValue ? s.DateOfBirth.Value.ToString("dd MMM yyyy") : "—")</td>
+                                        <td class="py-3 px-4">
+                                            @if (s.Status == "Active")
+                                            {
+                                                <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[length:0.65rem] font-extrabold flex inline-flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Active</span>
+                                            }
+                                            else
+                                            {
+
+                                                <span class="px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[length:0.65rem] font-extrabold flex inline-flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>@s.Status</span>
+                                            }
+                                        </td>
+                                        <td class="py-3 px-4 text-right" @onclick:stopPropagation="true">
+                                            <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button class="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 flex items-center justify-center transition-all shadow-sm" title="View" @onclick="() => NavigateToStudent(sid)">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                                                </button>
+                                                <button class="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 flex items-center justify-center transition-all shadow-sm" title="Edit" @onclick="() => NavigateToEdit(sid)">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                                </button>
+                                                @if (isALevel)
+                                                {
+                                                    <button class="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-violet-600 hover:border-violet-200 hover:bg-violet-50 flex items-center justify-center transition-all shadow-sm" title="Assign A-Level Subjects" @onclick="() => OpenAssignSubjectsModal(s)">
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 10v6M2 10l10-5 10 5-10 5z" /><path d="M6 12v5c3 3 9 3 12 0v-5" /></svg>
+                                                    </button>
+                                                }
+                                                else
+                                                {
+                                                    <button class="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 text-slate-300 flex items-center justify-center shadow-sm cursor-not-allowed" title="A-Level subject assignment is only available for Form 5 and Form 6 students" disabled>
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 10v6M2 10l10-5 10 5-10 5z" /><path d="M6 12v5c3 3 9 3 12 0v-5" /></svg>
+                                                    </button>
+                                                }
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    ri++;
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                @if (totalPages > 1)
+                {
+                    <div class="bg-slate-50/80 border-t border-slate-200 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <span class="text-xs font-bold text-slate-400">
+                            Showing @(((currentPage - 1) * pageSize) + 1)–@(Math.Min(currentPage * pageSize, filteredStudents.Count)) of @filteredStudents.Count
+                        </span>
+                        <div class="pagination-nav flex items-center gap-1">
+                            <button class="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-50 transition-colors shadow-sm" disabled="@(currentPage == 1)" @onclick="() => GoToPage(currentPage - 1)">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="15 18 9 12 15 6" /></svg>
+                            </button>
+                            @foreach (var p in VisiblePages())
+                            {
+                                if (p == 0) { <span class="px-1 text-slate-400">…</span> } else { int pg = p; <button class="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all @(currentPage == pg ? "bg-blue-600 text-white shadow-md" : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 shadow-sm")" @onclick="() => GoToPage(pg)">@pg</button> }
+                            }
+                            <button class="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-50 transition-colors shadow-sm" disabled="@(currentPage == totalPages)" @onclick="() => GoToPage(currentPage + 1)">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="9 18 15 12 9 6" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else if (viewMode == "grid")
+        {
+            @if (students == null)
+            {
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
+                    @for (int i = 0; i < 8; i++)
+                    {
+                        <div class="bg-white/60 backdrop-blur-sm border border-slate-200/60 rounded-2xl p-5 shadow-sm animate-pulse">
+                            <div class="w-12 h-12 rounded-xl bg-slate-200 mb-4"></div>
+                            <div class="w-2/3 h-3 bg-slate-200 rounded mb-2"></div>
+                            <div class="w-1/2 h-2 bg-slate-100 rounded"></div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
+                    @{
+                        int ci = 0;
+                    }
+                    @foreach (var s in pagedStudents)
+                    {
+                        var (bg, fg) = AvatarColor(ci);
+                        string ini = (s.FirstName?.FirstOrDefault().ToString() ?? "") + (s.LastName?.FirstOrDefault().ToString() ?? "");
+                        int sid = s.Id;
+                        bool isALevel = IsALevelStudent(s);
+                        var subjectChoices = GetALevelSubjectChoicesForStudent(s.Id);
+
+                        <div class="bg-white/70 backdrop-blur-sm border border-slate-200 rounded-3xl p-5 hover:-translate-y-1 hover:shadow-lg transition-all cursor-pointer group flex flex-col" @onclick="() => NavigateToStudent(sid)">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-sm font-extrabold shadow-sm" style="background:@bg;color:@fg;">@ini</div>
+                                @if (s.Status == "Active")
+                                {
+                                    <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[length:0.6rem] font-extrabold flex inline-flex items-center gap-1"><span class="w-1 h-1 rounded-full bg-emerald-500"></span>Active</span>
+                                }
+                                else
+                                {
+
+                                    <span class="px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[length:0.6rem] font-extrabold flex inline-flex items-center gap-1"><span class="w-1 h-1 rounded-full bg-slate-400"></span>@s.Status</span>
+                                }
+                            </div>
+
+                            <div class="text-base font-extrabold text-slate-900 group-hover:text-blue-700 transition-colors">@s.FirstName @s.LastName</div>
+                            <div class="text-xs font-mono font-bold text-slate-400 mt-1">@(string.IsNullOrEmpty(s.NationalId) ? "No national ID" : s.NationalId)</div>
+
+                            @if (!string.IsNullOrEmpty(s.Email))
+                            {
+                                <div class="text-[length:0.7rem] font-medium text-slate-500 mt-3 truncate"><span class="opacity-50">Email:</span> @s.Email</div>
+                            }
+                            @if (isALevel)
+                            {
+                                <div class="mt-3">
+                                    <div class="text-[length:0.6rem] uppercase tracking-widest font-bold text-slate-400 mb-2">Subjects</div>
+                                    @if (subjectChoices != null && subjectChoices.Subjects.Any())
+                                    {
+                                        <div class="flex flex-wrap gap-1.5">
+                                            @foreach (var subject in subjectChoices.Subjects.Take(4))
+                                            {
+                                                <span class="px-2.5 py-1 rounded-xl bg-violet-100 text-violet-700 text-[length:0.65rem] font-bold border border-violet-200">@subject</span>
+                                            }
+                                            @if (subjectChoices.Subjects.Count > 4)
+                                            {
+                                                <span class="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-500 text-[length:0.65rem] font-bold border border-slate-200">+@(subjectChoices.Subjects.Count - 4)</span>
+                                            }
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="text-[length:0.7rem] font-medium text-slate-400 italic">No subjects assigned</div>
+                                    }
+                                </div>
+                            }
+
+                            <div class="mt-auto pt-4 flex gap-4 text-xs font-bold text-slate-400 border-t border-slate-100/50">
+                                <div class="flex flex-col gap-1">
+                                    <span class="text-[length:0.6rem] uppercase tracking-widest opacity-70">Form</span>
+                                    <span class="text-slate-800">@(s.Form.HasValue ? s.Form.ToString() : "—")</span>
+                                </div>
+                                <div class="flex flex-col gap-1">
+                                    <span class="text-[length:0.6rem] uppercase tracking-widest opacity-70">Class</span>
+                                    <span class="text-slate-800">@(string.IsNullOrWhiteSpace(s.Classroom) ? "—" : s.Classroom)</span>
+                                </div>
+                                <div class="flex flex-col gap-1">
+                                    <span class="text-[length:0.6rem] uppercase tracking-widest opacity-70">Joined</span>
+                                    <span class="text-slate-800">@(s.CreatedAt?.ToString("dd MMM yyyy") ?? "—")</span>
+                                </div>
+                                <div class="flex flex-col gap-1">
+                                    <span class="text-[length:0.6rem] uppercase tracking-widest opacity-70">Gender</span>
+                                    <span class="text-slate-800">@(s.Gender ?? "—")</span>
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="mt-4 pt-4 border-t border-slate-100/50 flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity" @onclick:stopPropagation="true">
+                                <button class="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 flex items-center justify-center transition-all shadow-sm" title="View" @onclick="() => NavigateToStudent(sid)">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                                </button>
+                                <button class="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 flex items-center justify-center transition-all shadow-sm" title="Edit" @onclick="() => NavigateToEdit(sid)">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                </button>
+                                @if (isALevel)
+                                {
+                                    <button class="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-violet-600 hover:border-violet-200 hover:bg-violet-50 flex items-center justify-center transition-all shadow-sm" title="Assign A-Level Subjects" @onclick="() => OpenAssignSubjectsModal(s)">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 10v6M2 10l10-5 10 5-10 5z" /><path d="M6 12v5c3 3 9 3 12 0v-5" /></svg>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 text-slate-300 flex items-center justify-center shadow-sm cursor-not-allowed" title="A-Level subject assignment is only available for Form 5 and Form 6 students" disabled>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 10v6M2 10l10-5 10 5-10 5z" /><path d="M6 12v5c3 3 9 3 12 0v-5" /></svg>
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                        ci++;
+                    }
+                </div>
+                @if (totalPages > 1)
+                {
+                    <div class="bg-slate-50/80 border border-slate-200 rounded-2xl px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <span class="text-xs font-bold text-slate-400">Showing @(((currentPage - 1) * pageSize) + 1)–@(Math.Min(currentPage * pageSize, filteredStudents.Count)) of @filteredStudents.Count</span>
+                        <div class="pagination-nav flex items-center gap-1">
+                            <button class="w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-500 disabled:opacity-50" disabled="@(currentPage == 1)" @onclick="() => GoToPage(currentPage - 1)">‹</button>
+                            @foreach (var p in VisiblePages())
+                            {
+                                if (p == 0) { <span class="px-1 text-slate-400">…</span> } else { int pg = p; <button class="w-8 h-8 rounded-lg text-xs font-bold @(currentPage == pg ? "bg-blue-600 text-white" : "border border-slate-200 bg-white text-slate-600")" @onclick="() => GoToPage(pg)">@pg</button> }
+                            }
+                            <button class="w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-500 disabled:opacity-50" disabled="@(currentPage == totalPages)" @onclick="() => GoToPage(currentPage + 1)">›</button>
+                        </div>
+                    </div>
+                }
+            }
+        }
+    </div>
+}
+else if (activeTab == "Student Accounts")
+{
+    <div class="animate-fade-in">
+        <div class="bg-white/70 backdrop-blur-sm border border-slate-200 rounded-3xl p-6 md:p-8 shadow-sm">
+            <div class="flex items-center gap-3 mb-5">
+                <div class="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>
+                </div>
+                <div>
+                    <h2 class="text-lg font-extrabold text-slate-900">Student Statement</h2>
+                    <p class="text-sm font-medium text-slate-500">Look up and print an individual student's full account statement.</p>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-end mb-4">
+                <div class="relative flex-1 max-w-sm">
+                    <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+                    </span>
+                    <input class="w-full py-2.5 pl-10 pr-4 bg-white/70 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400"
+                           type="text"
+                           placeholder="Search by name, temp ID or ID..."
+                           @bind="statementSearchTerm"
+                           @bind:event="oninput" />
+                    @if (!string.IsNullOrWhiteSpace(statementSearchTerm) && StatementStudents.Any())
+                    {
+                        <div class="absolute z-20 mt-2 w-full max-h-64 overflow-auto rounded-2xl border border-slate-200 bg-white shadow-xl">
+                            @foreach (var s in StatementStudents)
+                            {
+                                int sid2 = s.Id;
+                                <button type="button"
+                                        class="w-full text-left px-4 py-3 border-b border-slate-100 last:border-b-0 hover:bg-slate-50 transition-colors"
+                                        @onclick='() => Nav.NavigateTo("/admin/student-statement?StudentId=" + sid2)'>
+                                    <div class="text-sm font-black text-slate-900">@s.LastName, @s.FirstName</div>
+                                    <div class="text-xs font-bold text-slate-500 mt-0.5">ID: @s.Id | Form @s.Form @s.Classroom</div>
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+                <a href="/admin/student-statement"
+                   class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-all shadow-md flex items-center gap-2 whitespace-nowrap">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                    Open Statement Viewer
+                </a>
+            </div>
+            <p class="text-xs text-slate-400 font-medium">Searching will take you directly to that student's statement page.</p>
+        </div>
+    </div>
+}
+else if (activeTab == "Class Lists")
+{
+    <div class="no-print bg-white/70 backdrop-blur-sm border border-slate-200 rounded-3xl p-6 md:p-8 shadow-sm mb-5 flex flex-col gap-4 animate-fade-in">
+        <div class="flex flex-col lg:flex-row lg:items-end gap-4">
+            <div class="w-full lg:w-auto">
+                <label class="block text-[length:0.65rem] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Form</label>
+                <select class="w-full lg:w-[150px] py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800" value="@classListForm" @onchange="OnClassListFormChanged">
+                    <option value="">Select form...</option>
+                    @for (var f = 1; f <= 6; f++)
+                    {
+                        <option value="@f">Form @f</option>
+                    }
+                </select>
+            </div>
+            <div class="w-full lg:flex-1 lg:min-w-[200px]">
+                <label class="block text-[length:0.65rem] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Classroom</label>
+                <select class="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800" value="@classListClassroom" @onchange="OnClassListClassroomChanged" disabled="@(!classListForm.HasValue)">
+                    <option value="">Select class...</option>
+                    @foreach (var classroom in classListClassrooms)
+                    {
+                        <option value="@classroom">@classroom</option>
+                    }
+                </select>
+            </div>
+            <button class="w-full lg:w-auto px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-bold shadow-sm" @onclick="PrintClassListAsync" disabled="@(classListStudents.Count == 0)">
+                Print Class List
+            </button>
+        </div>
+        <div class="text-xs text-slate-500 font-medium">
+            Choose a form and classroom to preview the printable class list.
+        </div>
+    </div>
+
+    <div class="class-list-print-shell print-area relative bg-white w-full mx-auto shadow-xl border border-slate-200 overflow-hidden animate-fade-in-up">
+        <div class="relative z-10 px-10 pt-10 pb-8 flex flex-col gap-4">
+            <div class="flex justify-between items-start gap-4 pb-4 border-b border-dashed border-stone-400 w-full">
+                <div class="flex gap-3">
+                    <img src="/images/demo-logo.svg" alt="PrimeApp Demo" class="w-16 h-16 object-contain print-logo" />
+                    <div>
+                        <div class="text-[1.35rem] font-black leading-tight uppercase text-slate-900">PrimeApp Demo</div>
+                        <div class="text-[0.72rem] font-semibold mt-1 text-slate-500">Equipping youngsters to compete internationally</div>
+                        <div class="text-[0.72rem] mt-2 text-slate-500">0783841141 / 0785638463</div>
+                        <div class="text-[0.72rem] text-slate-500">cliftonmataruse2@gmail.com</div>
+                    </div>
+                </div>
+                <div class="text-right text-[0.8rem] leading-tight font-semibold text-slate-800">
+                    <div>20440</div>
+                    <div>VICTORY</div>
+                    <div>PARK, RUWA</div>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center py-2">
+                <h3 class="text-lg font-black text-emerald-700 uppercase tracking-widest">
+                    @(classListForm.HasValue ? $"Form {classListForm} {classListClassroom}" : "Class List")
+                </h3>
+                <div class="text-xs text-slate-500 font-bold">Print Date: @DateTime.Today.ToString("dd MMM yyyy")</div>
+            </div>
+        </div>
+
+        <div class="relative z-10 p-10 pt-2 overflow-x-auto max-w-full">
+            @if (!classListForm.HasValue || string.IsNullOrWhiteSpace(classListClassroom))
+            {
+                <div class="text-center py-24 text-slate-500">Choose a form and classroom to load the class list.</div>
+            }
+            else if (classListStudents.Count == 0)
+            {
+                <div class="text-center py-24 text-slate-500">No students found for this class.</div>
+            }
+            else
+            {
+                <table class="w-full text-left border-collapse text-xs min-w-[600px] print-min-w-0">
+                    <thead class="bg-slate-100 border-b-2 border-slate-900">
+                        <tr>
+                            <th class="py-3 px-2 font-black uppercase">Student Name</th>
+                            <th class="py-3 px-2 font-black uppercase">Gender</th>
+                            <th class="py-3 px-2 font-black uppercase">Contact</th>
+                            <th class="py-3 px-2 font-black uppercase">Notes 1</th>
+                            <th class="py-3 px-2 font-black uppercase">Notes 2</th>
+                            <th class="py-3 px-2 font-black uppercase">Notes 3</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200 font-medium text-slate-700">
+                        @foreach (var student in classListStudents)
+                        {
+                            <tr>
+                                <td class="py-3 px-2 font-bold text-slate-900">@student.LastName, @student.FirstName</td>
+                                <td class="py-3 px-2">@((student.Gender ?? "Other"))</td>
+                                <td class="py-3 px-2">
+                                    <div>@(string.IsNullOrWhiteSpace(student.Phone) ? "—" : student.Phone)</div>
+                                    <div class="text-[10px] text-slate-400 mt-0.5">@(string.IsNullOrWhiteSpace(student.Email) ? "No email" : student.Email)</div>
+                                </td>
+                                <td class="py-3 px-2">&nbsp;</td>
+                                <td class="py-3 px-2">&nbsp;</td>
+                                <td class="py-3 px-2">&nbsp;</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+}
+
+<!-- Sticky Bulk Actions Bar -->
+@if (activeTab == "Directory" && selectedIds.Count > 0)
+{
+    <div class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md text-white rounded-2xl px-5 py-3 flex items-center gap-4 shadow-xl z-50 animate-fade-in-up">
+        <span class="text-sm font-bold"><span class="text-blue-400">@selectedIds.Count</span> selected</span>
+        <div class="flex items-center gap-2 border-l border-slate-700 pl-4">
+            <button class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-bold transition-colors">Export</button>
+            <button class="px-3 py-1.5 rounded-lg bg-rose-500/20 text-rose-300 hover:bg-rose-500 hover:text-white text-xs font-bold transition-colors">Remove</button>
+        </div>
+        <button class="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 text-slate-300 transition-colors ml-2" @onclick="() => selectedIds.Clear()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+        </button>
+    </div>
+}
+
+<!-- Assign Subjects Modal -->
+@if (showAssignSubjectsModal && assignSubjectsStudent != null)
+{
+    <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4" @onclick="CloseAssignSubjectsModal">
+        <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-2xl shadow-2xl max-h-[90vh] flex flex-col" @onclick:stopPropagation="true">
+            <div class="p-6 border-b border-slate-100 flex items-center justify-between shrink-0">
+                <div>
+                    <h3 class="text-lg font-extrabold text-slate-900">Assign A-Level Subjects</h3>
+                    <p class="text-xs text-slate-500 font-medium mt-0.5">@assignSubjectsStudent.FirstName @assignSubjectsStudent.LastName · Form @assignSubjectsStudent.Form</p>
+                </div>
+                <button class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors" @onclick="CloseAssignSubjectsModal">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto flex-1">
+                <div class="mb-5 rounded-2xl border border-violet-100 bg-violet-50/70 p-4">
+                    <div class="text-[length:0.65rem] font-bold uppercase tracking-widest text-violet-500 mb-2">Selected Student</div>
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div>
+                            <div class="text-sm font-extrabold text-slate-900">@assignSubjectsStudent.FirstName @assignSubjectsStudent.LastName</div>
+                            <div class="text-xs font-medium text-slate-500 mt-1">Form @assignSubjectsStudent.Form @if (!string.IsNullOrWhiteSpace(assignSubjectsStudent.Classroom)) {
+                                <span>· @assignSubjectsStudent.Classroom</span>
+                            }
+                        </div>
+                    </div>
+                    <span class="px-3 py-1 rounded-full bg-white border border-violet-200 text-violet-700 text-xs font-bold self-start">Student locked</span>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Subjects <span class="text-violet-600 font-extrabold">(@selectedSubjectsForAssign.Count selected)</span></label>
+                @if (isLoadingAssignSubjects)
+                {
+                    <div class="py-8 text-center text-sm text-slate-400 font-medium">Loading available subjects...</div>
+                }
+                else if (availableALevelSubjects == null || !availableALevelSubjects.Any())
+                {
+                    <div class="py-8 text-center text-sm text-slate-400 font-medium">No A-Level subjects are available yet.</div>
+                }
+                else
+                {
+                    <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                        @foreach (var subj in availableALevelSubjects)
+                        {
+                            var subjectName = subj.SubjectName ?? "";
+                            bool isSel = selectedSubjectsForAssign.Contains(subjectName);
+                            <button type="button"
+                                    class="min-h-24 flex flex-col items-start justify-between gap-3 p-4 rounded-2xl border text-left text-sm font-semibold transition-all shadow-sm @(isSel ? "border-violet-400 bg-violet-50 text-violet-800 shadow-violet-100" : "border-slate-200 bg-white text-slate-700 hover:border-violet-200 hover:bg-violet-50/50")"
+                                    @onclick='() => ToggleSubjectForAssign(subjectName)'>
+                                <span class="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 @(isSel ? "bg-violet-600" : "border border-slate-300 bg-white")">
+                                    @if (isSel)
+                                    {
+                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg>
+                                    }
+                                </span>
+                                <span class="text-sm font-bold leading-snug">@subjectName</span>
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(assignSubjectsStatus))
+        {
+            <div class="mx-6 mb-2 p-3 rounded-xl text-xs font-bold @(assignSubjectsError ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700")">
+                @assignSubjectsStatus
+            </div>
+        }
+
+        <div class="p-6 border-t border-slate-100 flex gap-3 shrink-0">
+            <button class="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition-colors" @onclick="CloseAssignSubjectsModal">Cancel</button>
+            <button class="flex-1 px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-bold transition-colors shadow-sm flex items-center justify-center gap-2"
+                    disabled="@(isSavingAssignSubjects || assignSubjectsStudent == null || !selectedSubjectsForAssign.Any())" @onclick="HandleAssignSubjectsForStudent">
+                @if (isSavingAssignSubjects)
+                {
+                    <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                    <span>Saving...</span>
+                }
+                else
+                {
+                    <span>Assign Subjects</span>
+                }
+            </button>
+        </div>
+    </div>
+</div>
+}
+
+ </div>
+
+<style>
+    .pagination-nav { flex-wrap: wrap; justify-content: flex-end; max-width: 100%; }
+    @@media (max-width: 640px) {
+        .pagination-nav { justify-content: center; width: 100%; }
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 10px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+    @@media (max-width: 768px) {
+        /* Mobile on-screen preview styling overrides to fit small displays */
+        .class-list-print-shell {
+            border-radius: 16px !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
+        }
+
+        .class-list-print-shell > div {
+            padding-left: 16px !important;
+            padding-right: 16px !important;
+        }
+
+        .class-list-print-shell > div:first-child {
+            padding-top: 20px !important;
+            padding-bottom: 16px !important;
+        }
+
+        .class-list-print-shell > div:last-child {
+            padding-top: 0 !important;
+            padding-bottom: 20px !important;
+        }
+    }
+
+    @@media print {
+        /* Hide layout navigation headers and background decorators */
+        header,
+        aside,
+        .sidebar,
+        img.fixed,
+        div.fixed,
+        .no-print {
+            display: none !important;
+        }
+
+        /* Override body/html/main layout wrappers to span fully without padding/margins */
+        body, html {
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            height: auto !important;
+            overflow: visible !important;
+        }
+
+        main {
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            background: white !important;
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            z-index: 99999 !important;
+        }
+
+        .page-wrap {
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: 100% !important;
+            width: 100% !important;
+        }
+
+        .page-wrap.print-class-list > *:not(.class-list-print-shell) {
+            display: none !important;
+        }
+
+        /* Make printable class list shell occupy full space without border/shadow */
+        .class-list-print-shell {
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+            background: white !important;
+        }
+
+        /* Adjust internal paddings to hug the edge during print */
+        .class-list-print-shell > div {
+            padding-left: 2mm !important;
+            padding-right: 2mm !important;
+        }
+        
+        .class-list-print-shell > div:first-child {
+            padding-top: 4mm !important;
+            padding-bottom: 2mm !important;
+        }
+
+        .class-list-print-shell > div:last-child {
+            padding-top: 0 !important;
+            padding-bottom: 2mm !important;
+        }
+
+        .print-min-w-0 {
+            min-width: 0 !important;
+        }
+
+        @@page {
+            size: A4 portrait;
+            margin: 4mm !important;
+        }
+    }
+</style>
+
+@code {
+    private string activeTab = "Directory";
+    private string[] tabs = { "Directory", "Class Lists" };
+    private async Task SetActiveTab(string tab)
+    {
+        activeTab = tab;
+        if ((tab == "Class Lists" || tab == "Student Accounts") && !allStudentsLoaded)
+            await LoadAllStudentsAsync();
+    }
+
+
+    private List<Student>? students;
+    private List<Student> summaryStudents = new();
+    private List<Student> filteredStudents = new();
+    private List<Student> pagedStudents = new();
+    private int totalStudentCount;
+    private bool allStudentsLoaded;
+    private bool isPageLoading;
+    private int TotalStudentCount => allStudentsLoaded ? (students?.Count ?? 0) : totalStudentCount;
+    private IEnumerable<Student> StudentSummary => allStudentsLoaded ? (students ?? new()) : summaryStudents;
+    private int ActiveStudentCount => StudentSummary.Count(s => string.Equals(s.Status, "Active", StringComparison.OrdinalIgnoreCase));
+    private int JoinedLast30DaysCount => StudentSummary.Count(s => s.CreatedAt.HasValue && s.CreatedAt.Value >= DateTime.Now.AddDays(-30));
+    private int TransferredLast30DaysCount => StudentSummary.Count(s => s.CreatedAt.HasValue && s.CreatedAt.Value >= DateTime.Now.AddDays(-30) && (s.Status?.Contains("transfer", StringComparison.OrdinalIgnoreCase) ?? false));
+    private int InactiveStudentCount => allStudentsLoaded ? (students?.Count(s => s.Status != "Active") ?? 0) : students?.Count(s => s.Status != "Active") ?? 0;
+    private List<paa_frontend.Shared.Models.Admin.SubjectsModel.GetStudentALevelSubjectChoices> aLevelSubjectChoices = new();
+
+    private string searchTerm = "";
+    private string statusFilter = "";
+    private string filterForm = "";
+    private string filterClass = "";
+    private string filterGender = "";
+    private int? classListForm;
+    private string classListClassroom = "";
+    private List<string> classListClassrooms = new();
+    private bool isPrintingClassList;
+    private string sortField = "Name";
+    private bool sortAsc = true;
+    private string viewMode = "grid";
+    private string statementSearchTerm = "";
+
+    private IEnumerable<Student> StatementStudents =>
+        (students ?? new())
+            .Where(s => !string.IsNullOrWhiteSpace(statementSearchTerm) &&
+                ((s.FirstName + " " + s.LastName).Contains(statementSearchTerm, StringComparison.OrdinalIgnoreCase) ||
+                 s.Id.ToString().Contains(statementSearchTerm) ||
+                 (s.TempId?.Contains(statementSearchTerm, StringComparison.OrdinalIgnoreCase) ?? false)))
+            .OrderBy(s => s.LastName)
+            .Take(8);
+
+    private List<Student> classListStudents =>
+        (students ?? new())
+            .Where(s => classListForm.HasValue
+                && s.Form == classListForm.Value
+                && string.Equals(s.Classroom, classListClassroom, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(s => s.LastName)
+            .ThenBy(s => s.FirstName)
+            .ToList();
+
+    private int currentPage = 1;
+    private const int pageSize = 15;
+    private int totalPages => Math.Max(1, (int)Math.Ceiling((double)(allStudentsLoaded ? filteredStudents.Count : totalStudentCount) / pageSize));
+
+    private IEnumerable<string> StudentClassOptions => (students ?? new())
+        .Where(s => !string.IsNullOrWhiteSpace(s.Classroom))
+        .Select(s => s.Classroom!.Trim())
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(c => c);
+
+    private HashSet<int> selectedIds = new();
+    private Student? assignSubjectsStudent;
+    private List<paa_frontend.Shared.Models.Admin.SubjectsModel.ALevelSubjects>? availableALevelSubjects;
+    private HashSet<string> selectedSubjectsForAssign = new();
+    private bool showAssignSubjectsModal;
+    private bool isLoadingAssignSubjects;
+    private bool isSavingAssignSubjects;
+    private string assignSubjectsStatus = "";
+    private bool assignSubjectsError;
+
+    private static readonly (string Bg, string Fg)[] Palette = {
+        ("rgb(239,246,255)",  "#2563eb"), // blue
+        ("rgb(236,253,245)",  "#059669"), // emerald
+        ("rgb(255,251,235)", "#d97706"),  // amber
+        ("rgb(245,243,255)", "#7c3aed"),  // violet
+        ("rgb(255,241,242)",  "#e11d48"), // rose
+        ("rgb(240,249,255)", "#0284c7"),  // sky
+    };
+    private (string Bg, string Fg) AvatarColor(int i) => Palette[i % Palette.Length];
+    private static bool IsALevelStudent(Student s) => s.Form.GetValueOrDefault(0) == 5 || s.Form.GetValueOrDefault(0) == 6;
+
+    private void NavigateToStudent(int id) => Nav.NavigateTo("/students/" + id);
+    private void NavigateToEdit(int id) => Nav.NavigateTo("/students/edit/" + id);
+    private void SetTableView() => viewMode = "table";
+    private void SetGridView() => viewMode = "grid";
+
+    private MarkupString SortIcon(string f) => new MarkupString(
+        sortField == f
+            ? "<span class='text-[length:0.6rem] ml-1'>" + (sortAsc ? "↑" : "↓") + "</span>"
+            : "<span class='text-[length:0.6rem] ml-1 opacity-30'>↕</span>");
+
+    private bool dataLoadAttempted;
+
+    protected override Task OnInitializedAsync()
+    {
+        return Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || dataLoadAttempted) return;
+        dataLoadAttempted = true;
+
+        try
+        {
+            var pageTask = StudentService.GetStudentsPageAsync(0, pageSize);
+            var summaryTask = StudentService.GetStudentsAsync();
+            await Task.WhenAll(pageTask, summaryTask);
+            var page = await pageTask;
+            students = page.Content ?? new();
+            summaryStudents = await summaryTask ?? new();
+            totalStudentCount = page.TotalElements;
+            filteredStudents = students.ToList();
+            pagedStudents = students.ToList();
+            StateHasChanged();
+        }
+        catch (Exception)
+        {
+            students = new();
+        }
+    }
+
+    private async Task LoadAllStudentsAsync()
+    {
+        if (allStudentsLoaded) return;
+        var allTask = StudentService.GetStudentsAsync();
+        var choicesTask = SubjectService.GetStudentALevelSubjectChoicesAsync();
+        await Task.WhenAll(allTask, choicesTask);
+        students = allTask.Result ?? new();
+        aLevelSubjectChoices = choicesTask.Result ?? new();
+        totalStudentCount = students.Count;
+        allStudentsLoaded = true;
+        RefreshClassListClassrooms();
+        ApplyFilters();
+        StateHasChanged();
+    }
+
+    private void OnSearch(ChangeEventArgs e) { searchTerm = e.Value?.ToString() ?? ""; ApplyFilters(); }
+    private void OnStatusChange(string s) { statusFilter = s; ApplyFilters(); }
+
+    private void OnClassListFormChanged(ChangeEventArgs e)
+    {
+        classListForm = int.TryParse(e.Value?.ToString(), out var form) ? form : null;
+        classListClassroom = string.Empty;
+        RefreshClassListClassrooms();
+        StateHasChanged();
+    }
+
+    private void OnClassListClassroomChanged(ChangeEventArgs e)
+    {
+        classListClassroom = e.Value?.ToString() ?? string.Empty;
+        StateHasChanged();
+    }
+
+    private void RefreshClassListClassrooms()
+    {
+        classListClassrooms = !classListForm.HasValue
+            ? new List<string>()
+            : (students ?? new())
+                .Where(s => s.Form == classListForm.Value && !string.IsNullOrWhiteSpace(s.Classroom))
+                .Select(s => s.Classroom!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value)
+                .ToList();
+    }
+
+    private async Task PrintClassListAsync()
+    {
+        if (!classListForm.HasValue || string.IsNullOrWhiteSpace(classListClassroom) || !classListStudents.Any())
+        {
+            return;
+        }
+
+        isPrintingClassList = true;
+        StateHasChanged();
+        await Task.Delay(50);
+        await JSRuntime.InvokeVoidAsync("window.print");
+        isPrintingClassList = false;
+        StateHasChanged();
+    }
+
+    private void ApplyFilters()
+    {
+        if (students == null) return;
+        var q = students.AsEnumerable();
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+            q = q.Where(s => (s.FirstName + " " + s.LastName + " " + s.Email + " " + s.Classroom + " " + s.NationalId + " " + s.TempId + " " + s.Phone).Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrEmpty(statusFilter)) q = q.Where(s => s.Status == statusFilter);
+        // Use GetValueOrDefault to safely compare nullable int Form
+        if (!string.IsNullOrEmpty(filterForm) && int.TryParse(filterForm, out int fv)) q = q.Where(s => s.Form.GetValueOrDefault(0) == fv);
+        if (!string.IsNullOrWhiteSpace(filterClass)) q = q.Where(s => string.Equals(s.Classroom?.Trim(), filterClass.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrEmpty(filterGender)) q = q.Where(s => s.Gender == filterGender);
+
+        q = sortField switch
+        {
+            "Name" => sortAsc ? q.OrderBy(s => s.LastName).ThenBy(s => s.FirstName) : q.OrderByDescending(s => s.LastName).ThenByDescending(s => s.FirstName),
+            "Form" => sortAsc ? q.OrderBy(s => s.Form) : q.OrderByDescending(s => s.Form),
+            _ => q
+        };
+        filteredStudents = q.ToList(); currentPage = 1; UpdatePage();
+    }
+
+    private void UpdatePage() => pagedStudents = filteredStudents.Skip((currentPage - 1) * pageSize).Take(pageSize).ToList();
+    private async Task GoToPage(int p)
+    {
+        currentPage = Math.Clamp(p, 1, Math.Max(1, totalPages));
+        if (allStudentsLoaded) { UpdatePage(); return; }
+        isPageLoading = true;
+        var page = await StudentService.GetStudentsPageAsync(currentPage - 1, pageSize);
+        students = page.Content ?? new();
+        filteredStudents = students.ToList();
+        pagedStudents = students.ToList();
+        totalStudentCount = page.TotalElements;
+        isPageLoading = false;
+        StateHasChanged();
+    }
+
+    private IEnumerable<int> VisiblePages()
+    {
+        if (totalPages <= 7) return Enumerable.Range(1, totalPages);
+        var pages = new List<int> { 1 };
+        var start = Math.Max(2, currentPage - 1);
+        var end = Math.Min(totalPages - 1, currentPage + 1);
+        if (start > 2) pages.Add(0);
+        pages.AddRange(Enumerable.Range(start, end - start + 1));
+        if (end < totalPages - 1) pages.Add(0);
+        pages.Add(totalPages);
+        return pages;
+    }
+
+    private void SortBy(string field) { if (sortField == field) sortAsc = !sortAsc; else { sortField = field; sortAsc = true; } ApplyFilters(); }
+    private void ToggleSelect(int id, bool val) { if (val) selectedIds.Add(id); else selectedIds.Remove(id); }
+    private void ToggleSelectAll() { if (selectedIds.Count == pagedStudents.Count) selectedIds.Clear(); else foreach (var s in pagedStudents) selectedIds.Add(s.Id); }
+    private paa_frontend.Shared.Models.Admin.SubjectsModel.GetStudentALevelSubjectChoices? GetALevelSubjectChoicesForStudent(long studentId)
+        => aLevelSubjectChoices.FirstOrDefault(c => c.StudentId == studentId);
+
+    private async Task OpenAssignSubjectsModal(Student student)
+    {
+        if (!IsALevelStudent(student))
+        {
+            NotificationService.ShowError("A-Level subject assignment is only available for Form 5 and Form 6 students.");
+            return;
+        }
+
+        assignSubjectsStudent = student;
+        showAssignSubjectsModal = true;
+        isLoadingAssignSubjects = true;
+        assignSubjectsStatus = "";
+        assignSubjectsError = false;
+        selectedSubjectsForAssign.Clear();
+
+        try
+        {
+            var subjectsTask = SubjectService.GetALevelSubjectsAsync();
+            var choicesTask = SubjectService.GetStudentALevelSubjectChoicesAsync();
+            await Task.WhenAll(subjectsTask, choicesTask);
+
+            availableALevelSubjects = subjectsTask.Result;
+            var existingChoices = choicesTask.Result.FirstOrDefault(c => c.StudentId == student.Id);
+            if (existingChoices != null)
+            {
+                foreach (var subjectName in existingChoices.Subjects)
+                {
+                    selectedSubjectsForAssign.Add(subjectName);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            assignSubjectsStatus = "Failed to load subjects: " + ex.Message;
+            assignSubjectsError = true;
+        }
+        finally
+        {
+            isLoadingAssignSubjects = false;
+        }
+    }
+
+    private void CloseAssignSubjectsModal()
+    {
+        showAssignSubjectsModal = false;
+        assignSubjectsStudent = null;
+        assignSubjectsStatus = "";
+        assignSubjectsError = false;
+        isLoadingAssignSubjects = false;
+        isSavingAssignSubjects = false;
+        selectedSubjectsForAssign.Clear();
+    }
+
+    private void ToggleSubjectForAssign(string subjectName)
+    {
+        if (selectedSubjectsForAssign.Contains(subjectName)) selectedSubjectsForAssign.Remove(subjectName);
+        else selectedSubjectsForAssign.Add(subjectName);
+    }
+
+    private async Task HandleAssignSubjectsForStudent()
+    {
+        if (assignSubjectsStudent == null || !selectedSubjectsForAssign.Any()) return;
+
+        isSavingAssignSubjects = true;
+        assignSubjectsStatus = "";
+        assignSubjectsError = false;
+
+        try
+        {
+            var result = await SubjectService.PostALevelSubjectsToStudentAsync(assignSubjectsStudent.Id, selectedSubjectsForAssign.ToList());
+            if (result)
+            {
+                var refreshedChoices = await SubjectService.GetStudentALevelSubjectChoicesAsync();
+                var refreshedChoice = refreshedChoices.FirstOrDefault(c => c.StudentId == assignSubjectsStudent.Id);
+
+                // Keep the cards correct even if the enrollment service is still
+                // propagating the write when the immediate refresh is performed.
+                if (refreshedChoice == null)
+                {
+                    refreshedChoice = new paa_frontend.Shared.Models.Admin.SubjectsModel.GetStudentALevelSubjectChoices
+                    {
+                        StudentId = assignSubjectsStudent.Id,
+                        Form = assignSubjectsStudent.Form ?? 0,
+                        ClassName = assignSubjectsStudent.Classroom,
+                        Subjects = selectedSubjectsForAssign.ToList()
+                    };
+                    refreshedChoices.Add(refreshedChoice);
+                }
+                else
+                {
+                    refreshedChoice.Subjects = selectedSubjectsForAssign.ToList();
+                }
+
+                aLevelSubjectChoices = refreshedChoices;
+                NotificationService.ShowSuccess("Subjects assigned successfully.");
+                CloseAssignSubjectsModal();
+            }
+            else
+            {
+                assignSubjectsStatus = "Subjects could not be assigned because this student's class is missing or is not configured. Check the student class and make sure it exists in the class presets, then try again.";
+                assignSubjectsError = true;
+                NotificationService.ShowError(assignSubjectsStatus);
+            }
+        }
+        catch
+        {
+            assignSubjectsStatus = "Subjects could not be assigned because this student's class is missing or is not configured. Check the student class and make sure it exists in the class presets, then try again.";
+            assignSubjectsError = true;
+            NotificationService.ShowError(assignSubjectsStatus);
+        }
+        finally
+        {
+            isSavingAssignSubjects = false;
+        }
+    }
+
+}

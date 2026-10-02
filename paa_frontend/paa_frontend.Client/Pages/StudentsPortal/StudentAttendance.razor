@@ -1,0 +1,258 @@
+@page "/portal/attendance"
+@namespace paa_frontend.Client.Pages
+@layout paa_frontend.Client.Layout.StudentPortalLayout
+@using paa_frontend.Shared.Models
+@inject IJSRuntime JS
+@inject AttendanceServiceClient AttendanceService
+@inject NavigationManager Nav
+
+<style>
+    .page-wrap { padding: 0; max-width: 1500px; margin: 0 auto; }
+
+    .att-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; gap: 16px; flex-wrap: wrap; }
+    .att-title { font-size: 22px; font-weight: 700; color: #0F172A; letter-spacing: -0.4px; margin-bottom: 3px; }
+    .att-sub { font-size: 13px; color: rgba(0,0,0,0.45); }
+
+    /* ── Summary Cards ── */
+    .summary-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+    .sum-card { background: white; border-radius: 14px; border: 1px solid rgba(0,0,0,0.06); padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    .sum-card-label { font-size: 11px; text-transform: uppercase; font-weight: 700; color: rgba(0,0,0,0.45); margin-bottom: 4px; }
+    .sum-card-val { font-size: 24px; font-weight: 800; color: rgba(0,0,0,0.85); font-family: 'DM Mono', monospace; }
+    .sum-card-val.green { color: #10b981; }
+    .sum-card-val.amber { color: #f59e0b; }
+    .sum-card-val.red { color: #C8102E; }
+
+    /* ── Calendar ── */
+    .cal-card { background: white; border-radius: 14px; border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 1px 3px rgba(0,0,0,0.04); overflow: hidden; }
+    .cal-nav { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; border-bottom: 1px solid rgba(0,0,0,0.06); }
+    .cal-month { font-size: 16px; font-weight: 700; color: #0F172A; }
+    .cal-btn { width: 34px; height: 34px; border-radius: 10px; border: 1px solid rgba(0,0,0,0.08); background: white; display: flex; align-items: center; justify-content: center; cursor: pointer; color: rgba(0,0,0,0.65); transition: all 0.15s; }
+    .cal-btn:hover { background: rgba(0,0,0,0.04); color: #0F172A; border-color: rgba(0,0,0,0.14); }
+
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0; }
+    .cal-dow { padding: 10px 0; text-align: center; font-size: 11px; font-weight: 700; color: var(--ink3); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid rgba(0,0,0,0.04); }
+    .cal-day { min-height: 72px; padding: 8px; border-right: 1px solid rgba(0,0,0,0.04); border-bottom: 1px solid rgba(0,0,0,0.04); position: relative; transition: background 0.15s; }
+    .cal-day:nth-child(7n) { border-right: none; }
+    .cal-day.empty { background: rgba(0,0,0,0.015); }
+    .cal-day.today { background: rgba(15,23,42,0.04); }
+    .cal-day:hover { background: rgba(15,23,42,0.02); }
+    .cal-day.status-present { background: #d1fae5; }
+    .cal-day.status-late { background: #fef3c7; }
+    .cal-day.status-absent { background: #fee2e2; }
+    .cal-day.status-excused { background: #e0e7ff; }
+    .cal-day.status-present:hover { background: #a7f3d0; }
+    .cal-day.status-late:hover { background: #fde68a; }
+    .cal-day.status-absent:hover { background: #fecaca; }
+    .cal-day.status-excused:hover { background: #c7d2fe; }
+
+    .cal-day-num { font-size: 12px; font-weight: 600; color: rgba(0,0,0,0.65); margin-bottom: 4px; }
+    .cal-day.today .cal-day-num { color: #0F172A; font-weight: 800; }
+
+    .cal-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 3px; }
+    .cal-dot.present { background: #10b981; }
+    .cal-dot.absent { background: #ef4444; }
+    .cal-dot.late { background: #f59e0b; }
+    .cal-dot.excused { background: #6366f1; }
+
+    .cal-status-text { font-size: 10px; font-weight: 600; margin-top: 2px; }
+    .cal-status-text.present { color: #10b981; }
+    .cal-status-text.absent { color: #ef4444; }
+    .cal-status-text.late { color: #f59e0b; }
+    .cal-status-text.excused { color: #6366f1; }
+
+    /* ── Legend ── */
+    .legend-row { display: flex; align-items: center; gap: 20px; padding: 14px 24px; border-top: 1px solid rgba(0,0,0,0.06); }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: rgba(0,0,0,0.65); }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+    @@media (max-width: 768px) {
+        .page-wrap { padding: 0 8px 24px; }
+        .summary-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .sum-card { padding: 14px; }
+        .sum-card-val { font-size: 22px; }
+        .cal-day { min-height: 56px; padding: 4px; }
+        .cal-day-num { font-size: 11px; }
+        .cal-status-text { display: none; }
+    }
+</style>
+
+<div class="page-wrap">
+    <div class="att-header">
+        <div>
+            <div class="att-title">My Attendance</div>
+            <div class="att-sub">View your attendance record by month</div>
+        </div>
+    </div>
+
+    @if (records == null)
+    {
+        <div class="summary-row">
+            <div class="sum-card"><div class="sum-card-label">Total Days</div><div class="sum-card-val">—</div></div>
+            <div class="sum-card"><div class="sum-card-label" style="color:#10b981;">Present</div><div class="sum-card-val green">—</div></div>
+            <div class="sum-card"><div class="sum-card-label" style="color:#f59e0b;">Late</div><div class="sum-card-val amber">—</div></div>
+            <div class="sum-card"><div class="sum-card-label" style="color:#ef4444;">Absent</div><div class="sum-card-val red">—</div></div>
+        </div>
+        <div class="cal-card">
+            <div style="padding:60px;text-align:center;color:var(--ink3);font-size:14px;">Loading attendance data...</div>
+        </div>
+    }
+    else
+    {
+        var presentCount = records.Count(r => r.Status == "Present");
+        var lateCount = records.Count(r => r.Status == "Late");
+        var absentCount = records.Count(r => r.Status == "Absent");
+        var totalDays = records.Count;
+
+        <div class="summary-row">
+            <div class="sum-card"><div class="sum-card-label">Total Days</div><div class="sum-card-val">@totalDays</div></div>
+            <div class="sum-card"><div class="sum-card-label" style="color:#10b981;">Present</div><div class="sum-card-val green">@presentCount</div></div>
+            <div class="sum-card"><div class="sum-card-label" style="color:#f59e0b;">Late</div><div class="sum-card-val amber">@lateCount</div></div>
+            <div class="sum-card"><div class="sum-card-label" style="color:#ef4444;">Absent</div><div class="sum-card-val red">@absentCount</div></div>
+        </div>
+
+        <div class="cal-card">
+            <div class="cal-nav">
+                <button class="cal-btn" @onclick="PrevMonth">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <div class="cal-month">@viewMonth.ToString("MMMM yyyy")</div>
+                <button class="cal-btn" @onclick="NextMonth">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+            </div>
+
+            <div class="cal-grid">
+                @foreach (var dow in new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" })
+                {
+                    <div class="cal-dow">@dow</div>
+                }
+
+                @{
+                    var firstDay = new DateOnly(viewMonth.Year, viewMonth.Month, 1);
+                    var daysInMonth = DateTime.DaysInMonth(viewMonth.Year, viewMonth.Month);
+                    // Monday=0 offset
+                    var startDow = ((int)firstDay.DayOfWeek + 6) % 7;
+                }
+
+                @for (var i = 0; i < startDow; i++)
+                {
+                    <div class="cal-day empty"></div>
+                }
+
+                @for (var d = 1; d <= daysInMonth; d++)
+                {
+                    var day = new DateOnly(viewMonth.Year, viewMonth.Month, d);
+                    var dayRecord = records.FirstOrDefault(r => r.SessionDate == day);
+                    var isToday = day == DateOnly.FromDateTime(DateTime.Now);
+
+                    var statusClass = dayRecord == null ? "" : $"status-{dayRecord.Status.ToLowerInvariant()}";
+                    <div class="cal-day @(isToday ? "today" : "") @statusClass">
+                        <div class="cal-day-num">@d</div>
+                        @if (dayRecord != null)
+                        {
+                            <div class="cal-dot @dayRecord.Status.ToLower()"></div>
+                            <div class="cal-status-text @dayRecord.Status.ToLower()">@dayRecord.Status</div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="legend-row">
+                <div class="legend-item"><div class="legend-dot" style="background:#10b981;"></div> Present</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#f59e0b;"></div> Late</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#ef4444;"></div> Absent</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#6366f1;"></div> Excused</div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private DateOnly viewMonth = new DateOnly(DateTime.Now.Year, DateTime.Now.Month, 1);
+    private List<AttendanceDayRecord>? records;
+    private long studentId;
+
+    public class AttendanceDayRecord
+    {
+        public DateOnly SessionDate { get; set; }
+        public string Status { get; set; } = "Present";
+        public string? Remarks { get; set; }
+    }
+
+    private bool dataLoadAttempted;
+
+    protected override Task OnInitializedAsync()
+    {
+        return Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || dataLoadAttempted) return;
+        dataLoadAttempted = true;
+
+        var userIdStr = await JS.InvokeAsync<string?>("sessionStorage.getItem", "primeappDemo.userId");
+        if (long.TryParse(userIdStr, out var id) && id > 0)
+        {
+            studentId = id;
+            await LoadMonthData();
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadMonthData()
+    {
+        var startDate = new DateOnly(viewMonth.Year, viewMonth.Month, 1);
+        var endDate = startDate.AddMonths(1).AddDays(-1);
+
+        var apiRecords = await AttendanceService.GetRecordsByPersonAndDateRangeAsync(studentId, startDate, endDate);
+
+        if (apiRecords != null)
+        {
+            // Attendance rate is based on school attendance sessions, not only
+            // records returned for this student. A missing student record on a
+            // school session is therefore represented as Absent.
+            var sessions = await AttendanceService.GetSessionsByDateRangeAsync(startDate, endDate);
+            var studentSessions = sessions?
+                .Where(s => string.Equals(s.Type, "Student", StringComparison.OrdinalIgnoreCase))
+                .GroupBy(s => s.Date)
+                .OrderBy(g => g.Key)
+                .ToList() ?? new();
+            var studentRecords = apiRecords ?? new();
+
+            records = studentSessions.Select(daySessions =>
+            {
+                var sessionIds = daySessions.Select(s => s.Id).ToHashSet();
+                var record = studentRecords.FirstOrDefault(r => sessionIds.Contains(r.SessionId));
+                return new AttendanceDayRecord
+                {
+                    SessionDate = daySessions.Key,
+                    Status = record?.Status ?? "Absent",
+                    Remarks = record?.Remarks
+                };
+            }).ToList();
+        }
+        else
+        {
+            records = new List<AttendanceDayRecord>();
+        }
+    }
+
+    private async Task PrevMonth()
+    {
+        viewMonth = viewMonth.AddMonths(-1);
+        records = null;
+        StateHasChanged();
+        await LoadMonthData();
+        StateHasChanged();
+    }
+
+    private async Task NextMonth()
+    {
+        viewMonth = viewMonth.AddMonths(1);
+        records = null;
+        StateHasChanged();
+        await LoadMonthData();
+        StateHasChanged();
+    }
+}
