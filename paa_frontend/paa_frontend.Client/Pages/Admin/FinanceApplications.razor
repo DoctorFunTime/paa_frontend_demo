@@ -1,0 +1,4 @@
+@page "/burser/applications"
+@layout BurserPortalLayout
+@attribute [Authorize(Roles = "BURSER,SUPER")]
+<ApplicationsReview CanDecide="true" DashboardUrl="/burser" />

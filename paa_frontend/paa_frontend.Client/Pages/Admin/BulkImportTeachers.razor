@@ -24,7 +24,7 @@
         <section class="rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-sm">
             <div class="flex items-center justify-between gap-3 mb-4">
                 <div><h2 class="text-base font-extrabold text-slate-900">Import input</h2><p class="text-xs text-slate-500 mt-1">Required: firstName, lastName, gender, phone, nationalId, dateOfBirth, status. Email is optional.</p></div>
-                <button class="px-3 py-2 rounded-full bg-slate-900 text-white text-xs font-bold" @onclick="LoadSample">Use sample</button>
+
             </div>
             <textarea class="w-full min-h-[16rem] rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-mono outline-none focus:border-blue-500" value="@rawInput" @oninput="OnInput" placeholder="Paste CSV or tab-separated Excel rows here..."></textarea>
             <div class="mt-3 flex flex-wrap items-center gap-3">
@@ -55,8 +55,6 @@
     private BulkTeacherCreationResponseDto? result;
     private sealed class Row { public int Line { get; init; } public Teacher Teacher { get; init; } = new(); public List<string> Errors { get; init; } = new(); }
     private static bool IsValid(Row row) => row.Errors.Count == 0;
-    private const string Sample = "firstName,lastName,email,phone,gender,nationalId,dateOfBirth,status\nTinashe,Moyo,tinashe@example.com,0712345678,Male,12-3456789A12,1990-04-25,Active";
-    private void LoadSample() { rawInput = Sample; Parse(); }
     private void OnInput(ChangeEventArgs e) { rawInput = e.Value?.ToString() ?? ""; Parse(); }
     private void Clear() { rawInput = ""; rows.Clear(); result = null; message = ""; }
     private async Task ReadFile(InputFileChangeEventArgs e) { using var stream = e.File.OpenReadStream(10 * 1024 * 1024); using var reader = new StreamReader(stream); rawInput = await reader.ReadToEndAsync(); Parse(); }

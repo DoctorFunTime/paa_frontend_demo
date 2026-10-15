@@ -56,8 +56,18 @@ namespace paa_frontend.Shared.Models
         [JsonPropertyName("studentDetails")] public Dictionary<string, object>? StudentDetails { get; set; }
         [JsonPropertyName("accountSummary")] public Dictionary<string, object>? AccountSummary { get; set; }
         [JsonPropertyName("transactions")] public List<Dictionary<string, object>>? Transactions { get; set; }
+        [JsonPropertyName("charges")] public List<StatementChargeDto>? Charges { get; set; }
         [JsonPropertyName("generatedAt")] public string? GeneratedAt { get; set; }
         [JsonPropertyName("currency")] public string? Currency { get; set; }
+    }
+
+    public class StatementChargeDto
+    {
+        [JsonPropertyName("invoiceNumber")] public string? InvoiceNumber { get; set; }
+        [JsonPropertyName("description")] public string? Description { get; set; }
+        [JsonPropertyName("amountUsd")] public decimal AmountUsd { get; set; }
+        [JsonPropertyName("chargedAt")] public string? ChargedAt { get; set; }
+        [JsonPropertyName("feeHeadId")] public long? FeeHeadId { get; set; }
     }
 
     public class InvoiceDto
@@ -153,6 +163,20 @@ namespace paa_frontend.Shared.Models
         [JsonPropertyName("scholarshipAmount")] public decimal ScholarshipAmount { get; set; }
     }
 
+    public class StudentAdditionalFeeDto
+    {
+        public long? Id { get; set; }
+        public long StudentId { get; set; }
+        public long FeeHeadId { get; set; }
+        public string Description { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
+        public string AcademicYear { get; set; } = string.Empty;
+        public string AcademicTerm { get; set; } = "TERM_1";
+        public string BillingCycle { get; set; } = "TERM";
+        public int? BillingMonth { get; set; }
+        public bool Invoiced { get; set; }
+    }
+
     public class ExchangeRateDto
     {
         [JsonPropertyName("id")] public long? Id { get; set; }
@@ -172,6 +196,8 @@ namespace paa_frontend.Shared.Models
         [JsonPropertyName("counterparty")] public string? Counterparty { get; set; }
         [JsonPropertyName("recordedBy")] public string? RecordedBy { get; set; }
         [JsonPropertyName("occurredOn")] public string? OccurredOn { get; set; }
+        [JsonPropertyName("sourceReference")] public string? SourceReference { get; set; }
+        [JsonPropertyName("sourceType")] public string? SourceType { get; set; }
     }
 
     public class CashFlowResponseDto

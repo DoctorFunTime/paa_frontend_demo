@@ -45,24 +45,26 @@
             <NavLink class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors" activeClass="!bg-[#0F172A] !text-white shadow-md" href="/burser/students" Match="NavLinkMatch.Prefix">
                 Students & Accounts
             </NavLink>
+            <NavLink class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors" activeClass="!bg-[#0F172A] !text-white shadow-md" href="/burser/applications" Match="NavLinkMatch.Prefix">Applications</NavLink>
             <NavLink class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors" activeClass="!bg-[#0F172A] !text-white shadow-md" href="/burser/transaction/new" Match="NavLinkMatch.Prefix">
-                New Transaction
+                Transactions
             </NavLink>
             <NavLink class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors" activeClass="!bg-[#0F172A] !text-white shadow-md" href="/burser/reports" Match="NavLinkMatch.Prefix">
                 Reports
             </NavLink>
             <NavLink class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors" activeClass="!bg-[#0F172A] !text-white shadow-md" href="/burser/help">Help</NavLink>
-            <div class="relative">
-                <button class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-1" @onclick="ToggleMoreNav">
+            <div class="relative z-50">
+                <button type="button" aria-expanded="@isMoreNavOpen" class="relative z-50 px-3 py-2 rounded-full text-[length:0.875rem] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-1" @onclick="ToggleMoreNav">
                     Setup & tools
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9" /></svg>
                 </button>
                 @if (isMoreNavOpen)
                 {
+                    <div class="fixed inset-0 z-40" @onclick="CloseMoreNav" aria-hidden="true"></div>
                     <div class="absolute right-0 top-12 w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl z-50">
-                        <NavLink class="block rounded-xl px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50" href="/burser/fees" Match="NavLinkMatch.Prefix">Fee setup<span class="block mt-1 text-xs font-medium text-slate-400">Heads, structures and fee lines</span></NavLink>
-                        <NavLink class="block rounded-xl px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50" href="/burser/exchange-rates" Match="NavLinkMatch.Prefix">Exchange rates<span class="block mt-1 text-xs font-medium text-slate-400">Currency conversion rules</span></NavLink>
-                        <NavLink class="block rounded-xl px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50" href="/burser/student-pass/scanner" Match="NavLinkMatch.Prefix">Student pass scanner<span class="block mt-1 text-xs font-medium text-slate-400">Validate a pass at the gate</span></NavLink>
+                        <NavLink class="block rounded-xl px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50" href="/burser/fees" Match="NavLinkMatch.Prefix" @onclick="CloseMoreNav">Fee setup<span class="block mt-1 text-xs font-medium text-slate-400">Heads, structures and fee lines</span></NavLink>
+                        <NavLink class="block rounded-xl px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50" href="/burser/exchange-rates" Match="NavLinkMatch.Prefix" @onclick="CloseMoreNav">Exchange rates<span class="block mt-1 text-xs font-medium text-slate-400">Currency conversion rules</span></NavLink>
+                        <NavLink class="block rounded-xl px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50" href="/burser/student-pass/scanner" Match="NavLinkMatch.Prefix" @onclick="CloseMoreNav">Student pass scanner<span class="block mt-1 text-xs font-medium text-slate-400">Validate a pass at the gate</span></NavLink>
                     </div>
                 }
             </div>
@@ -125,7 +127,8 @@
         <nav class="fixed top-[72px] left-0 w-full bg-white border-b border-slate-100 p-4 flex flex-col gap-2 z-50 lg:hidden shadow-xl animate-fade-in-down">
             <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50" activeClass="bg-slate-900 text-white" href="/burser" Match="NavLinkMatch.All" @onclick="ToggleMobileMenu">Dashboard</NavLink>
             <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50" activeClass="bg-slate-900 text-white" href="/burser/students" Match="NavLinkMatch.Prefix" @onclick="ToggleMobileMenu">Students & Accounts</NavLink>
-            <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50" activeClass="bg-slate-900 text-white" href="/burser/transaction/new" Match="NavLinkMatch.Prefix" @onclick="ToggleMobileMenu">New Transaction</NavLink>
+            <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50" activeClass="bg-slate-900 text-white" href="/burser/applications" Match="NavLinkMatch.Prefix" @onclick="ToggleMobileMenu">Applications</NavLink>
+            <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50" activeClass="bg-slate-900 text-white" href="/burser/transaction/new" Match="NavLinkMatch.Prefix" @onclick="ToggleMobileMenu">Transactions</NavLink>
             <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50" activeClass="bg-slate-900 text-white" href="/burser/reports" Match="NavLinkMatch.Prefix" @onclick="ToggleMobileMenu">Reports <span class="block text-xs font-medium opacity-60">Cashbook and statements</span></NavLink>
             <div class="px-5 pt-3 text-[0.65rem] font-black uppercase tracking-widest text-slate-400">Setup & tools</div>
             <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50" activeClass="bg-slate-900 text-white" href="/burser/fees" Match="NavLinkMatch.Prefix" @onclick="ToggleMobileMenu">Fee Setup <span class="block text-xs font-medium opacity-60">Heads, structures and fee lines</span></NavLink>
@@ -151,7 +154,7 @@
     <ToastNotification />
 
     <!-- ── Main Content ─────────────────────────────────────────── -->
-    <main class="flex-1 w-full max-w-[1500px] min-w-0 mx-auto p-4 sm:p-6 md:p-8 animate-fade-in pb-16 relative z-10">
+    <main class="flex-1 w-full max-w-[1500px] min-w-0 mx-auto p-4 sm:p-6 md:p-8 animate-fade-in pb-16 relative">
         <CascadingValue Name="PageTitle" Value="@pageTitle">
             @Body
         </CascadingValue>
@@ -219,6 +222,7 @@
 
     private void ToggleMobileMenu() => isMobileMenuOpen = !isMobileMenuOpen;
     private void ToggleMoreNav() => isMoreNavOpen = !isMoreNavOpen;
+    private void CloseMoreNav() => isMoreNavOpen = false;
 
     private async Task Logout()
     {

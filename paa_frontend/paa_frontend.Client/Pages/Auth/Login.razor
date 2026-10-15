@@ -311,16 +311,10 @@ form.login-form { text-align: left; }
             <div class="brand-text">PrimeApp Demo</div>
 
             <div class="heading">
-                <h1>Explore the demo</h1>
-                <p>Choose a role to explore with fictional data</p>
+                <h1>Welcome back</h1>
+                <p>Sign in to your account to continue</p>
             </div>
 
-            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px">
-                @foreach (var role in new[] { "admin", "student", "teacher", "burser", "super" })
-                {
-                    <button type="button" disabled="@isLoading" @onclick="() => EnterDemo(role)" style="flex:1 1 40%;padding:10px;border:1px solid #c7d2fe;border-radius:12px;background:#eef2ff;color:#3730a3;cursor:pointer">@(role == "burser" ? "Bursar" : System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(role))</button>
-                }
-            </div>
             <EditForm Model="loginModel" OnValidSubmit="HandleLogin" class="login-form">
                 <DataAnnotationsValidator />
 
@@ -394,8 +388,12 @@ form.login-form { text-align: left; }
                 </div>
             </EditForm>
 
+            <div class="text-center mt-5 text-sm text-slate-600">
+                New student? <a class="font-bold text-indigo-700 hover:underline" href="/apply">Apply for admission</a>
+            </div>
+
             <div class="card-footer">
-                Demo accounts: admin, student, teacher, burser, super. Password: demo. No real school or payment connection.
+                Having trouble? Contact your system administrator.
                 <div class="footer-links">
                     <a href="/privacy">Privacy Notice</a>
                     <a href="/terms">Terms of Use</a>
@@ -406,13 +404,7 @@ form.login-form { text-align: left; }
 </div>
 
 @code {
-    private LoginModel loginModel = new() { Username = "admin", Password = "demo" };
-    private async Task EnterDemo(string role)
-    {
-        loginModel.Username = role;
-        loginModel.Password = "demo";
-        await HandleLogin();
-    }
+    private LoginModel loginModel = new();
     private bool isLoading;
     private bool showPassword;
     private string storedRole = string.Empty;

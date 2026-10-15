@@ -1,0 +1,33 @@
+@page "/portal/rules"
+@layout StudentPortalLayout
+
+<PageTitle>School rules | PrimeApp Demo</PageTitle>
+<PortalGuide>
+    <header class="guide-hero">
+        <div class="guide-kicker">PrimeApp Demo · Student &amp; parent reference</div>
+        <h1>School rules &amp; regulations</h1>
+        <p>This demo has no school-specific rules.</p>
+        <div class="guide-links"><NavLink href="/portal/help">Help using the student portal</NavLink><NavLink href="/portal">Back to overview</NavLink></div>
+    </header>
+    <section aria-labelledby="finance-rules-heading">
+        <h2 id="finance-rules-heading">Finance rules</h2>
+        @if (paa_frontend.Client.Content.SchoolRules.Finance.Count == 0) { <p>No finance rules have been configured for this demo.</p> }
+        <ol class="school-rules-list">
+            @foreach (var rule in paa_frontend.Client.Content.SchoolRules.Finance)
+            {
+                <li>@rule</li>
+            }
+        </ol>
+    </section>
+    <section aria-labelledby="general-rules-heading">
+        <h2 id="general-rules-heading">General rules</h2>
+        @if (paa_frontend.Client.Content.SchoolRules.General.Count == 0) { <p>No general rules have been configured for this demo.</p> }
+        <ol class="school-rules-list">
+            @foreach (var rule in paa_frontend.Client.Content.SchoolRules.General)
+            {
+                <li>@rule</li>
+            }
+        </ol>
+    </section>
+    <aside class="guide-note">The demo connects to the shared development API. No school policy is published here.</aside>
+</PortalGuide>

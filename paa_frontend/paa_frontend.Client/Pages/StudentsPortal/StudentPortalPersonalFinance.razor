@@ -1456,37 +1456,57 @@
 
     private static List<StatementRow> BuildStatementRows(FinancialStatementDto? statement, List<PaymentRecord> payments)
     {
-        var rows = new List<StatementRow>();
-        var running = 0m;
+        var entries = new List<StatementRow>();
         var totalCharged = ExtractDecimal(statement?.AccountSummary, "totalCharged");
-
-        if (totalCharged > 0)
+        foreach (var charge in statement?.Charges ?? new List<StatementChargeDto>())
         {
-            running += totalCharged;
-            rows.Add(new StatementRow
+            entries.Add(new StatementRow
+            {
+                When = ParseDate(charge.ChargedAt) ?? DateTime.Today,
+                Reference = charge.InvoiceNumber ?? "FEES",
+                Description = charge.Description ?? "Fee charge",
+                Charge = charge.AmountUsd
+            });
+        }
+
+        var unitemized = totalCharged - entries.Sum(row => row.Charge);
+        if (unitemized > 0)
+        {
+            entries.Add(new StatementRow
             {
                 When = ParseDate(statement?.GeneratedAt) ?? DateTime.Today,
-                Reference = "FEES",
-                Description = "School fees charged to account",
-                Charge = totalCharged,
-                RunningBalance = running
+                Reference = "ACCOUNT",
+                Description = "Earlier charges without fee detail",
+                Charge = unitemized
             });
         }
 
-        foreach (var p in payments.OrderBy(p => ParseDate(p.Date) ?? DateTime.Today).ThenBy(p => p.PaymentReference))
+        foreach (var payment in payments)
         {
-            var amt = p.AmountUsd > 0 ? p.AmountUsd : p.Amount;
-            running -= amt;
+            entries.Add(new StatementRow
+            {
+                When = ParseDate(payment.Date) ?? DateTime.Today,
+                Reference = payment.PaymentReference ?? string.Empty,
+                Description = payment.Description ?? "Payment",
+                Paid = payment.AmountUsd > 0 ? payment.AmountUsd : payment.Amount
+            });
+        }
+
+        var running = 0m;
+        var rows = new List<StatementRow>();
+        foreach (var entry in entries.OrderBy(row => row.When).ThenBy(row => row.Reference).ThenByDescending(row => row.Charge))
+        {
+            running += entry.Charge - entry.Paid;
             rows.Add(new StatementRow
             {
-                When = ParseDate(p.Date) ?? DateTime.Today,
-                Reference = p.PaymentReference ?? string.Empty,
-                Description = p.Description ?? "Payment",
-                Paid = amt,
+                When = entry.When,
+                Reference = entry.Reference,
+                Description = entry.Description,
+                Charge = entry.Charge,
+                Paid = entry.Paid,
                 RunningBalance = running
             });
         }
-
         return rows;
     }
 

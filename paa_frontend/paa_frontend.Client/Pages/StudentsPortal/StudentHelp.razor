@@ -1,9 +1,230 @@
 @page "/portal/help"
-@layout paa_frontend.Client.Layout.StudentPortalLayout
-<div class="help-page"><h1>Student help centre</h1><p class="lead">A simple guide to checking your school information and using your portal.</p>
-<section><h2>Results and report cards</h2><p>Open <b>Results</b> to choose a term and year. The official report card is the school-approved version. Use <b>Analytics</b> to compare terms, view subject performance, and open individual tests and exams.</p><p>If a report is not visible, it may not have been released yet. Try refreshing later or speak to the school office.</p></section>
-<section><h2>Attendance</h2><p>Use Attendance to review the days you were present or absent. If something looks incorrect, tell your class teacher or office rather than creating a second record.</p></section>
-<section><h2>Fees and transactions</h2><p>Finance shows your account activity and payment history. Keep your receipt or reference number when making a payment. Contact the bursar if a payment is missing or assigned to the wrong account.</p></section>
-<section><h2>Your profile</h2><p>Check that your name, class, contact details, and other personal information are correct. Ask the office to change information you cannot edit yourself.</p></section>
-<section><h2>Good to know</h2><p>Sign out on shared devices. If a page stays blank, refresh once, check your connection, and report the page name and what you were trying to do.</p></section></div>
-<style>.help-page{max-width:900px;margin:32px auto;padding:0 20px;color:#0f172a}.help-page h1{font-size:32px;margin:0 0 8px}.lead{color:#64748b;margin-bottom:26px}.help-page section{background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:20px;margin:14px 0;box-shadow:0 4px 14px #0f172a0a}.help-page h2{font-size:18px;margin:0 0 8px}.help-page p{line-height:1.65;color:#475569}</style>
+@layout StudentPortalLayout
+
+<PageTitle>Student &amp; parent help centre | PrimeApp Demo</PageTitle>
+<PortalGuide>
+    <header class="guide-hero" id="help-top">
+        <div class="guide-kicker">A guide for students &amp; parents</div>
+        <h1>Let’s take it one step at a time.</h1>
+        <p>You do not need computer experience to use the student portal. This guide explains where to go, what to press, what the information means, and what to do when something does not look right.</p>
+        <p>If you are a parent or guardian, use the access arrangements provided by the school. The information displayed belongs to the student account currently signed in.</p>
+        <div class="guide-links"><a href="#getting-started">Start here</a><a href="#troubleshooting">Something is not working</a><NavLink href="/portal/rules">Read the school rules</NavLink></div>
+    </header>
+
+    <nav class="guide-contents" aria-label="Help topics">
+        <h2>What would you like help with?</h2>
+        <ol>
+            <li><a href="#getting-started">Getting started &amp; signing in</a></li>
+            <li><a href="#navigation">Finding your way around</a></li>
+            <li><a href="#overview">Overview &amp; personal details</a></li>
+            <li><a href="#results">Finding an official report card</a></li>
+            <li><a href="#analytics">Understanding marks &amp; progress</a></li>
+            <li><a href="#finance">Fees, balances &amp; payment history</a></li>
+            <li><a href="#attendance">Checking attendance</a></li>
+            <li><a href="#timetable">Reading the daily timetable</a></li>
+            <li><a href="#printing">Printing &amp; saving a PDF</a></li>
+            <li><a href="#password">Passwords &amp; signing out</a></li>
+            <li><a href="#troubleshooting">Common problems</a></li>
+            <li><a href="#support">Who to ask for help</a></li>
+        </ol>
+    </nav>
+
+    <section id="getting-started">
+        <h2>1. Getting started &amp; signing in</h2>
+        <p>The portal is the school website area where you can view a student’s records. You need an internet connection, a web browser such as the one you are using now, and the username and password supplied through the school.</p>
+        <ol>
+            <li>Open the portal address provided by the school. If you are already looking at your student’s information, you are signed in.</li>
+            <li>On the sign-in screen, select <strong>Username</strong> and type the username exactly as provided. A username is the account’s sign-in name; do not assume it is your email address or the student’s full name.</li>
+            <li>Select <strong>Password</strong> and type your password. Password characters are normally hidden. The eye button lets you check what you typed; use it only when other people cannot see your screen.</li>
+            <li>Press the sign-in button once and wait. Avoid pressing it repeatedly while the page is loading.</li>
+            <li>If a <strong>Change Password</strong> window opens for a temporary password, complete it before continuing. Follow <a href="#password">the password steps below</a>.</li>
+            <li>Check the student’s name and class on <strong>Overview</strong> before reading results or fees. If the account is not for the correct student, sign out and ask the school to check your access.</li>
+        </ol>
+        <p>If you do not have login details, or have forgotten your password, contact the administrator. This portal’s sign-in screen does not provide a self-service password reset.</p>
+        <div class="guide-note"><strong>Basic controls:</strong> “Click” means press once with a mouse; on a phone, tap once with your finger. Scroll means move down or up the page. A drop-down opens a list of choices. Selecting a different term, year, or date changes which information you are viewing.</div>
+    </section>
+
+    <section id="navigation">
+        <h2>2. Finding your way around</h2>
+        <p>The navigation bar stays at the top of the portal. On a wide screen, the main page names appear across it. On a phone, tablet, or narrower window, use the <strong>three-line menu button</strong> to reveal the page names. Tap a page name to open it and close the menu.</p>
+        <dl>
+            <dt>Overview</dt><dd>Your starting page: personal details, school fees summary, attendance summary, and academic information when available.</dd>
+            <dt>Results</dt><dd>Official report cards and learning analytics. Analytics are charts and comparisons that help explain progress.</dd>
+            <dt>Finance</dt><dd>The student’s account statement, recorded fees, payments, and balance.</dd>
+            <dt>Attendance</dt><dd>A monthly calendar showing recorded attendance statuses.</dd>
+            <dt>Timetable</dt><dd>The school’s published daily timetable for the student’s class and enrolled subjects.</dd>
+            <dt>Book icon — School rules</dt><dd>Opens all 19 school rules. It is beside the Help icon in the top bar.</dd>
+            <dt>Question-mark icon — Help centre</dt><dd>Brings you back to this guide. Both Rules and Help remain available in the top bar on small screens.</dd>
+            <dt>Padlock icon — Change Password</dt><dd>Opens the password window. On a small screen, look for <strong>Change Password</strong> in the menu.</dd>
+            <dt>Door-and-arrow icon — Sign out</dt><dd>Ends your signed-in session. On a small screen, open the menu and choose <strong>Sign Out</strong>.</dd>
+        </dl>
+        <p>The student’s initials or name in the top bar take you to Overview. The balance button, when visible, takes you to Finance. On a computer, hover over a top-bar icon to see its name. You can also use the Tab key to move between links and buttons, then Enter to activate one.</p>
+        <p>On a phone, scroll down to see the whole page. Wide tables may need a sideways swipe within the table to reveal the last columns. Rotating the phone sideways can make a table easier to read.</p>
+    </section>
+
+    <section id="overview">
+        <h2>3. Overview &amp; personal details</h2>
+        <ol>
+            <li>Open <NavLink href="/portal">Overview</NavLink>.</li>
+            <li>Check the name, class, and student ID displayed near the top. The ID helps the school identify the correct record.</li>
+            <li>Read <strong>Personal Details</strong>. Available information may include full name, national ID, date of birth, gender, email, and phone number. Some fields are absent when no value has been recorded.</li>
+            <li>Use <strong>School Fees</strong> to open Finance, or <strong>Academic Results</strong> to open Results.</li>
+            <li>Scroll to the monthly attendance and academic summaries. Open the dedicated Attendance or Results page for more detail.</li>
+        </ol>
+        <p><strong>Term Avg</strong> is a summary of marks for the displayed term. <strong>Pass Rate</strong> describes the proportion of the displayed subjects passed; it is different from an average mark. <strong>Top Subject</strong> is the highest-performing subject in the available results.</p>
+        <p>Overview is a viewing page. There is no profile editing form here. If a name, date of birth, phone number, or class is wrong, ask the administrator to correct it. A missing section does not by itself mean the student has failed, missed school, or owes nothing; open the relevant page and check whether records have loaded.</p>
+    </section>
+
+    <section id="results">
+        <h2>4. Finding an official report card</h2>
+        <ol>
+            <li>Open <NavLink href="/portal/results">Results</NavLink> from the navigation or the Academic Results card.</li>
+            <li>Select <strong>Official Report Card</strong>.</li>
+            <li>Under <strong>Choose a report</strong>, select <strong>Term 1</strong>, <strong>Term 2</strong>, or <strong>Term 3</strong>.</li>
+            <li>Enter the year you want, such as <strong>2026</strong>. After typing, click or tap outside the year box to apply the change.</li>
+            <li>Wait for the report to load. Confirm the student, term, and year before reading or printing it.</li>
+            <li>Read the subject rows, marks, grades, and any comments shown. Scroll down to see the full report, including summary information.</li>
+            <li>To keep a copy, press <strong>Print Report</strong> and follow <a href="#printing">Printing &amp; saving a PDF</a>.</li>
+        </ol>
+        <p>The official report is based on school-approved information. A test having taken place does not mean its report is already available. If no report appears, check the term and year first, then ask the school whether the report has been approved and released.</p>
+        <div class="guide-note">An empty report or missing mark is not the same as a mark of zero. Do not infer a result from a blank space. If a recorded mark seems wrong, note the subject, term, year, and value shown, and ask the administrator to route it to the appropriate teacher for checking.</div>
+    </section>
+
+    <section id="analytics">
+        <h2>5. Understanding marks &amp; progress</h2>
+        <ol>
+            <li>Open Results and select <strong>Analytics</strong>.</li>
+            <li>Choose the year in the analytics year selector. This sets the year used by the overview charts.</li>
+            <li>Read <strong>Term performance overview</strong> for average marks across terms, and <strong>Subject marks across terms</strong> to compare the same subject.</li>
+            <li>Use <strong>Subject performance</strong>, <strong>Grade distribution</strong>, and <strong>Subject progress</strong> to see strengths and areas needing support.</li>
+            <li>Find <strong>Tests and exams</strong>. It has its own term and year controls. Choose the period you need there too.</li>
+            <li>Click or tap a subject labelled <strong>Show assessment details</strong> to expand its recorded tests, exams, and feedback. Tap it again to hide those details.</li>
+        </ol>
+        <dl>
+            <dt>Percentage (%)</dt><dd>A score expressed out of 100. For example, 15 out of 20 is 75%. The original score and the percentage may both be shown.</dd>
+            <dt>Coursework</dt><dd>Assessed work during the course, such as recorded class tasks or tests. Read the assessment labels to see what was included.</dd>
+            <dt>Final mark &amp; grade</dt><dd>The recorded combined result and its grade label. Do not simply add percentages together; the school’s assessment weighting determines the final result.</dd>
+            <dt>Average</dt><dd>A summary of the marks included in that view. Compare the same period and subjects where possible.</dd>
+            <dt>Chart colours</dt><dd>In the progress views, green indicates improvement and red indicates a drop. The analytics pass reference is 50%. Read the numbers and labels as well as the colours.</dd>
+        </dl>
+        <p>For example, a change from 60% to 70% is an increase of 10 percentage points. Use changes to guide a discussion with the student. Ask the administrator to arrange a conversation with the appropriate teacher if you need help interpreting progress. Missing terms or assessments may simply mean there is no available record for that selection.</p>
+        <p>Analytics helps explain progress; use <strong>Official Report Card</strong> when you need the school’s report. If printing analytics, use the print control within Analytics.</p>
+    </section>
+
+    <section id="finance">
+        <h2>6. Fees, balances &amp; payment history</h2>
+        <ol>
+            <li>Open <NavLink href="/portal/personal-finance">Finance</NavLink>, or select School Fees on Overview.</li>
+            <li>Wait until the account has loaded. Check the student’s name, class, and ID.</li>
+            <li>Read the account statement from the earlier transactions toward the later ones. Each row records account activity.</li>
+            <li>Check the <strong>Closing Balance</strong> and compare any payment you made with the statement and <strong>Payment History</strong>, when that section is present.</li>
+            <li>Use <strong>Print</strong> above the statement if you need a copy to discuss with the bursar.</li>
+        </ol>
+        <dl>
+            <dt>Date</dt><dd>The date shown for that entry. Use it with the reference to locate a transaction.</dd>
+            <dt>Reference</dt><dd>The identifying number or text for an entry. Keep your payment receipt or reference so the bursar can trace it.</dd>
+            <dt>Description</dt><dd>What the recorded charge or payment relates to.</dd>
+            <dt>Debit (Fees)</dt><dd>A charge added to the account, increasing the amount owed.</dd>
+            <dt>Credit (Paid)</dt><dd>A payment recorded against the account, reducing the amount owed.</dd>
+            <dt>Balance</dt><dd>The amount remaining after that row. <strong>Dr</strong> means an amount owed, <strong>Cr</strong> means a credit balance, and <strong>Nil</strong> means zero for that point in the statement.</dd>
+            <dt>Total Debits, Total Credits &amp; Closing Balance</dt><dd>The totals of the displayed charges and payments, followed by the resulting balance. The statement displays dollar amounts; contact the bursar if you need a currency or conversion explained.</dd>
+        </dl>
+        <p><strong>Example:</strong> a $100 fee adds $100 to the amount owed. A recorded $40 payment reduces that balance to $60, assuming there are no other entries. A credit balance means recorded payments exceed recorded charges; ask the bursar how it will be handled.</p>
+        <p><strong>CLEAR</strong> or <strong>Settled</strong> in the top bar or Overview means that summary shows no positive balance owing. Finance provides more detail, including any credit balance. Always check the loaded statement if a summary seems unexpected.</p>
+        <div class="guide-note"><strong>Making a payment:</strong> online payment controls are not currently available in the student portal. Ask the bursar for the school’s accepted payment methods and instructions. Viewing or printing a statement does not make a payment, and a statement is not a payment receipt.</div>
+        <p>If a payment is missing, keep the receipt, amount, payment date, reference, and student ID. Ask the bursar to reconcile the record before paying the same amount again. “No transactions found” means there are no entries displayed; if you expected entries, ask the bursar to check.</p>
+    </section>
+
+    <section id="attendance">
+        <h2>7. Checking attendance</h2>
+        <ol>
+            <li>Open <NavLink href="/portal/attendance">Attendance</NavLink>.</li>
+            <li>Read the month and year above the calendar.</li>
+            <li>Use the left arrow for an earlier month or the right arrow for a later month.</li>
+            <li>Look at the date in question and read its status. The legend under the calendar explains the colours.</li>
+            <li>Compare the summary cards for <strong>Total Days</strong>, <strong>Present</strong>, <strong>Late</strong>, and <strong>Absent</strong> for the selected month.</li>
+        </ol>
+        <p><strong>Present</strong> means recorded as attending; <strong>Late</strong> means recorded as arriving late; <strong>Absent</strong> means recorded as not attending; <strong>Excused</strong> means an excused status was recorded. Total Days counts the available attendance records, not every calendar day in the month.</p>
+        <p>A date without a status has no attendance record displayed. It does not automatically mean absence. The highlight around today identifies the date, not an attendance status.</p>
+        <p>You cannot mark attendance or correct a record from this page. For a mistake, tell the administrator the exact date, the status shown, and what needs checking. The administrator will route the query to the appropriate teacher. Use the school’s usual process to report an absence; opening this calendar does not notify the school.</p>
+    </section>
+
+    <section id="timetable">
+        <h2>8. Reading the daily timetable</h2>
+        <ol>
+            <li>Open <NavLink href="/students/timetable">Timetable</NavLink>.</li>
+            <li>Check the class, published term, and selected date at the top.</li>
+            <li>Press <strong>Previous day</strong> or <strong>Next day</strong> to move one day at a time.</li>
+            <li>For a particular date, use <strong>Go to date</strong> and choose it in your device’s date picker.</li>
+            <li>Press <strong>Today</strong> to return to the current date.</li>
+            <li>Read the periods in order, including times, subjects, and the schedule shown for each period. Break, Lunch, Sports, or Unavailable labels describe the scheduled slot.</li>
+        </ol>
+        <p>Times use the 24-hour clock: 08:00 means 8 in the morning, and 14:00 means 2 in the afternoon. The weekly timetable repeats unless the school publishes a changed version.</p>
+        <p>If there are no lessons displayed, first check the date and class. If a timetable has not been published, your class is not matched, or an enrolled subject seems missing, contact the administrator, who can check with the relevant teacher. An empty timetable is not permission to miss school.</p>
+    </section>
+
+    <section id="printing">
+        <h2>9. Printing &amp; saving a PDF</h2>
+        <p>A PDF is a document file that keeps its layout when you open it later or send it to someone. You do not need a physical printer if your browser offers a PDF destination.</p>
+        <ol>
+            <li>Open the report or statement you need. For a report, check the selected term and year first.</li>
+            <li>Wait for all information to finish loading, then use <strong>Print Report</strong>, the Analytics print control, or Finance’s <strong>Print</strong> button.</li>
+            <li>Your browser or device opens a print window. Review the preview to confirm the student and document.</li>
+            <li>To print on paper, select your printer and check paper size, orientation, and page count. Use A4 for the school report.</li>
+            <li>To save a file, choose <strong>Save as PDF</strong> or the equivalent option, if available, then Save. Choose a folder and a name you can recognise, such as “Report-Term-1-2026”.</li>
+            <li>If you do not want to continue, choose Cancel. Cancelling printing does not delete or change the school’s records.</li>
+        </ol>
+        <p>Phone print and save options vary by browser and device. If a table is cut off, review the preview’s scale or “Fit to page” setting before printing. If no print window opens, try the document’s print button again once the page has finished loading.</p>
+        <p>Saved reports and statements contain personal information. On a shared computer, remove your downloaded copies when finished and sign out of the portal.</p>
+    </section>
+
+    <section id="password">
+        <h2>10. Passwords &amp; signing out</h2>
+        <h3>Change your password</h3>
+        <ol>
+            <li>Select the padlock icon in the top bar, or <strong>Change Password</strong> in the menu.</li>
+            <li>Enter your current password when requested. During a required first-time change, it may already be supplied.</li>
+            <li>Enter your chosen password in <strong>New Password</strong>. Follow any validation instructions shown in the window.</li>
+            <li>Type exactly the same new password in <strong>Confirm New Password</strong>. Capital letters, numbers, symbols, and spaces must match.</li>
+            <li>Select <strong>Update Password</strong> once. Wait for confirmation. If an error appears, read it and correct the indicated field before trying again.</li>
+            <li>Use the new password the next time you sign in after a successful change.</li>
+        </ol>
+        <p>Choose a password you do not use elsewhere and keep it private. Do not send your password to the school in a screenshot or support message. If the portal requires you to replace a temporary password, you must finish that step before continuing.</p>
+        <h3>Finish your session safely</h3>
+        <p>Select the door-and-arrow icon marked <strong>Sign out</strong>, or open the menu and select <strong>Sign Out</strong>. Do this whenever you finish, especially on a borrowed phone or shared computer. Closing a browser tab alone is not the same as signing out.</p>
+        <p>If you return to a login screen while working, sign in again using your current credentials. The session may have ended. If this keeps happening, report it to the school.</p>
+    </section>
+
+    <section id="troubleshooting">
+        <h2>11. Common problems</h2>
+        <p>Select a question below to open its answer. Select it again to close it.</p>
+        <details><summary>I cannot sign in.</summary><p>Check your internet connection, then re-enter the school-provided username and password. Check capital letters, Caps Lock, and accidental spaces from copying. Use the eye button privately to check the password. If the details still fail, ask the administrator to check the account or arrange a reset. Do not create another student record.</p></details>
+        <details><summary>The page is blank, loading for a long time, or shows an error.</summary><p>Allow a short time for the information to load. Check whether your device is connected to the internet, then refresh once using your browser’s reload button. Refreshing may discard anything you have typed but not submitted. If the problem remains, note the page name and exact error message and contact the school. A loading failure does not mean the student’s records have been deleted.</p></details>
+        <details><summary>I cannot find the navigation buttons on my phone.</summary><p>Look for the three horizontal lines at the right of the top bar. Tap them to show the page names, Change Password, and Sign Out. The book and question-mark icons in the top bar open Rules and Help directly. Scroll inside the opened menu if you cannot see its lower items.</p></details>
+        <details><summary>The report is missing or shows the wrong period.</summary><p>Open Official Report Card and check both the term and year. Analytics has a separate year choice, and Tests and exams has its own term and year controls. If the correct selection has no report, ask the administrator whether the school has approved and released it.</p></details>
+        <details><summary>A mark or personal detail is incorrect.</summary><p>Write down the student ID and the incorrect value. For marks, include the subject, term, and year. For personal details, explain the correction needed. Ask the administrator to verify the record and send it to the appropriate teacher when needed; the student portal does not provide controls to change these records.</p></details>
+        <details><summary>I paid, but the balance still looks wrong.</summary><p>Open Finance and compare the loaded statement and Payment History with your receipt. Check the student identity and payment reference. Contact the bursar with the amount, date, reference, and proof of payment. Do not assume a missing entry means you must pay twice.</p></details>
+        <details><summary>Attendance is blank or a day is marked incorrectly.</summary><p>Check the displayed month and year first. A blank day has no status displayed. For an incorrect entry, contact the administrator with the exact date and status. The administrator will pass attendance queries to the appropriate teacher. Viewing the calendar does not submit an absence explanation.</p></details>
+        <details><summary>I cannot see the whole table or document.</summary><p>Swipe sideways within a wide table, rotate your phone, or use a larger screen. Scroll down for the rest of a report. For a saved or printed document, check the browser’s print preview and scale before confirming.</p></details>
+        <details><summary>I need to see another child’s records.</summary><p>The portal displays the account currently signed in. There is no child-switching control in this student navigation. Ask the school how access is arranged for each child, then sign out before using another account provided by the school.</p></details>
+    </section>
+
+    <section id="support">
+        <h2>12. Who to ask for help</h2>
+        <dl>
+            <dt>Administrator — your first point of contact</dt><dd>Start here for login access, password resets, personal details, class assignment, timetable questions, attendance, marks, feedback, or portal problems. The administrator will check your query and direct it to the appropriate teacher or staff member.</dd>
+            <dt>Fees and payment questions</dt><dd>Ask the administrator to route account questions, missing payments, receipts, and payment-method questions to the bursar or finance staff.</dd>
+        </dl>
+        <p>Use the administrator’s contact details provided by the school. The Help page does not send a message or open a support request. Please start with the administrator; they coordinate follow-up with teachers and other staff.</p>
+        <h3>Have these details ready</h3>
+        <ul>
+            <li>The student’s name, student ID, and class.</li>
+            <li>The page you were using and what you wanted to do.</li>
+            <li>The relevant term, year, date, subject, or payment reference.</li>
+            <li>The exact message displayed and what happened after you pressed the button.</li>
+            <li>Your device and browser, if the problem is technical. A screenshot can help; leave out passwords and unrelated private information.</li>
+        </ul>
+        <div class="guide-note"><strong>Example:</strong> “I opened Results → Official Report Card, chose Term 1 and 2026, and no report appeared. The student ID is ____. Could you check whether that report is available?”</div>
+        <div class="guide-links"><a href="#help-top">Back to the top</a><NavLink href="/portal">Open Overview</NavLink><NavLink href="/portal/rules">Read the school rules</NavLink></div>
+    </section>
+</PortalGuide>

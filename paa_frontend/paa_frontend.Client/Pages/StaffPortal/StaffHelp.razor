@@ -1,3 +1,212 @@
 @page "/staff/help"
 @layout paa_frontend.Client.Layout.StaffPortalLayout
-<div class="help-page"><h1>Staff help centre</h1><p class="lead">A practical guide to the staff portal.</p><section><h2>Dashboard</h2><p>Use the dashboard for a quick view of your classes, recent activity, and tasks that need attention.</p></section><section><h2>Students</h2><p>Find a learner, open their profile, and check the information needed for teaching and attendance. Confirm the learner before recording anything.</p></section><section><h2>Marks</h2><p>Choose the correct class, subject, term, and year before entering marks. Enter the mark using the assessment’s maximum score, review the totals, then submit. Existing assessments can be edited when the system allows it; always check the term and year before saving.</p><p>Submitted marks may need administrator approval before students can see them.</p></section><section><h2>Attendance</h2><p>Select the correct date and class, mark each learner carefully, and save once. Correct mistakes as soon as possible and tell administration if the date is wrong.</p></section><section><h2>Profile and troubleshooting</h2><p>Keep your profile details current. If a list is empty, check your filters and term/year, refresh once, and contact administration if the problem continues.</p></section></div><style>.help-page{max-width:900px;margin:32px auto;padding:0 20px;color:#0f172a}.help-page h1{font-size:32px;margin:0 0 8px}.lead{color:#64748b;margin-bottom:26px}.help-page section{background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:20px;margin:14px 0;box-shadow:0 4px 14px #0f172a0a}.help-page h2{font-size:18px;margin:0 0 8px}.help-page p{line-height:1.65;color:#475569}</style>
+
+<PageTitle>Staff help centre | PrimeApp Demo</PageTitle>
+<PortalGuide>
+    <header class="guide-hero" id="staff-help-top">
+        <div class="guide-kicker">PrimeApp Demo · Staff Portal</div>
+        <h1>Staff help centre</h1>
+        <p>A practical guide to the staff portal, with extra detail on how to set up assessments, enter marks, save corrections, and understand the administrator approval step.</p>
+        <p>Marks affect student reports. Before saving, check the student, class, subject, assessment, score, term, and year carefully.</p>
+        <div class="guide-links"><NavLink href="/staff/marks">Open Enter Marks</NavLink><NavLink href="/staff">Open Dashboard</NavLink></div>
+    </header>
+
+    <nav class="guide-contents" aria-label="Staff help topics">
+        <h2>Jump to a topic</h2>
+        <ol>
+            <li><a href="#navigation">Find pages in the portal</a></li>
+            <li><a href="#marks-overview">The marks process at a glance</a></li>
+            <li><a href="#assessment-dashboard">Your assessments dashboard</a></li>
+            <li><a href="#assessment-setup">Set up an assessment</a></li>
+            <li><a href="#select-assessment">Select the correct assessment</a></li>
+            <li><a href="#enter-marks">Enter scores and feedback</a></li>
+            <li><a href="#score-meaning">Raw score, percentage, grade &amp; weight</a></li>
+            <li><a href="#saving">Submit, edit, and read statuses</a></li>
+            <li><a href="#locked-marks">Administrator approval and locked marks</a></li>
+            <li><a href="#marks-problems">Missing students and common problems</a></li>
+            <li><a href="#attendance">Students and attendance</a></li>
+            <li><a href="#timetable-profile">Timetable and profile</a></li>
+            <li><a href="#good-practice">A final check before submission</a></li>
+        </ol>
+    </nav>
+
+    <section id="navigation">
+        <h2>1. Find pages in the portal</h2>
+        <p>The top navigation links lead to the staff pages. On a phone or narrow screen, select the three-line menu to show them. Select a page name to open it.</p>
+        <dl>
+            <dt>Dashboard</dt><dd>A summary of your staff home page, profile, classes, and relevant assessment information.</dd>
+            <dt>Students</dt><dd>Class Register, Individual attendance, My Attendance, and Class Lists. This is also where the staff portal’s daily attendance tools live.</dd>
+            <dt>Marks</dt><dd>Create and find your assessments, then enter or edit student scores.</dd>
+            <dt>Timetable</dt><dd>See the published timetable and your assigned teaching periods.</dd>
+            <dt>Profile</dt><dd>Review your staff information. Ask an administrator to correct details you cannot change yourself.</dd>
+            <dt>Help</dt><dd>This guide. On mobile, Help is in the menu.</dd>
+        </dl>
+        <p>The initials or name at the top open your profile. Use <strong>Sign Out</strong> when you finish, especially on a shared device. If the portal asks you to replace a temporary password, complete the change before doing other work.</p>
+    </section>
+
+    <section id="marks-overview">
+        <h2>2. The marks process at a glance</h2>
+        <p>Mark entry follows a sequence so scores attach to the right assessment and report period. You can begin from an assessment card or use the setup tabs.</p>
+        <ol>
+            <li>Open <NavLink href="/staff/marks">Marks</NavLink> and confirm you are signed into your own staff account.</li>
+            <li>Either find an assessment on the dashboard and select <strong>Enter / Edit Marks</strong>, or choose <strong>Assessment Setup</strong> to start the three-step process.</li>
+            <li>For setup, choose the correct level/form, class, subject, assessment type, term, and academic year, then select <strong>Continue — Select Assessment</strong>.</li>
+            <li>Select an existing assessment or create one. Check its title, maximum score, and weight before proceeding.</li>
+            <li>Choose <strong>Enter Marks</strong>. Check the class, subject, assessment title, term, year, and maximum score displayed above the mark sheet.</li>
+            <li>Enter scores and any feedback. Review the live percentages, grades, row statuses, and summary counts.</li>
+            <li>Select <strong>Submit All Marks</strong> once and wait for the result message. The records are sent to the school system.</li>
+            <li>The administrator reviews submitted marks and manages report approval. Student visibility comes after approval; submitting marks alone does not release a report.</li>
+        </ol>
+        <div class="guide-note"><strong>Pause if the context is wrong.</strong> If the class, subject, assessment, term, or year does not match the work you graded, go back and correct the selection before entering or submitting marks.</div>
+    </section>
+
+    <section id="assessment-dashboard">
+        <h2>3. Your assessments dashboard</h2>
+        <p>The dashboard shows assessments associated with your account. Use the filters when the list is long:</p>
+        <ul>
+            <li><strong>Search Title</strong> finds an assessment by its title.</li>
+            <li><strong>Form</strong> narrows the list to a school form. <strong>Class</strong>, <strong>Subject</strong>, <strong>Type</strong>, and <strong>Term</strong> narrow it further.</li>
+            <li><strong>My Assessments Only</strong> is locked on. This screen is limited to your own assessments.</li>
+            <li><strong>Clear Filters</strong> removes your current search and selections if you think a filter is hiding the assessment.</li>
+        </ul>
+        <p>Assessment cards show context such as level, form/class, subject, type, term, maximum score, and weight. They may also show an average or completion information.</p>
+        <dl>
+            <dt>Completion Rate</dt><dd>How many eligible student marks are recorded across the assessments currently shown, compared with the total eligible marks.</dd>
+            <dt>Average Class Score</dt><dd>A summary of recorded assessment averages for the filtered view. It is not the same as a student’s final weighted report-card mark.</dd>
+            <dt>Enter / Edit Marks</dt><dd>Opens the class selection step for the selected assessment. Check that the class shown is the class you intend to grade.</dd>
+        </dl>
+        <p>If no cards appear, clear filters first. Then check that you selected the right term and assessment type. If the assessment is still missing, ask an administrator to check its setup and ownership.</p>
+    </section>
+
+    <section id="assessment-setup">
+        <h2>4. Set up an assessment</h2>
+        <p>Choose <strong>Assessment Setup</strong> or <strong>New Assessment</strong>. The setup defines which students can appear in the mark sheet and where the marks will be recorded.</p>
+        <ol>
+            <li><strong>Level / Form:</strong> choose the form that matches the students who took the assessment. Forms 1–4 use the O-Level class setup; Forms 5–6 use the A-Level subject catalogue.</li>
+            <li><strong>Class:</strong> choose the exact class. Class names can be shown in different formats in student records, but the system matches common forms such as “A”, “1A”, and “Form 1 A”. Still check the displayed class label carefully.</li>
+            <li><strong>Subject:</strong> choose the subject that was assessed. Do not use a similar subject name as a substitute.</li>
+            <li><strong>Assessment Type:</strong> choose Assignment, Test, or Exam. Assignment and Test marks are coursework. Exam marks are stored separately from coursework.</li>
+            <li><strong>Term and Academic year:</strong> choose the period in which the assessment belongs. The form shows which months are associated with the selected term. Check the year as well as the term.</li>
+            <li>Select <strong>Continue — Select Assessment</strong>. If a suitable assessment already exists for this subject and period, select it rather than creating a duplicate.</li>
+        </ol>
+        <h3>Creating a new assessment</h3>
+        <p>Select <strong>New Assessment</strong> or <strong>+ New</strong>, then provide a clear title, the assessment’s maximum possible score, and its weight as a percentage. For example, if the paper is marked out of 40, enter <strong>40</strong> as Max Score. For a 50% weight, enter <strong>50</strong> in Weight (%).</p>
+        <p>The maximum score is the scale for the raw marks you will enter. Weight is used later when the report card is generated; it is not the score to enter for each student. If you are unsure what weight your department uses, ask an administrator before creating the assessment. Do not guess or assume the listed assessment weights must add to a particular total.</p>
+        <p>Use specific titles, such as “Term 2 Chemistry Test 1”, so you can distinguish similar tasks later. Before selecting <strong>Create Assessment</strong>, check that the class context, subject, type, term, year, title, maximum score, and weight are all right.</p>
+    </section>
+
+    <section id="select-assessment">
+        <h2>5. Select the correct assessment</h2>
+        <p>The assessment list is filtered by your setup choices. Each option identifies its type and displays its maximum score and weight.</p>
+        <ol>
+            <li>Compare the list title with the assessment you actually administered.</li>
+            <li>Check the type marker: Assignment, Test, and Exam are not interchangeable.</li>
+            <li>Check the maximum score. It must match the maximum used when you marked the papers.</li>
+            <li>Check the weight and subject. If either is wrong, go back and select another assessment or edit the assessment details if editing is available.</li>
+            <li>Select the assessment once, confirm it appears as the selected assessment, then choose <strong>Enter Marks</strong>.</li>
+        </ol>
+        <p>If the list says <strong>No assessments yet</strong>, create one with the correct context. If you expected an existing assessment, check the level/form, class, subject, type, and term. Creating another with the same purpose can split marks across duplicate records, so ask an administrator if you cannot tell which one is correct.</p>
+    </section>
+
+    <section id="enter-marks">
+        <h2>6. Enter scores and feedback</h2>
+        <p>The mark sheet lists eligible students. For each student, use the <strong>Score / Max</strong> box to enter the raw score earned, not a percentage, grade letter, or weighted score.</p>
+        <ol>
+            <li>Confirm the assessment title and subject in the heading.</li>
+            <li>Confirm the term, class, maximum score, weight, and date range shown with the mark sheet.</li>
+            <li>Match the student by name and student ID. Use the ID if names are similar.</li>
+            <li>Enter the score they earned out of the displayed maximum. For a test out of 40, enter 32 for a student who earned 32/40. The page calculates 80.0%.</li>
+            <li>Use a genuine score of <strong>0</strong> when the student earned zero. Leave the box blank only when no score should be recorded in this submission. A blank is not the same as zero.</li>
+            <li>Check the live percentage and grade beside the score. Correct the score if the percentage does not match your calculation.</li>
+            <li>Review all students and the summary bar before submitting. On a narrow screen, scroll sideways within the table to inspect all columns.</li>
+        </ol>
+        <p>The field indicates a minimum of zero and a maximum equal to the assessment’s Max Score. The entry logic caps a value above the maximum. Check rather than relying on that limit, and do not submit a negative or over-maximum score.</p>
+        <p>The page allows partial saves: rows with scores can be submitted while other rows remain blank. This can be useful while grading in stages, but the completion count will remain below the full class total. Submit only work you have checked.</p>
+        <p>Feedback is associated with a mark when it is included. Keep comments clear, specific, and appropriate for the student record. Do not include information about another student.</p>
+    </section>
+
+    <section id="score-meaning">
+        <h2>7. Raw score, percentage, grade, and weight</h2>
+        <dl>
+            <dt>Raw score</dt><dd>The points earned on the assessment, entered in the Score box. If the student earns 32 on a paper out of 40, the raw score is 32.</dd>
+            <dt>Maximum score</dt><dd>The total points available for that assessment. It sets the denominator for the percentage. A correct raw score entered against the wrong maximum produces the wrong percentage.</dd>
+            <dt>Percentage</dt><dd>The live mark-sheet percentage is raw score divided by maximum score, multiplied by 100. For example, 32 ÷ 40 × 100 = 80%.</dd>
+            <dt>Grade</dt><dd>The page displays a grade from the computed percentage: A is 80% and above; B is 65–79.9%; C is 50–64.9%; D is 40–49.9%; E is 30–39.9%; and U is below 30%. The school’s official report process and any later approvals determine the released report.</dd>
+            <dt>Weight</dt><dd>The assessment’s contribution setting, displayed as a percentage. The report-card calculation applies this during report generation. Do not multiply the raw score by the weight before entry.</dd>
+            <dt>Pass / Fail summary</dt><dd>The mark-sheet summary counts 50% and above as Pass and below 50% as Fail for that on-screen summary. This summary is a quick check; it does not replace the official report card.</dd>
+            <dt>Average</dt><dd>The mark-sheet average is calculated from scored rows shown there. It is a quick class check, not the final term average across all coursework and exams.</dd>
+        </dl>
+        <div class="guide-note"><strong>Example:</strong> a score of 18 on a 20-point assessment gives 90%. Enter <strong>18</strong>, not 90 and not 18 multiplied by the assessment weight. The page shows the calculated percentage and grade.</div>
+        <p>Do not compare raw scores from two assessments with different maximum scores. Compare the percentages when you need to compare performance. If a grade boundary or assessment weight looks inconsistent with school policy, ask an administrator to check before the report is approved.</p>
+    </section>
+
+    <section id="saving">
+        <h2>8. Submit, edit, and read statuses</h2>
+        <p>Before saving, inspect each row’s Status and the summary bar:</p>
+        <dl>
+            <dt>New</dt><dd>No mark has been loaded for this student and assessment. A score you enter will be submitted as a new mark.</dd>
+            <dt>Edit</dt><dd>A saved mark already exists for this assessment and student. Submitting a changed score updates that existing mark; it is not intended to create a duplicate.</dd>
+            <dt>Saved</dt><dd>The mark was submitted from this page and is shown as saved. Saved means the entry was recorded; it does not mean an administrator has approved the report.</dd>
+            <dt>Approved</dt><dd>The relevant report has been approved by an administrator. The mark is locked from editing in this page.</dd>
+            <dt>Can edit / reason shown</dt><dd>The table explains whether a row can be edited. Read any displayed block reason before trying to change it.</dd>
+        </dl>
+        <p><strong>Submit All Marks</strong> submits rows that have a score and are not approved or otherwise blocked. Blank rows are skipped. Existing marks are updated by their saved record ID; new marks are created. If some rows fail, the message reports how many saved and how many failed. Recheck the failed rows and connection before retrying.</p>
+        <p>Once every row saves successfully, the view returns to the assessments dashboard. If you need to confirm the outcome, reopen the assessment and check its marks. Avoid repeatedly submitting while a save is still in progress.</p>
+        <p>Clearing a score box is not a safe way to delete a saved mark: blank rows are skipped by submission, so an existing saved value may remain unchanged. If a recorded mark must be removed or corrected and the screen will not let you do it, ask an administrator to review it.</p>
+    </section>
+
+    <section id="locked-marks">
+        <h2>9. Administrator approval and locked marks</h2>
+        <p>After you submit marks, the administrator reviews them, generates the report card, and approves the report for student viewing. This is a separate step from your <strong>Submit All Marks</strong> action.</p>
+        <p>When a report for a student and term is approved, marks in that approved report are locked from editing in the staff mark sheet. A lock icon, <strong>Approved</strong> status, or a reason such as “Marks approved by Admin — locked” means the entry cannot be changed here.</p>
+        <p>If an approved mark contains an error, do not try to create a second assessment or enter a substitute mark. Send the administrator the student ID, subject, assessment title, term, year, current value, and the correction needed. The administrator can review the report and advise on the correction process.</p>
+        <p>Students may not see submitted marks immediately. They see school-approved report information after the administrator’s approval and release process.</p>
+    </section>
+
+    <section id="marks-problems">
+        <h2>10. Missing students and common marks problems</h2>
+        <details><summary>A student I teach is missing from the mark sheet.</summary><p>Check Form, class, and subject first. Forms 1–4 use class subject choices: a student who opted out of the subject may appear as blocked rather than editable. For Forms 5–6, the mark sheet includes students whose saved A-Level subject choices contain the selected subject. If the student should be eligible, ask an administrator to verify the student’s form, classroom, and subject allocation.</p></details>
+        <details><summary>A student appears, but the score box is disabled.</summary><p>Read the “Why editing is unavailable” and Status columns. The student may have opted out of the selected subject or the report may already be approved and locked. For a blocked subject allocation, ask an administrator to review the subject choice. For an approved report, send the correction request to the administrator.</p></details>
+        <details><summary>The percentage is not what I expected.</summary><p>Check the raw score and the displayed maximum score. The system computes the percentage from those two values. For example, 24/30 is 80%; entering 80 into a box that expects a score out of 30 is incorrect. Also confirm you selected the correct assessment.</p></details>
+        <details><summary>I cannot find the assessment I just created.</summary><p>Check the dashboard filters, especially form, class, subject, type, and term, then choose Clear Filters. Confirm the new assessment was created successfully and that its title and period match your search.</p></details>
+        <details><summary>I accidentally selected the wrong class, subject, term, or year.</summary><p>Stop before submission. Go back to setup and select the correct context, then load the correct assessment and student list. The term and year shown above the mark sheet are saved with submitted marks; do not change them to a different period from the one you intend to record.</p></details>
+        <details><summary>I changed the term or year after the mark sheet loaded.</summary><p>Those controls are displayed above the table and the selected values are included when the marks are saved. If you changed them accidentally, set them back to the assessment’s intended term and year before submitting. If you already submitted under the wrong period, contact an administrator with the assessment and student details.</p></details>
+        <details><summary>I submitted but one or more marks failed.</summary><p>Read the result message to see the saved and failed counts. Check your connection, assessment selection, and the affected rows. Reopen the assessment to see which values were recorded. Ask an administrator to investigate if retries continue to fail.</p></details>
+        <details><summary>I left a row blank, but expected it to erase an old mark.</summary><p>Blank rows are skipped; blank does not mean delete. Enter a corrected score if the row is editable. If the score must be removed or the row is locked, ask an administrator for help.</p></details>
+    </section>
+
+    <section id="attendance">
+        <h2>11. Students and attendance</h2>
+        <p>Choose <strong>Students</strong> from the top navigation. Its tabs have different purposes:</p>
+        <dl>
+            <dt>Class Register</dt><dd>Choose Form, Class, and Date, then select <strong>Load Class</strong>. Mark each student Present, Late, Absent, or Excused. Check the summary counts and selected date, then select <strong>Save Register</strong>. Use <strong>View history</strong> to look up an earlier register.</dd>
+            <dt>Individual</dt><dd>Look up and review one student’s attendance information.</dd>
+            <dt>My Attendance</dt><dd>View your own staff attendance calendar. Use the month arrows to move between months.</dd>
+            <dt>Class Lists</dt><dd>Open and print class lists. Check the selected form and class before printing.</dd>
+        </dl>
+        <p>For the class register, the selected date is important: check it before saving. If a register was already completed, the page shows who completed it. If the class or student list looks wrong, stop and ask an administrator to verify the class allocation.</p>
+    </section>
+
+    <section id="timetable-profile">
+        <h2>12. Timetable and profile</h2>
+        <p><strong>Timetable</strong> loads the currently published timetable and your teaching assignments. Periods show the scheduled time and class or subject. If the timetable is not published, there are no assigned periods, or an allocation looks wrong, ask an administrator to check the published timetable and your subject allocations.</p>
+        <p><strong>Profile</strong> shows your staff details. Review them and report errors to an administrator. The profile screen may not let you edit every field.</p>
+    </section>
+
+    <section id="good-practice">
+        <h2>13. A final check before submission</h2>
+        <ul>
+            <li>Correct staff account and assessment ownership.</li>
+            <li>Correct form, class, student, and subject eligibility.</li>
+            <li>Correct assessment type: coursework Assignment/Test or separate Exam.</li>
+            <li>Correct assessment title and maximum score.</li>
+            <li>Correct term and year shown on the mark sheet.</li>
+            <li>Raw scores entered out of the displayed maximum, including genuine zeros.</li>
+            <li>Percentages, grades, feedback, and New/Edit/Approved statuses reviewed.</li>
+            <li>Summary counts make sense for the work you intend to submit.</li>
+            <li>Submit once and wait for the saved/failed message. Raise errors with an administrator.</li>
+        </ul>
+        <div class="guide-note">If you need help, send the administrator the assessment title, class, subject, term and year, student ID (where relevant), what you expected, and what the page showed. Do not send your password or another student’s information.</div>
+        <div class="guide-links"><a href="#staff-help-top">Back to the top</a><NavLink href="/staff/marks">Open Enter Marks</NavLink><NavLink href="/staff">Open Dashboard</NavLink></div>
+    </section>
+</PortalGuide>

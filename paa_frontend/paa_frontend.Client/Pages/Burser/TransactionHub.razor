@@ -1,0 +1,530 @@
+@page "/burser/transaction/new"
+@page "/burser/transaction/{Id:int}"
+@namespace paa_frontend.Client.Pages.Burser
+@layout paa_frontend.Client.Layout.BurserPortalLayout
+@using Microsoft.JSInterop
+@using paa_frontend.Client.Services
+@using paa_frontend.Client.Services.StudentsPortal
+@using paa_frontend.Shared.Models
+@inject StudentProfileServiceClient StudentService
+@inject FinanceServiceClient FinanceService
+@inject IJSRuntime JSRuntime
+
+<style>
+    @@media print {
+        body * { visibility: hidden !important; }
+        .transaction-print, .transaction-print * { visibility: visible !important; }
+        .transaction-print { position: fixed !important; inset: 0 !important; z-index: 99999 !important; overflow: visible !important; padding: 12mm !important; background: white !important; box-shadow: none !important; }
+        @@page { size: A5 portrait; margin: 0; }
+    }
+</style>
+
+<div class="mx-auto max-w-6xl pb-12">
+    <div class="mb-8">
+        <div class="text-xs font-black uppercase tracking-[.2em] text-emerald-700">Burser portal</div>
+        <h1 class="mt-2 text-3xl font-black text-slate-900">Transactions</h1>
+        <p class="mt-2 text-sm text-slate-500">Choose the task you want to complete. Student payments and receipts use the live student account.</p>
+    </div>
+
+    <div class="grid gap-4 md:grid-cols-2">
+        <button type="button" class="rounded-3xl border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:border-emerald-300 hover:shadow-md" @onclick='() => OpenAction("statement")'>
+            <div class="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-2xl text-blue-700">▤</div>
+            <h2 class="text-xl font-extrabold text-slate-900">View fees statement</h2>
+            <p class="mt-2 text-sm text-slate-500">Inspect fee heads, payments and the current student balance.</p>
+            <span class="mt-5 inline-block text-sm font-bold text-emerald-700">Choose student →</span>
+        </button>
+        <button type="button" class="rounded-3xl border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:border-emerald-300 hover:shadow-md" @onclick='() => OpenAction("pay")'>
+            <div class="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-2xl text-emerald-700">$</div>
+            <h2 class="text-xl font-extrabold text-slate-900">Pay student fees</h2>
+            <p class="mt-2 text-sm text-slate-500">Find a student, review what is owed and take a payment.</p>
+            <span class="mt-5 inline-block text-sm font-bold text-emerald-700">Start payment →</span>
+        </button>
+        <button type="button" class="rounded-3xl border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:border-emerald-300 hover:shadow-md" @onclick='() => OpenAction("receipt")'>
+            <div class="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-50 text-2xl text-violet-700">▧</div>
+            <h2 class="text-xl font-extrabold text-slate-900">Receipting money</h2>
+            <p class="mt-2 text-sm text-slate-500">Issue a new receipt for a student payment or general school income.</p>
+            <span class="mt-5 inline-block text-sm font-bold text-emerald-700">Create receipt →</span>
+        </button>
+        <button type="button" class="rounded-3xl border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:border-emerald-300 hover:shadow-md" @onclick='() => OpenAction("record")'>
+            <div class="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-2xl text-amber-700">＋</div>
+            <h2 class="text-xl font-extrabold text-slate-900">Record a payment</h2>
+            <p class="mt-2 text-sm text-slate-500">Record money already received by cash or bank transfer.</p>
+            <span class="mt-5 inline-block text-sm font-bold text-emerald-700">Record payment →</span>
+        </button>
+        <button type="button" class="rounded-3xl border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:border-emerald-300 hover:shadow-md" @onclick='() => OpenAction("reprint")'>
+            <div class="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-2xl text-slate-700">⎙</div>
+            <h2 class="text-xl font-extrabold text-slate-900">Reprint receipt</h2>
+            <p class="mt-2 text-sm text-slate-500">Select a student, then choose one of their existing confirmed payments.</p>
+            <span class="mt-5 inline-block text-sm font-bold text-emerald-700">Find existing receipt →</span>
+        </button>
+    </div>
+    <button type="button" class="mt-5 text-sm font-bold text-slate-600 underline decoration-slate-300 underline-offset-4 hover:text-slate-900" @onclick='() => OpenAction("charge")'>Add a manual account charge</button>
+</div>
+
+@if (action is not null)
+{
+    <div class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/65 p-2 backdrop-blur-sm sm:p-5" role="dialog" aria-modal="true" aria-label="Transaction workflow">
+        <div class="flex max-h-[95vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div class="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-7">
+                <div>
+                    <div class="text-xs font-black uppercase tracking-widest text-emerald-700">@(stage == "source" ? "Step 1 · Choose receipt type" : stage == "pick" ? "Step 1 · Select student" : stage == "details" || stage == "general" ? "Step 2 · Review and process" : stage == "chargeDone" ? "Complete" : "Step 3 · Receipt")</div>
+                    <h2 class="mt-1 text-xl font-extrabold text-slate-900">@ActionTitle</h2>
+                </div>
+                <button type="button" class="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50" @onclick="CloseAction" disabled="@busy" aria-label="Close transaction">Close ×</button>
+            </div>
+            <div class="min-h-0 overflow-y-auto p-5 sm:p-7">
+                @if (!string.IsNullOrWhiteSpace(error))
+                { <div class="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-medium text-rose-700">@error</div> }
+                @if (stage == "source")
+                {
+                    <p class="mb-5 text-sm text-slate-600">What money are you receipting?</p>
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <button type="button" class="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-left hover:bg-emerald-100" @onclick='() => stage = "pick"'><span class="text-lg font-extrabold text-emerald-900">Student payment</span><span class="mt-2 block text-sm text-emerald-800">Select a student, record the payment, then print their receipt.</span></button>
+                        <button type="button" class="rounded-2xl border border-blue-200 bg-blue-50 p-6 text-left hover:bg-blue-100" @onclick='() => stage = "general"'><span class="text-lg font-extrabold text-blue-900">General school income</span><span class="mt-2 block text-sm text-blue-800">Record non-student income and print a school receipt.</span></button>
+                    </div>
+                }
+                else if (stage == "general")
+                {
+                    <button type="button" class="mb-5 text-sm font-bold text-emerald-700" @onclick='() => stage = "source"'>← Change receipt type</button>
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <label class="text-xs font-bold text-slate-600">Received from<input class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" placeholder="Payer / organization" @bind="generalPayer" /></label>
+                        <label class="text-xs font-bold text-slate-600">Category<input class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" placeholder="e.g. Donations, facility hire" @bind="generalCategory" /></label>
+                        <label class="text-xs font-bold text-slate-600 sm:col-span-2">Description<input class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" placeholder="What was received?" @bind="generalDescription" /></label>
+                        <label class="text-xs font-bold text-slate-600">Amount<input type="number" min="0.01" step="0.01" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" @bind="generalAmount" /></label>
+                        <label class="text-xs font-bold text-slate-600">Currency<select class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" @bind="currency"><option value="USD">USD</option><option value="ZIG">ZIG</option><option value="ZAR">ZAR</option></select></label>
+                        <label class="text-xs font-bold text-slate-600">Method<select class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" @bind="method"><option value="CASH">Cash</option><option value="BANK_TRANSFER">Bank transfer</option><option value="CARD">Card</option><option value="CHEQUE">Cheque</option></select></label>
+                    </div>
+                    <div class="mt-6 flex justify-end"><button type="button" class="rounded-xl bg-emerald-600 px-6 py-3 text-sm font-black text-white disabled:opacity-50" disabled="@(busy || generalRecorded)" @onclick="SubmitGeneralIncomeAsync">@(busy ? "Recording..." : "Record income and prepare receipt")</button></div>
+                }
+                else if (stage == "pick")
+                {
+                    <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h3 class="text-lg font-extrabold text-slate-900">Student selection</h3>
+                            <p class="text-xs text-slate-500">Search the table and select a row to continue.</p>
+                        </div>
+                        <div class="flex rounded-xl bg-slate-100 p-1 text-xs font-bold">
+                            <button type="button" class="rounded-lg px-4 py-2 @(showInactive ? "text-slate-500" : "bg-white text-emerald-700 shadow-sm")" @onclick='() => SetStudentStatus(false)'>Active</button>
+                            <button type="button" class="rounded-lg px-4 py-2 @(showInactive ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500")" @onclick='() => SetStudentStatus(true)'>Transferred / inactive</button>
+                        </div>
+                    </div>
+                    <div class="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                        <input class="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" placeholder="Student ID" @bind="idFilter" @bind:event="oninput" />
+                        <input class="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" placeholder="First name" @bind="firstNameFilter" @bind:event="oninput" />
+                        <input class="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" placeholder="Surname" @bind="lastNameFilter" @bind:event="oninput" />
+                        <input class="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" placeholder="Class / form" @bind="classFilter" @bind:event="oninput" />
+                    </div>
+                    <div class="mb-3 text-xs font-bold text-slate-500">@FilteredStudents.Count() students · page @CurrentPage of @PageCount</div>
+                    <div class="overflow-x-auto rounded-2xl border border-slate-200">
+                        <table class="w-full min-w-[650px] text-left text-sm">
+                            <thead class="bg-slate-100 text-xs font-black uppercase tracking-wider text-slate-600"><tr><th class="px-4 py-3">ID</th><th class="px-4 py-3">Name</th><th class="px-4 py-3">Surname</th><th class="px-4 py-3">Gender</th><th class="px-4 py-3">Class</th><th class="px-4 py-3">Status</th></tr></thead>
+                            <tbody>
+                                @foreach (var student in PagedStudents)
+                                {
+                                    <tr class="cursor-pointer border-t border-slate-100 hover:bg-emerald-50" @onclick="() => ChooseStudentAsync(student)">
+                                        <td class="px-4 py-3 font-bold text-slate-900">@student.Id</td><td class="px-4 py-3">@student.FirstName</td><td class="px-4 py-3">@student.LastName</td><td class="px-4 py-3">@student.Gender</td><td class="px-4 py-3">@(student.Classroom ?? $"Form {student.Form}")</td><td class="px-4 py-3">@student.Status</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        @if (!PagedStudents.Any())
+                        { <div class="p-8 text-center text-sm text-slate-500">No students match these filters.</div> }
+                    </div>
+                    <div class="mt-4 flex justify-end gap-2">
+                        <button type="button" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold disabled:opacity-40" disabled="@(CurrentPage <= 1)" @onclick="PreviousPage">Previous</button>
+                        <button type="button" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold disabled:opacity-40" disabled="@(CurrentPage >= PageCount)" @onclick="NextPage">Next</button>
+                    </div>
+                }
+                else if (stage == "details" && selectedStudent is not null)
+                {
+                    <div class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-slate-50 p-4">
+                        <div><div class="font-extrabold text-slate-900">@selectedStudent.FirstName @selectedStudent.LastName</div><div class="text-xs text-slate-500">ID @selectedStudent.Id · @(selectedStudent.Classroom ?? $"Form {selectedStudent.Form}")</div></div>
+                        @if (!busy && pendingReference is null && confirmedResponse is null && !chargeSubmitted)
+                        { <button type="button" class="text-xs font-bold text-emerald-700" @onclick="BackToPicker">Change student</button> }
+                    </div>
+                    @if (loadingContext)
+                    { <div class="py-12 text-center text-sm text-slate-500">Loading live account...</div> }
+                    else if (summary is null)
+                    { <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">The live account is unavailable. Refresh the student selection before processing a payment.</div> }
+                    else if (action == "charge")
+                    {
+                        <div class="mb-5 rounded-2xl bg-slate-50 p-4 text-sm"><span class="font-bold">Current balance:</span> @BalanceLabel(summary.Balance)</div>
+                        <div class="grid gap-3 sm:grid-cols-2"><label class="text-xs font-bold text-slate-600">Charge amount<input type="number" min="0.01" step="0.01" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" @bind="chargeAmount" /></label><label class="text-xs font-bold text-slate-600">Currency<select class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" @bind="currency"><option value="USD">USD</option><option value="ZIG">ZIG</option><option value="ZAR">ZAR</option></select></label><label class="text-xs font-bold text-slate-600 sm:col-span-2">Reason<input class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" @bind="chargeDescription" /></label></div>
+                        <div class="mt-5 flex justify-end"><button type="button" class="rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white disabled:opacity-50" disabled="@(busy || chargeSubmitted)" @onclick="SubmitChargeAsync">Add charge</button></div>
+                    }
+                    else if (action == "statement")
+                    {
+                        <div class="mb-5 grid gap-3 sm:grid-cols-3">
+                            <div class="rounded-2xl bg-rose-50 p-4"><div class="text-xs font-bold text-rose-600">Amount owing (USD)</div><div class="mt-1 text-2xl font-black text-rose-700">@(Math.Max(0m, summary?.Balance ?? 0m).ToString("C"))</div></div>
+                            <div class="rounded-2xl bg-slate-50 p-4"><div class="text-xs font-bold text-slate-500">Total charged</div><div class="mt-1 text-2xl font-black">@((summary?.TotalCharged ?? 0).ToString("C"))</div></div>
+                            <div class="rounded-2xl bg-emerald-50 p-4"><div class="text-xs font-bold text-emerald-600">Total paid</div><div class="mt-1 text-2xl font-black text-emerald-700">@((summary?.TotalPaid ?? 0).ToString("C"))</div></div>
+                        </div>
+                        <h3 class="mb-2 font-extrabold text-slate-900">Fee statement by head</h3>
+                        <div class="overflow-x-auto rounded-xl border border-slate-200"><table class="w-full min-w-[500px] text-sm"><thead class="bg-slate-100 text-xs uppercase text-slate-600"><tr><th class="p-3 text-left">Date</th><th class="p-3 text-left">Reference</th><th class="p-3 text-left">Fee head</th><th class="p-3 text-right">Billed (USD)</th></tr></thead><tbody>@foreach (var charge in statement?.Charges ?? new List<StatementChargeDto>()) { <tr class="border-t border-slate-100"><td class="p-3">@charge.ChargedAt</td><td class="p-3">@charge.InvoiceNumber</td><td class="p-3">@charge.Description</td><td class="p-3 text-right font-bold">@charge.AmountUsd.ToString("C")</td></tr> }</tbody></table></div>
+                        <h3 class="mb-2 mt-5 font-extrabold text-slate-900">Payments</h3>
+                        @foreach (var payment in paymentHistory.Where(payment => IsConfirmed(payment.Status)))
+                        { <div class="flex justify-between gap-3 border-b border-slate-100 py-2 text-sm"><span>@payment.Date · @payment.Description</span><span class="font-bold text-emerald-700">@(PaymentAmount(payment).ToString("C"))</span></div> }
+                    }
+                    else if (action == "reprint")
+                    {
+                        <h3 class="mb-3 font-extrabold text-slate-900">Recorded payments</h3>
+                        @if (!paymentHistory.Any(payment => IsConfirmed(payment.Status)))
+                        { <p class="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">No payments have been recorded for this student.</p> }
+                        @foreach (var payment in paymentHistory.Where(payment => IsConfirmed(payment.Status)))
+                        {
+                            <div class="mb-2 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 text-sm"><div><div class="font-bold">@payment.Description</div><div class="text-xs text-slate-500">@payment.Date · @payment.PaymentReference · @payment.PaymentMethod</div></div><div class="flex items-center gap-3"><span class="font-black text-emerald-700">@(PaymentAmount(payment).ToString("C"))</span><button type="button" class="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white" @onclick="() => ShowExistingReceiptAsync(payment)" disabled="@busy">View receipt</button></div></div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="mb-5 grid gap-3 sm:grid-cols-2">
+                            <div class="rounded-2xl border border-rose-200 bg-rose-50 p-4"><div class="text-xs font-black uppercase text-rose-600">Amount owing (USD)</div><div class="mt-1 text-3xl font-black text-rose-700">@(Math.Max(0m, summary?.Balance ?? 0m).ToString("C"))</div></div>
+                            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4"><div class="text-xs font-black uppercase text-slate-500">Account position</div><div class="mt-1 text-2xl font-black text-slate-900">@(summary?.BalanceDescription ?? "Current account")</div></div>
+                        </div>
+                        <div class="mb-3 flex items-center justify-between"><h3 class="font-extrabold text-slate-900">Receipt lines</h3><button type="button" class="text-sm font-bold text-emerald-700 disabled:opacity-40" disabled="@(busy || pendingReference is not null || confirmedResponse is not null)" @onclick="AddLine">+ Add another receipt line</button></div>
+                        @foreach (var line in lines)
+                        {
+                            <div class="mb-2 grid grid-cols-[minmax(0,1fr)_7rem_auto] gap-2"><input class="min-w-0 rounded-xl border border-slate-200 px-3 py-2.5 text-sm" placeholder="Tuition, transport, trip..." @bind="line.Description" disabled="@(busy || pendingReference is not null || confirmedResponse is not null)" /><input type="number" min="0" step="0.01" class="min-w-0 rounded-xl border border-slate-200 px-3 py-2.5 text-right text-sm" @bind="line.Amount" disabled="@(busy || pendingReference is not null || confirmedResponse is not null)" /><button type="button" class="rounded-xl border border-rose-200 px-3 text-rose-600 disabled:opacity-40" disabled="@(lines.Count == 1 || busy || pendingReference is not null || confirmedResponse is not null)" @onclick="() => RemoveLine(line)">×</button></div>
+                        }
+                        <div class="mt-3 text-right text-lg font-black text-slate-900">Total: @PaymentTotal.ToString("N2") @currency</div>
+                        <div class="mt-5 grid gap-3 sm:grid-cols-3">
+                            <label class="text-xs font-bold text-slate-600">Method<select class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" @bind="method" disabled="@(busy || pendingReference is not null || confirmedResponse is not null)"><option value="CASH">Cash</option><option value="BANK_TRANSFER">Bank transfer</option>@if (action == "pay") { <option value="PAYNOW_MOBILE">Paynow mobile</option> }</select></label>
+                            <label class="text-xs font-bold text-slate-600">Currency<select class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" @bind="currency" disabled="@(busy || pendingReference is not null || confirmedResponse is not null)"><option value="USD">USD</option><option value="ZIG">ZIG</option><option value="ZAR">ZAR</option></select></label>
+                            @if (method == "PAYNOW_MOBILE")
+                            { <label class="text-xs font-bold text-slate-600">Mobile number<input class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" placeholder="0771234567" @bind="mobileNumber" disabled="@(busy || pendingReference is not null || confirmedResponse is not null)" /></label> }
+                        </div>
+                        @if (pendingReference is not null)
+                        { <div class="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Paynow payment @pendingReference is awaiting confirmation. No receipt will be issued until it is confirmed. <button type="button" class="ml-2 font-black underline" @onclick="CheckPendingAsync" disabled="@busy">Check status</button></div> }
+                        @if (confirmedResponse is not null)
+                        { <div class="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Payment @confirmedResponse.PaymentReference was recorded. The receipt balance could not be loaded. Do not record it again. <button type="button" class="ml-2 font-black underline" @onclick="RefreshConfirmedReceiptAsync" disabled="@busy">Refresh receipt</button></div> }
+                        <div class="mt-6 flex justify-end"><button type="button" class="rounded-xl bg-emerald-600 px-6 py-3 text-sm font-black text-white disabled:opacity-50" disabled="@(busy || loadingContext || summary is null || pendingReference is not null || confirmedResponse is not null)" @onclick="SubmitPaymentAsync">@(busy ? "Processing..." : method == "PAYNOW_MOBILE" ? "Send Paynow request" : "Record payment and prepare receipt")</button></div>
+                    }
+                }
+                else if (stage == "receipt" && receipt is not null)
+                {
+                    <div class="mb-4 flex flex-wrap items-center justify-between gap-3"><div class="text-sm font-semibold text-emerald-700">@(receipt.IsGeneral ? "School income receipt ready to print." : "Receipt ready. The balance below is the current live account balance.")</div><button type="button" class="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-black text-white" @onclick="PrintAsync">Print receipt</button></div>
+                    <div class="transaction-print mx-auto max-w-xl border border-slate-300 bg-white p-6 text-slate-900">
+                        <div class="flex items-center gap-3 border-b border-slate-300 pb-4"><img src="/images/demo-logo.svg" alt="College crest" class="h-14 w-14 object-contain" /><div><div class="text-xl font-black uppercase">PrimeApp Demo</div><div class="text-xs text-slate-500">@(receipt.IsGeneral ? "School income receipt" : "Student payment receipt")</div></div></div>
+                        <div class="mt-5 grid grid-cols-2 gap-3 text-sm"><div><span class="text-slate-500">@(receipt.IsGeneral ? "Received from" : "Student")</span><div class="font-bold">@receipt.StudentName</div></div><div><span class="text-slate-500">@(receipt.IsGeneral ? "Category" : "Student ID")</span><div class="font-bold">@(receipt.IsGeneral ? receipt.Category : receipt.StudentId.ToString())</div></div><div><span class="text-slate-500">Date</span><div class="font-bold">@receipt.Date</div></div><div><span class="text-slate-500">Reference</span><div class="font-bold">@receipt.Reference</div></div></div>
+                        <table class="mt-6 w-full text-sm"><thead class="border-b border-slate-300 text-left"><tr><th class="py-2">Description</th><th class="py-2 text-right">Amount (@receipt.Currency)</th></tr></thead><tbody>@foreach (var line in receipt.Lines) { <tr class="border-b border-slate-100"><td class="py-2">@line.Description</td><td class="py-2 text-right">@line.Amount.ToString("N2")</td></tr> }</tbody><tfoot><tr><td class="pt-3 font-black">@(receipt.IsGeneral ? "Total received" : "Total paid")</td><td class="pt-3 text-right font-black">@receipt.Total.ToString("N2")</td></tr></tfoot></table>
+                        @if (!receipt.IsGeneral)
+                        { <div class="mt-8 rounded-xl bg-slate-50 p-3 text-sm"><span class="font-bold">Current student balance:</span> @BalanceLabel(receipt.CurrentBalance)</div> }
+                        <div class="mt-8 border-t border-slate-200 pt-3 text-xs text-slate-500">Thank you for your payment. Processed by the Burser Office.</div>
+                    </div>
+                    <div class="mt-5 flex justify-end"><button type="button" class="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold" @onclick="CloseAction">Done</button></div>
+                }
+                else if (stage == "chargeDone")
+                { <div class="rounded-2xl bg-emerald-50 p-6 text-emerald-900"><div class="text-lg font-extrabold">Charge added to the student account</div><div class="mt-2 text-sm">Current balance: @BalanceLabel(summary?.Balance ?? 0)</div></div><div class="mt-5 flex justify-end"><button type="button" class="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white" @onclick="CloseAction">Done</button></div> }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    private sealed class ReceiptLine { public string Description { get; set; } = ""; public decimal Amount { get; set; } }
+    private sealed class ReceiptView
+    {
+        public string StudentName { get; init; } = "";
+        public int StudentId { get; init; }
+        public string Date { get; init; } = "";
+        public string Reference { get; init; } = "";
+        public string Currency { get; init; } = "USD";
+        public decimal Total { get; init; }
+        public decimal CurrentBalance { get; init; }
+        public bool IsGeneral { get; init; }
+        public string Category { get; init; } = "";
+        public List<ReceiptLine> Lines { get; init; } = new();
+    }
+
+    private List<StudentProfileModel.Student> students = new();
+    private StudentProfileModel.Student? selectedStudent;
+    private AccountSummary? summary;
+    private FinancialStatementDto? statement;
+    private List<PaymentRecord> paymentHistory = new();
+    private ReceiptView? receipt;
+    private string? action;
+    private string stage = "pick";
+    private string error = "";
+    private string studentLoadError = "";
+    private bool busy;
+    private bool loadingContext;
+    private bool showInactive;
+    private string idFilter = "";
+    private string firstNameFilter = "";
+    private string lastNameFilter = "";
+    private string classFilter = "";
+    private int pickerPage = 1;
+    private string method = "CASH";
+    private string currency = "USD";
+    private string mobileNumber = "";
+    private string? pendingReference;
+    private PaymentResponseDto? confirmedResponse;
+    private bool generalRecorded;
+    private string generalSourceReference = Guid.NewGuid().ToString("N");
+    private string generalPayer = "";
+    private string generalCategory = "";
+    private string generalDescription = "";
+    private decimal generalAmount;
+    private decimal chargeAmount;
+    private string chargeDescription = "";
+    private bool chargeSubmitted;
+    private List<ReceiptLine> lines = new() { new() { Description = "School fees" } };
+    private List<ReceiptLine> submittedLines = new();
+    private decimal submittedTotal;
+    private string submittedCurrency = "USD";
+    private decimal PaymentTotal => lines.Sum(line => line.Amount);
+    private string ActionTitle => action switch { "statement" => "View fees statement", "pay" => "Pay student fees", "receipt" => "Receipting money", "reprint" => "Reprint receipt", "charge" => "Add account charge", _ => "Record a payment" };
+    private IEnumerable<StudentProfileModel.Student> FilteredStudents => students
+        .Where(s => IsInactive(s) == showInactive)
+        .Where(s => string.IsNullOrWhiteSpace(idFilter) || s.Id.ToString().Contains(idFilter.Trim(), StringComparison.OrdinalIgnoreCase) || (s.TempId?.Contains(idFilter.Trim(), StringComparison.OrdinalIgnoreCase) ?? false))
+        .Where(s => string.IsNullOrWhiteSpace(firstNameFilter) || (s.FirstName?.Contains(firstNameFilter.Trim(), StringComparison.OrdinalIgnoreCase) ?? false))
+        .Where(s => string.IsNullOrWhiteSpace(lastNameFilter) || (s.LastName?.Contains(lastNameFilter.Trim(), StringComparison.OrdinalIgnoreCase) ?? false))
+        .Where(s => string.IsNullOrWhiteSpace(classFilter) || (s.Classroom?.Contains(classFilter.Trim(), StringComparison.OrdinalIgnoreCase) ?? false) || s.Form?.ToString() == classFilter.Trim())
+        .OrderBy(s => s.LastName).ThenBy(s => s.FirstName);
+    private int PageCount => Math.Max(1, (int)Math.Ceiling(FilteredStudents.Count() / 12.0));
+    private int CurrentPage => Math.Min(pickerPage, PageCount);
+    private IEnumerable<StudentProfileModel.Student> PagedStudents => FilteredStudents.Skip((CurrentPage - 1) * 12).Take(12);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { students = await StudentService.GetStudentsAsync() ?? new(); }
+        catch (Exception ex) { studentLoadError = "Could not load students: " + ex.Message; }
+        if (Id is int id)
+        {
+            OpenAction("pay");
+            var student = students.FirstOrDefault(s => s.Id == id);
+            if (student is not null) await ChooseStudentAsync(student);
+            else error = studentLoadError.Length > 0 ? studentLoadError : $"Student {id} was not found.";
+        }
+    }
+
+    private static bool IsInactive(StudentProfileModel.Student student) =>
+        (student.Status ?? "").Contains("transfer", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(student.Status, "inactive", StringComparison.OrdinalIgnoreCase);
+    private void OpenAction(string value)
+    {
+        action = value;
+        stage = value == "receipt" ? "source" : "pick";
+        error = studentLoadError;
+        selectedStudent = null;
+        summary = null;
+        statement = null;
+        paymentHistory = new();
+        receipt = null;
+        pendingReference = null;
+        confirmedResponse = null;
+        generalRecorded = false;
+        showInactive = false;
+        pickerPage = 1;
+        idFilter = firstNameFilter = lastNameFilter = classFilter = "";
+        method = value == "record" ? "BANK_TRANSFER" : "CASH";
+        currency = "USD";
+        mobileNumber = "";
+        lines = new() { new() { Description = "School fees" } };
+        submittedLines = new();
+        submittedTotal = 0;
+        submittedCurrency = "USD";
+        generalPayer = generalCategory = generalDescription = "";
+        generalAmount = 0;
+        chargeAmount = 0;
+        chargeDescription = "";
+        chargeSubmitted = false;
+        generalSourceReference = "BURSER-" + Guid.NewGuid().ToString("N");
+    }
+    private void CloseAction() { if (!busy) { action = null; receipt = null; pendingReference = null; error = ""; } }
+    private void BackToPicker() { stage = "pick"; error = ""; }
+    private void SetStudentStatus(bool inactive) { showInactive = inactive; pickerPage = 1; }
+    private void PreviousPage() => pickerPage = Math.Max(1, CurrentPage - 1);
+    private void NextPage() => pickerPage = Math.Min(PageCount, CurrentPage + 1);
+    private void AddLine() => lines.Add(new());
+    private void RemoveLine(ReceiptLine line) { if (lines.Count > 1) lines.Remove(line); }
+
+    private async Task ChooseStudentAsync(StudentProfileModel.Student student)
+    {
+        selectedStudent = student;
+        summary = null;
+        statement = null;
+        paymentHistory = new();
+        stage = "details";
+        error = "";
+        loadingContext = true;
+        try
+        {
+            var summaryTask = FinanceService.GetAccountSummaryAsync(student.Id);
+            var historyTask = FinanceService.GetPaymentHistoryAsync(student.Id);
+            var statementTask = action == "statement" ? FinanceService.GetFinancialStatementAsync(student.Id) : Task.FromResult<FinancialStatementDto?>(null);
+            await Task.WhenAll(summaryTask, historyTask, statementTask);
+            summary = await summaryTask;
+            paymentHistory = await historyTask ?? new();
+            statement = await statementTask;
+        }
+        catch (Exception ex) { error = "Could not load student account: " + ex.Message; }
+        finally { loadingContext = false; }
+    }
+
+    private async Task SubmitPaymentAsync()
+    {
+        if (selectedStudent is null) return;
+        if (lines.Count == 0 || lines.Any(line => string.IsNullOrWhiteSpace(line.Description) || line.Amount <= 0))
+        { error = "Enter a description and positive amount for every receipt line."; return; }
+        if (method == "PAYNOW_MOBILE" && string.IsNullOrWhiteSpace(mobileNumber))
+        { error = "Enter a mobile number for Paynow."; return; }
+        busy = true;
+        error = "";
+        try
+        {
+            submittedLines = lines.Select(line => new ReceiptLine { Description = line.Description.Trim(), Amount = line.Amount }).ToList();
+            submittedTotal = PaymentTotal;
+            submittedCurrency = currency;
+            var description = string.Join("; ", lines.Select(line => $"{line.Description.Trim()} ({line.Amount:N2} {currency})"));
+            PaymentResponseDto? response;
+            if (method == "PAYNOW_MOBILE")
+            {
+                response = await FinanceService.InitiatePaymentAsync(new PaymentRequestDto
+                {
+                    StudentId = selectedStudent.Id, Amount = PaymentTotal, Currency = currency,
+                    PaymentMethod = method, MobileNumber = mobileNumber, Description = description
+                });
+                if (IsConfirmed(response?.Status)) { confirmedResponse = response; await FinishReceiptAsync(response!); }
+                else if (IsPending(response?.Status) && !string.IsNullOrWhiteSpace(response?.PaymentReference)) pendingReference = response.PaymentReference;
+                else error = response?.Message ?? "Paynow did not accept the payment request.";
+            }
+            else
+            {
+                response = await FinanceService.RecordManualPaymentAsync(selectedStudent.Id, PaymentTotal, currency, method, description);
+                if (response is null || (!string.IsNullOrWhiteSpace(response.Status) && !IsConfirmed(response.Status)))
+                    error = response?.Message ?? "The payment was not confirmed.";
+                else { confirmedResponse = response; await FinishReceiptAsync(response); }
+            }
+        }
+        catch (Exception ex) { error = confirmedResponse is null ? "Payment could not be recorded: " + ex.Message : "Payment was recorded, but the live balance could not be loaded. Do not submit it again. " + ex.Message; }
+        finally { busy = false; }
+    }
+
+    private async Task SubmitGeneralIncomeAsync()
+    {
+        if (string.IsNullOrWhiteSpace(generalPayer) || string.IsNullOrWhiteSpace(generalCategory) ||
+            string.IsNullOrWhiteSpace(generalDescription) || generalAmount <= 0)
+        { error = "Enter who paid, the category, description and a positive amount."; return; }
+        busy = true;
+        error = "";
+        try
+        {
+            var request = new CashFlowRequestDto
+            {
+                Type = "INCOME", Amount = generalAmount, Currency = currency,
+                Category = generalCategory.Trim(), Description = generalDescription.Trim(),
+                Counterparty = generalPayer.Trim(), PaymentMethod = method,
+                RecordedBy = "Burser Office", OccurredOn = DateTime.Today.ToString("yyyy-MM-dd"),
+                SourceReference = generalSourceReference, SourceType = "BURSER_RECEIPT"
+            };
+            var result = await FinanceService.RecordCashflowMovementAsync(request);
+            generalRecorded = true;
+            if (result is null || string.IsNullOrWhiteSpace(result.TransactionReference))
+                throw new InvalidOperationException("Income was submitted, but no receipt reference was returned. Check the cashbook before trying again.");
+            receipt = new ReceiptView
+            {
+                IsGeneral = true, StudentName = request.Counterparty ?? "", Category = request.Category,
+                Date = DateTime.Now.ToString("dd MMM yyyy HH:mm"), Reference = result.TransactionReference,
+                Currency = request.Currency, Total = request.Amount,
+                Lines = new() { new ReceiptLine { Description = request.Description, Amount = request.Amount } }
+            };
+            stage = "receipt";
+        }
+        catch (Exception ex) { error = "Income could not be receipted: " + ex.Message; }
+        finally { busy = false; }
+    }
+
+    private async Task SubmitChargeAsync()
+    {
+        if (selectedStudent is null || chargeAmount <= 0 || string.IsNullOrWhiteSpace(chargeDescription))
+        { error = "Enter a positive charge amount and a reason."; return; }
+        busy = true;
+        error = "";
+        try
+        {
+            var charged = await FinanceService.ChargeStudentAccountAsync(selectedStudent.Id, chargeAmount, currency, chargeDescription.Trim());
+            chargeSubmitted = true;
+            summary = charged ?? await FinanceService.GetAccountSummaryAsync(selectedStudent.Id)
+                ?? throw new InvalidOperationException("Charge was submitted, but the new balance is unavailable.");
+            stage = "chargeDone";
+        }
+        catch (Exception ex) { error = "Could not confirm the account charge. Check the account before retrying. " + ex.Message; }
+        finally { busy = false; }
+    }
+
+    private async Task RefreshConfirmedReceiptAsync()
+    {
+        if (confirmedResponse is null) return;
+        busy = true;
+        try { await FinishReceiptAsync(confirmedResponse); }
+        catch (Exception ex) { error = "The payment is recorded, but the balance is still unavailable. " + ex.Message; }
+        finally { busy = false; }
+    }
+
+    private async Task CheckPendingAsync()
+    {
+        if (pendingReference is null) return;
+        busy = true;
+        try
+        {
+            var result = await FinanceService.CheckPaymentStatusAsync(pendingReference);
+            var status = result is not null && result.TryGetValue("status", out var value) ? value?.ToString() : null;
+            if (IsConfirmed(status))
+            {
+                confirmedResponse = new PaymentResponseDto { PaymentReference = pendingReference, Status = status, AmountPaid = submittedTotal, PaidCurrency = submittedCurrency };
+                await FinishReceiptAsync(confirmedResponse);
+                pendingReference = null;
+            }
+            else error = IsPending(status) ? "Payment is still awaiting confirmation." : "Payment was not confirmed. Check the gateway reference before retrying.";
+        }
+        catch (Exception ex) { error = "Could not check payment status: " + ex.Message; }
+        finally { busy = false; }
+    }
+
+    private async Task FinishReceiptAsync(PaymentResponseDto response)
+    {
+        if (selectedStudent is null) return;
+        summary = await FinanceService.GetAccountSummaryAsync(selectedStudent.Id)
+            ?? throw new InvalidOperationException("Payment was recorded, but the new account balance could not be loaded. Reopen the receipt after refreshing.");
+        receipt = new ReceiptView
+        {
+            StudentName = $"{selectedStudent.FirstName} {selectedStudent.LastName}", StudentId = selectedStudent.Id,
+            Date = DateTime.Now.ToString("dd MMM yyyy HH:mm"), Reference = response.PaymentReference ?? "—",
+            Currency = submittedCurrency, Total = submittedTotal, CurrentBalance = summary.Balance,
+            Lines = submittedLines.Select(line => new ReceiptLine { Description = line.Description, Amount = line.Amount }).ToList()
+        };
+        stage = "receipt";
+        error = "";
+    }
+
+    private async Task ShowExistingReceiptAsync(PaymentRecord payment)
+    {
+        if (selectedStudent is null || !IsConfirmed(payment.Status))
+        { error = "Only confirmed payments can be receipted."; return; }
+        busy = true;
+        try
+        {
+            summary = await FinanceService.GetAccountSummaryAsync(selectedStudent.Id)
+                ?? throw new InvalidOperationException("Current student balance is unavailable.");
+        receipt = new ReceiptView
+        {
+            StudentName = $"{selectedStudent.FirstName} {selectedStudent.LastName}", StudentId = selectedStudent.Id,
+            Date = payment.Date ?? "", Reference = payment.PaymentReference ?? "—",
+            Currency = payment.PaidCurrency ?? payment.Currency ?? "USD", Total = PaymentAmount(payment),
+            CurrentBalance = summary.Balance,
+            Lines = new() { new ReceiptLine { Description = payment.Description ?? "Student payment", Amount = PaymentAmount(payment) } }
+        };
+        stage = "receipt";
+        error = "";
+        }
+        catch (Exception ex) { error = "Could not prepare receipt: " + ex.Message; }
+        finally { busy = false; }
+    }
+    private static decimal PaymentAmount(PaymentRecord payment) => payment.AmountPaid > 0 ? payment.AmountPaid : payment.Amount;
+    private static bool IsConfirmed(string? status) => (status ?? "").ToUpperInvariant() is "PAID" or "CONFIRMED" or "SUCCESS";
+    private static bool IsPending(string? status) => (status ?? "").ToUpperInvariant() is "PROCESSING" or "PENDING" or "SENT" or "AWAITING_DELIVERY" or "CREATED";
+    private static string BalanceLabel(decimal balance) => balance > 0 ? $"Owing {balance:C}" : balance < 0 ? $"Advance credit {Math.Abs(balance):C}" : "Settled";
+    private async Task PrintAsync() => await JSRuntime.InvokeVoidAsync("print");
+}

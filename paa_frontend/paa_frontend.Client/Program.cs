@@ -15,9 +15,9 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
 builder.RootComponents.Add<App>("#app");
 
-// Demo API calls are handled entirely in browser memory.
-var apiBaseUrl = "https://demo.invalid/";
-builder.Services.AddSingleton<paa_frontend.Client.Services.Demo.DemoStore>();
+// The demo host forwards API requests to the same development gateway as the main frontend.
+// Same-origin calls avoid changing the gateway's single-origin CORS configuration.
+var apiBaseUrl = builder.HostEnvironment.BaseAddress;
 
 // 2. Auth setup
 builder.Services.AddAuthorizationCore();
@@ -36,7 +36,6 @@ void RegisterClient<T>(IServiceCollection services, TimeSpan? timeout = null) wh
         client.BaseAddress = new Uri(apiBaseUrl);
         client.Timeout = timeout ?? TimeSpan.FromSeconds(110); // just under browser limit
     })
-    .ConfigurePrimaryHttpMessageHandler(sp => new paa_frontend.Client.Services.Demo.DemoHttpHandler(sp.GetRequiredService<paa_frontend.Client.Services.Demo.DemoStore>()))
     .AddHttpMessageHandler<CustomAuthorizationMessageHandler>()
     .AddHttpMessageHandler<GlobalHttpErrorHandler>();
 }
@@ -48,6 +47,13 @@ RegisterClient<FinanceServiceClient>(builder.Services);
 RegisterClient<TeacherProfileServiceClient>(builder.Services);
 RegisterClient<BurserProfileServiceClient>(builder.Services);
 RegisterClient<AdminProfileServiceClient>(builder.Services);
+RegisterClient<ApplicationServiceClient>(builder.Services);
+// Public application submission must not inherit a saved admin/student bearer token.
+builder.Services.AddHttpClient<PublicApplicationServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(apiBaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(40);
+});
 RegisterClient<GradesServiceClient>(builder.Services);
 RegisterClient<StudentSubjectServiceClient>(builder.Services);
 RegisterClient<AlevelClassServiceClient>(builder.Services);
@@ -64,7 +70,6 @@ builder.Services.AddHttpClient<AuthService>(client =>
     client.BaseAddress = new Uri(apiBaseUrl);
     client.Timeout = TimeSpan.FromSeconds(110);
 })
-.ConfigurePrimaryHttpMessageHandler(sp => new paa_frontend.Client.Services.Demo.DemoHttpHandler(sp.GetRequiredService<paa_frontend.Client.Services.Demo.DemoStore>()))
 .AddHttpMessageHandler<GlobalHttpErrorHandler>();
 
 // 6. Notification service

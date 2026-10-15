@@ -1,0 +1,226 @@
+@inject ApplicationServiceClient ApplicationService
+
+<PageTitle>Applications | Management Portal</PageTitle>
+
+<div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+    <div>
+        <a href="@DashboardUrl" class="text-sm text-slate-500">Dashboard</a>
+        <h1 class="text-3xl font-extrabold text-slate-900 mt-2">Applications</h1>
+        <p class="text-sm text-slate-500 mt-2">Review prospective students, academic history and admission decisions.</p>
+    </div>
+    <button class="px-5 py-2 rounded-full border border-slate-200 bg-white text-sm font-semibold disabled:opacity-50" disabled="@(loading || saving)" @onclick="LoadAsync">Refresh</button>
+</div>
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <div role="alert" class="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">@error</div>
+}
+@if (!string.IsNullOrEmpty(message))
+{
+    <div role="status" class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">@message</div>
+}
+
+@if (loading)
+{
+    <div role="status" class="rounded-2xl bg-white border border-slate-200 p-10 text-center text-slate-500">Loading applications…</div>
+}
+else if (loaded)
+{
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        @foreach (var summary in Summaries)
+        {
+            <div class="rounded-2xl border border-slate-200 bg-white p-5">
+                <div class="text-xs font-bold uppercase tracking-wider text-slate-500">@summary.Label</div>
+                <div class="text-3xl font-extrabold text-slate-900 mt-2">@summary.Count</div>
+            </div>
+        }
+    </div>
+    <div class="rounded-2xl bg-white border border-slate-200 p-4 mb-6 flex flex-col md:flex-row gap-3">
+        <label class="flex-1 text-xs font-bold text-slate-500">Search applications
+            <input class="block w-full border border-slate-200 rounded-xl p-3 mt-1 text-sm font-normal text-slate-900" placeholder="Reference, student, guardian or phone" @bind="search" @bind:event="oninput" />
+        </label>
+        <label class="text-xs font-bold text-slate-500">Decision
+            <select class="block w-full border border-slate-200 rounded-xl p-3 mt-1 text-sm font-normal text-slate-900" @bind="decisionFilter">
+                <option value="all">All decisions</option><option value="pending">Awaiting review</option><option value="ACCEPTED">Accepted</option><option value="REJECTED">Rejected</option>
+            </select>
+        </label>
+        <label class="text-xs font-bold text-slate-500">Sort by
+            <select class="block w-full border border-slate-200 rounded-xl p-3 mt-1 text-sm font-normal text-slate-900" @bind="sortBy"><option value="newest">Newest first</option><option value="passes">Most subjects passed</option><option value="subjects">Most subjects studied</option></select>
+        </label>
+        <label class="text-xs font-bold text-slate-500">Payment
+            <select class="block w-full border border-slate-200 rounded-xl p-3 mt-1 text-sm font-normal text-slate-900" @bind="paymentFilter">
+                <option value="all">All payments</option><option value="paid">Paid</option><option value="unpaid">Not confirmed paid</option>
+            </select>
+        </label>
+    </div>
+    <div class="grid grid-cols-1 gap-6 items-start">
+        <section aria-label="Application list" class="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+            <div class="p-4 border-b border-slate-100 text-sm text-slate-500">@Filtered.Count() of @applications.Count applications</div>
+            @if (Filtered.Any())
+            {
+                <p class="border-b border-slate-100 bg-slate-50 px-4 py-3 text-xs font-medium text-slate-600">Select an applicant to open their full application and review the admission decision.</p>
+            }
+            @if (!Filtered.Any())
+            {
+                <div class="p-10 text-center text-slate-500">@(applications.Count == 0 ? "No applications have been submitted yet." : "No applications match these filters.")</div>
+            }
+            <div class="divide-y divide-slate-100 max-h-[680px] overflow-y-auto">
+                @foreach (var application in Filtered)
+                {
+                    <article @key="application.Id" class="w-full p-5 hover:bg-slate-50">
+                        <div class="flex justify-between gap-3">
+                            <span class="font-bold text-slate-900">@application.FirstName @application.LastName</span>
+                            <span class="text-xs font-bold rounded-full px-3 py-1 @DecisionStyle(application)">@DecisionLabel(application)</span>
+                        </div>
+                        <div class="text-sm text-slate-500 mt-2">#@application.Id · Form @application.Form · @(application.Paid == true ? "Paid" : "Payment not confirmed")</div>
+                        <div class="text-sm text-slate-500 mt-1">@AcademicSummary(application).Label: @AcademicSummary(application).Value</div>
+                        <div class="text-sm text-slate-500 mt-1">Guardian: @Display(application.GuardianName) · @Display(application.GuardianPhone)</div>
+                        <button type="button" class="mt-3 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-indigo-700 hover:bg-indigo-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600" disabled="@saving" aria-haspopup="dialog" @onclick="() => Select(application)">
+                            View full application <span aria-hidden="true">→</span>
+                        </button>
+                    </article>
+                }
+            </div>
+        </section>
+    </div>
+}
+
+@if (selected is not null)
+{
+    <div class="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/60 p-3 sm:p-6" role="presentation" @onclick="CloseDetails">
+        <section role="dialog" aria-modal="true" aria-labelledby="application-modal-title" class="w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl sm:p-8" @onclick:stopPropagation="true">
+            <div class="sticky top-[-1.25rem] z-10 -mx-5 -mt-5 mb-6 flex items-start justify-between gap-4 border-b border-slate-100 bg-white p-5 sm:top-[-2rem] sm:-mx-8 sm:-mt-8 sm:p-8">
+                <div>
+                    <p class="text-xs font-bold tracking-wide text-slate-500">APPLICATION #@selected.Id</p>
+                    <h2 id="application-modal-title" class="mt-1 text-2xl font-extrabold text-slate-900">@selected.FirstName @selected.LastName</h2>
+                    <span class="mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold @DecisionStyle(selected)">@DecisionLabel(selected)</span>
+                </div>
+                <button type="button" class="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50" aria-label="Close application details" @onclick="CloseDetails">Close</button>
+            </div>
+
+            <h3 class="mb-3 font-bold text-sm">Student details</h3>
+            <dl class="mb-6 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+                @foreach (var field in StudentDetails(selected))
+                {
+                    <div><dt class="text-slate-500">@field.Label</dt><dd class="mt-1 break-words font-medium text-slate-900">@Display(field.Value)</dd></div>
+                }
+                <div><dt class="text-slate-500">@(AcademicSummary(selected).Label)</dt><dd class="mt-1 font-medium text-slate-900">@AcademicSummary(selected).Value</dd></div>
+            </dl>
+            <h3 class="mb-3 font-bold text-sm">Parent / guardian</h3>
+            <dl class="mb-6 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+                <div><dt class="text-slate-500">Name</dt><dd class="mt-1">@Display(selected.GuardianName)</dd></div>
+                <div><dt class="text-slate-500">Relationship</dt><dd class="mt-1">@Display(selected.GuardianRelationship)</dd></div>
+                <div><dt class="text-slate-500">Phone</dt><dd class="mt-1">@Display(selected.GuardianPhone)</dd></div>
+                <div><dt class="text-slate-500">Email</dt><dd class="mt-1 break-words">@Display(selected.GuardianEmail)</dd></div>
+            </dl>
+            <div class="mb-5 rounded-xl bg-slate-50 p-4 text-sm">
+                <p><strong>Application fee:</strong> @(selected.Paid == true ? "Paid" : "Payment not confirmed")</p>
+                @if (selected.Status == "PROCESSING PAYMENT") { <p class="mt-1 text-slate-500">Payment is processing.</p> }
+            </div>
+            @if (CanDecide && pendingDecision is not null)
+            {
+                <div class="rounded-xl border border-amber-200 bg-amber-50 p-4" role="group" aria-label="Confirm application decision">
+                    <p class="text-sm font-bold">@(pendingDecision == true ? "Accept" : "Reject") this application?</p>
+                    <p class="mt-2 text-sm">This records the admission decision. Acceptance does not create a student portal account.</p>
+                    @if (pendingDecision == true && selected.Paid != true) { <p class="mt-2 text-sm font-semibold">The application fee has not been confirmed paid.</p> }
+                    <div class="mt-4 flex flex-wrap gap-3">
+                        <button class="rounded-full bg-slate-900 px-5 py-2 text-sm font-bold text-white disabled:opacity-50" disabled="@saving" @onclick="SaveDecisionAsync">@(saving ? "Saving…" : "Confirm decision")</button>
+                        <button class="rounded-full border border-slate-300 px-5 py-2 text-sm font-bold disabled:opacity-50" disabled="@saving" @onclick="() => pendingDecision = null">Cancel</button>
+                    </div>
+                </div>
+            }
+            else if (CanDecide)
+            {
+                <div class="flex flex-wrap gap-3">
+                    <button class="rounded-full bg-emerald-600 px-5 py-2 text-sm font-bold text-white disabled:opacity-50" disabled="@(selected.Status == "ACCEPTED")" @onclick="() => pendingDecision = true">Approve application</button>
+                    <button class="rounded-full border border-rose-200 px-5 py-2 text-sm font-bold text-rose-700 disabled:opacity-50" disabled="@(selected.Status == "REJECTED")" @onclick="() => pendingDecision = false">Reject application</button>
+                </div>
+            }
+        </section>
+    </div>
+}
+
+@code {
+    [Parameter] public bool CanDecide { get; set; }
+    [Parameter] public string DashboardUrl { get; set; } = "/admin";
+    private List<StudentApplication> applications = new();
+    private StudentApplication? selected;
+    private bool loading = true, loaded, saving;
+    private bool? pendingDecision;
+    private string search = "", decisionFilter = "all", paymentFilter = "all", sortBy = "newest";
+    private string? error, message;
+
+    private static bool IsPending(StudentApplication a) => a.Status is not ("ACCEPTED" or "REJECTED");
+    private static string Display(string? value) => string.IsNullOrWhiteSpace(value) ? "Not provided" : value;
+    private static (string Label, string Value) AcademicSummary(StudentApplication a) => a.Form == 1
+        ? ("Grade 7 units", a.GradeSevenUnits?.ToString() ?? "Not provided")
+        : ("Subjects passed", a.SubjectsPassed?.ToString() ?? "Not provided");
+    private static string DecisionLabel(StudentApplication a) => a.Status switch { "ACCEPTED" => "Accepted", "REJECTED" => "Rejected", _ => "Awaiting review" };
+    private static string DecisionStyle(StudentApplication a) => a.Status switch { "ACCEPTED" => "bg-emerald-50 text-emerald-700", "REJECTED" => "bg-rose-50 text-rose-700", _ => "bg-amber-50 text-amber-700" };
+    private (string Label, int Count)[] Summaries => new[] {
+        ("Total", applications.Count), ("Awaiting review", applications.Count(IsPending)),
+        ("Accepted", applications.Count(a => a.Status == "ACCEPTED")), ("Rejected", applications.Count(a => a.Status == "REJECTED"))
+    };
+    private IEnumerable<StudentApplication> Filtered => applications.Where(a =>
+        (decisionFilter == "all" || (decisionFilter == "pending" ? IsPending(a) : a.Status == decisionFilter)) &&
+        (paymentFilter == "all" || (paymentFilter == "paid" ? a.Paid == true : a.Paid != true)) &&
+        (string.IsNullOrWhiteSpace(search) || $"{a.Id} {a.FirstName} {a.LastName} {a.GuardianName} {a.Phone} {a.GuardianPhone}".Contains(search.Trim().TrimStart('#'), StringComparison.OrdinalIgnoreCase)))
+        .OrderByDescending(a => sortBy == "passes" ? (a.Form == 1 ? a.GradeSevenUnits : a.SubjectsPassed) ?? -1 : sortBy == "subjects" ? CountSubjects(a.SubjectsStudied) : a.Id)
+        .ThenByDescending(a => a.Id);
+    private static int CountSubjects(string? subjects) => string.IsNullOrWhiteSpace(subjects) ? 0 : subjects.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Length;
+    private static (string Label, string? Value)[] StudentDetails(StudentApplication a) => new[] {
+        ("Form", a.Form?.ToString()), ("Previous school", a.PreviousSchool),
+        ("Subjects studied or examined", a.SubjectsStudied), ("Date of birth", a.DateOfBirth?.ToString("dd MMM yyyy")),
+        ("Gender", a.Gender), ("National ID", a.NationalId), ("Phone", a.Phone),
+        ("Email", a.Email), ("Address", a.Address), ("Religion", a.Religion)
+    };
+    protected override Task OnInitializedAsync() => LoadAsync();
+    private async Task LoadAsync()
+    {
+        loading = true;
+        error = message = null;
+        pendingDecision = null;
+        try
+        {
+            applications = await ApplicationService.GetApplicationsAsync();
+            selected = applications.FirstOrDefault(a => a.Id == selected?.Id);
+            loaded = true;
+        }
+        catch (Exception)
+        {
+            error = "Applications could not be loaded. Please refresh to try again.";
+            loaded = false;
+            selected = null;
+        }
+        finally { loading = false; }
+    }
+    private void Select(StudentApplication application)
+    {
+        selected = application;
+        pendingDecision = null;
+        error = message = null;
+    }
+    private void CloseDetails()
+    {
+        if (saving) return;
+        selected = null;
+        pendingDecision = null;
+    }
+    private async Task SaveDecisionAsync()
+    {
+        if (selected is null || pendingDecision is null || saving) return;
+        var application = selected;
+        var accept = pendingDecision.Value;
+        saving = true;
+        error = message = null;
+        try
+        {
+            await ApplicationService.SetDecisionAsync(application.Id, accept);
+            application.Status = accept ? "ACCEPTED" : "REJECTED";
+            pendingDecision = null;
+            message = $"Application #{application.Id} for {application.FirstName} {application.LastName} was {(accept ? "accepted" : "rejected")}.";
+        }
+        catch (Exception) { error = "The decision could not be confirmed. Refresh to check the current status before trying again."; }
+        finally { saving = false; }
+    }
+}

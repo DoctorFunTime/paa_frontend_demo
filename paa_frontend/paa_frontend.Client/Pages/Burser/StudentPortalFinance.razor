@@ -487,11 +487,7 @@
                 studentId: Me.Id, amount: payAmount, term: CurrentTerm, termYear: int.Parse(CurrentTermYear));
             if (response?.Status == "ERROR") { payError = response.Message ?? "Could not generate bank transfer reference."; return; }
             successRef  = response?.PaymentReference ?? string.Empty;
-            bankDetails = new BankTransferResponse {
-                PaymentReference = response?.PaymentReference,
-                BankName = "Demo Bank (fictional)", AccountName = "PrimeApp Demo",
-                AccountNumber = "DEMO-NOT-A-BANK-ACCOUNT", BranchCode = "DEMO", Amount = payAmount,
-            };
+            bankDetails = response;
             paymentState = "success";
         }
         catch (Exception ex) { payError = $"Could not initiate bank transfer: {ex.Message}"; }

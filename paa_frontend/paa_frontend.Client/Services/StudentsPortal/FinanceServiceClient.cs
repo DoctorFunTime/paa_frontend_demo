@@ -58,9 +58,16 @@ namespace paa_frontend.Client.Services.StudentsPortal
             return await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
         }
 
-        public async Task<Dictionary<string, object>?> GenerateAllInvoicesAsync(string academicYear, string academicTerm, int billingMonth)
+        public async Task<Dictionary<string, object>?> GenerateInvoiceBatchAsync(string academicYear, string academicTerm, int billingMonth, long afterStudentId)
         {
-            var response = await _http.PostAsync($"/api/v1/invoicing/generate-all?academicYear={Uri.EscapeDataString(academicYear)}&academicTerm={Uri.EscapeDataString(academicTerm)}&billingMonth={billingMonth}", null);
+            var response = await _http.PostAsync($"/api/v1/invoicing/generate-batch?academicYear={Uri.EscapeDataString(academicYear)}&academicTerm={Uri.EscapeDataString(academicTerm)}&billingMonth={billingMonth}&afterStudentId={afterStudentId}&batchSize=2", null);
+            await EnsureSuccessWithDetailsAsync(response);
+            return await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
+        }
+
+        public async Task<Dictionary<string, object>?> RetryUnpostedInvoicesAsync()
+        {
+            var response = await _http.PostAsync("/api/v1/invoicing/retry-unposted", null);
             await EnsureSuccessWithDetailsAsync(response);
             return await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
         }
@@ -82,6 +89,21 @@ namespace paa_frontend.Client.Services.StudentsPortal
         public async Task DeleteScholarshipAsync(long id)
         {
             var response = await _http.DeleteAsync($"/api/v1/invoicing/scholarships/delete/{id}");
+            await EnsureSuccessWithDetailsAsync(response);
+        }
+
+        public Task<List<StudentAdditionalFeeDto>?> GetAdditionalFeesAsync() =>
+            _http.GetFromJsonAsync<List<StudentAdditionalFeeDto>>("/api/v1/invoicing/additional-fees");
+
+        public async Task SaveAdditionalFeeAsync(StudentAdditionalFeeDto fee)
+        {
+            var response = await _http.PostAsJsonAsync("/api/v1/invoicing/additional-fees", fee);
+            await EnsureSuccessWithDetailsAsync(response);
+        }
+
+        public async Task DeleteAdditionalFeeAsync(long id)
+        {
+            var response = await _http.DeleteAsync($"/api/v1/invoicing/additional-fees/{id}");
             await EnsureSuccessWithDetailsAsync(response);
         }
 
@@ -281,10 +303,11 @@ namespace paa_frontend.Client.Services.StudentsPortal
             return await response.Content.ReadFromJsonAsync<FeesStructureDto>();
         }
 
-        public async Task SetFeeStructureStatusAsync(long id, bool isActive)
+        public async Task<FeesStructureDto?> SetFeeStructureStatusAsync(long id, bool isActive)
         {
             var response = await _http.PatchAsync($"/api/v1/fees-configuration/structures/{id}/status?isActive={isActive.ToString().ToLowerInvariant()}", null);
             await EnsureSuccessWithDetailsAsync(response);
+            return await response.Content.ReadFromJsonAsync<FeesStructureDto>();
         }
 
         public async Task DeleteFeeStructureAsync(long id)

@@ -31,6 +31,7 @@
             <NavLink class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors" activeClass="!bg-[#0F172A] !text-white shadow-md" href="/admin" Match="NavLinkMatch.All">
                 Dashboard
             </NavLink>
+            <NavLink class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors" activeClass="!bg-[#0F172A] !text-white shadow-md" href="/admin/applications" Match="NavLinkMatch.Prefix">Applications</NavLink>
             <div class="relative group">
                 <button class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium transition-colors @(IsStudentSectionActive ? "bg-[#0F172A] text-white shadow-md" : "text-slate-500 hover:text-slate-900 hover:bg-slate-50")">
                     Students
@@ -132,6 +133,7 @@
         <div class="fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-sm lg:hidden mt-[68px] sm:mt-[72px]" @onclick="ToggleMobileMenu"></div>
         <nav class="fixed top-[68px] sm:top-[72px] left-0 w-full max-h-[calc(100vh-68px)] sm:max-h-[calc(100vh-72px)] overflow-y-auto bg-white border-b border-slate-100 p-4 flex flex-col gap-2 z-50 lg:hidden shadow-xl animate-fade-in-down">
             <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50" activeClass="bg-slate-900 text-white" href="/admin" Match="NavLinkMatch.All" @onclick="ToggleMobileMenu">Dashboard</NavLink>
+            <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50" activeClass="bg-slate-900 text-white" href="/admin/applications" Match="NavLinkMatch.Prefix" @onclick="ToggleMobileMenu">Applications</NavLink>
             <div class="rounded-xl border border-slate-200 bg-slate-50 p-2">
                 <div class="px-3 py-2 text-xs font-black uppercase tracking-widest text-slate-400">Students</div>
                 <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 block" activeClass="bg-slate-900 text-white" href="/students" Match="NavLinkMatch.Prefix" @onclick="ToggleMobileMenu">Directory</NavLink>
@@ -144,6 +146,7 @@
                 <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 block" activeClass="bg-slate-900 text-white" href="/admin/admins" Match="NavLinkMatch.Prefix" @onclick="ToggleMobileMenu">Administrators</NavLink>
             </div>
             <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50" activeClass="bg-slate-900 text-white" href="/admin/academics" @onclick="ToggleMobileMenu">Academics</NavLink>
+            <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50" activeClass="bg-slate-900 text-white" href="/admin/help" @onclick="ToggleMobileMenu">Help</NavLink>
             <div class="rounded-xl border border-slate-200 bg-slate-50 p-2">
                 <div class="px-3 py-2 text-xs font-black uppercase tracking-widest text-slate-400">Student Passes</div>
                 <NavLink class="px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 block" activeClass="bg-slate-900 text-white" href="/admin/passes" Match="NavLinkMatch.Prefix" @onclick="ToggleMobileMenu">Passes</NavLink>

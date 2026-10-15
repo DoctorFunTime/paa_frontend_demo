@@ -16,6 +16,9 @@
     .fee-setup-page input, .fee-setup-page select { max-width: 100%; }
     .fee-setup-page .action-row { display: flex; flex-wrap: wrap; gap: .75rem; }
     .fee-setup-page .structure-card-actions { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: flex-end; }
+    .invoice-progress-overlay { position: fixed; inset: 0; z-index: 5000; display: flex; align-items: center; justify-content: center; padding: 1rem; background: rgba(15, 23, 42, .68); backdrop-filter: blur(3px); }
+    .invoice-progress-spinner { width: 2.5rem; height: 2.5rem; border: 4px solid #cbd5e1; border-top-color: #10b981; border-radius: 50%; animation: invoice-progress-spin .8s linear infinite; flex: none; }
+    @@keyframes invoice-progress-spin { to { transform: rotate(360deg); } }
     @@media (max-width: 640px) {
         .fee-setup-page { width: 100%; }
         .fee-setup-page .panel-padding { padding: 1rem; }
@@ -55,9 +58,12 @@
                 <h2 class="mt-2 text-lg font-extrabold">Generate invoices</h2>
                 <p class="mt-1 max-w-2xl text-xs font-medium text-slate-300">Choose the academic period first. The system applies active structures, includes matching monthly and termly lines, and will not create duplicate invoices.</p>
             </div>
-                <button class="w-full lg:w-auto shrink-0 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-black text-white shadow-sm hover:bg-emerald-400 disabled:cursor-wait disabled:opacity-60" @onclick="GenerateAllInvoicesAsync" disabled="@isGeneratingInvoices">
-                    @(isGeneratingInvoices ? "Generating..." : "Generate all applicable invoices")
-                </button>
+                <div class="flex flex-wrap gap-2">
+                    <button class="w-full lg:w-auto shrink-0 rounded-xl border border-slate-500 px-5 py-3 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-60" @onclick="RetryUnpostedInvoicesAsync" disabled="@isGeneratingInvoices">Update student balances</button>
+                    <button class="w-full lg:w-auto shrink-0 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-black text-white shadow-sm hover:bg-emerald-400 disabled:cursor-wait disabled:opacity-60" @onclick="GenerateAllInvoicesAsync" disabled="@isGeneratingInvoices">
+                        @(isGeneratingInvoices ? "Generating..." : "Generate all applicable invoices")
+                    </button>
+                </div>
         </div>
         <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <label class="text-xs font-bold text-slate-300">Academic year
@@ -80,7 +86,7 @@
                 </select>
             </label>
         </div>
-        <p class="mt-3 text-xs font-medium text-slate-300">Current recommendation: @CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(generationBillingMonth) uses @generationAcademicTerm. If a matching structure is inactive or missing, those students are skipped and reported.</p>
+        <p class="mt-3 text-xs font-medium text-slate-300">The latest active matching structure is reused for later terms until you activate a newer one. Inactive structures are not used. @CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(generationBillingMonth) is billed under @generationAcademicTerm.</p>
         @if (!string.IsNullOrWhiteSpace(monthlyGenerationMessage))
         {
             <div class="mt-4 rounded-xl border @(monthlyGenerationIsError ? "border-rose-300 bg-rose-500/20 text-rose-100" : "border-emerald-300 bg-emerald-500/20 text-emerald-100") p-3 text-sm font-medium">@monthlyGenerationMessage</div>
@@ -118,7 +124,7 @@
             {
                 <select class="w-full rounded-xl border border-violet-200 bg-white px-4 py-3 text-sm font-bold" @bind="selectedScholarshipFeeHeadId">
                     <option value="0">Select fee line...</option>
-                    @foreach (var head in feeHeads.OrderBy(h => h.Name))
+                    @foreach (var head in GetBillableFeeHeadsForSelectedStudent())
                     {
                         <option value="@head.Id">@head.Name</option>
                     }
@@ -136,7 +142,7 @@
             }
             else
             {
-                <span>Only the selected fee line will be reduced. This is a fixed amount, not a percentage.</span>
+                <span>Only the selected billed fee line will be reduced on new invoices. Existing posted invoices do not change automatically.</span>
             }
         </div>
         <div class="action-row mt-3">
@@ -150,9 +156,66 @@
                 {
                     var student = students.FirstOrDefault(s => s.Id == adjustment.StudentId);
                     <div class="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-violet-100 bg-white p-3 text-xs">
-                        <span class="min-w-0 truncate font-bold text-slate-700">@(student is null ? $"Student {adjustment.StudentId}" : $"{student.FirstName} {student.LastName}") · @adjustment.ScholarshipType · @adjustment.ScholarshipAmount.ToString("C")</span>
+                        <span class="min-w-0 font-bold text-slate-700">@(student is null ? $"Student {adjustment.StudentId}" : $"{student.FirstName} {student.LastName}") · @FormatScholarshipTarget(adjustment) · @adjustment.ScholarshipAmount.ToString("C")
+                            @if (!AdjustmentMatchesBillableHead(adjustment))
+                            { <span class="block text-rose-600">This target is not a billed fee line for this student. Edit it to select Tuition or another billed line.</span> }
+                        </span>
                         @if (adjustment.Id is long adjustmentId)
                         { <button class="shrink-0 font-bold text-rose-600" @onclick="() => DeleteScholarshipAsync(adjustmentId)">Remove</button> }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="mb-6 rounded-3xl border border-sky-200 bg-sky-50 p-4 sm:p-6">
+        <h2 class="text-lg font-extrabold text-sky-950">Student-specific costs</h2>
+        <p class="mt-1 text-xs text-sky-900/70">Choose a fee head to name the charge, then enter this student's amount below. Fee heads do not have fixed prices. The assigned cost is billed during the matching term or month and shown on the statement.</p>
+        <div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+            <select class="rounded-xl border border-sky-200 bg-white px-3 py-3 text-sm" @bind="additionalFeeStudentId">
+                <option value="0">Select student...</option>
+                @foreach (var student in students.OrderBy(s => s.LastName).ThenBy(s => s.FirstName))
+                { <option value="@student.Id">@student.FirstName @student.LastName</option> }
+            </select>
+            <select class="rounded-xl border border-sky-200 bg-white px-3 py-3 text-sm" @bind="additionalFeeHeadId">
+                <option value="0">Select fee head...</option>
+                @foreach (var head in feeHeads.OrderBy(h => h.Name))
+                { <option value="@head.Id">@head.Name</option> }
+            </select>
+            <input type="number" min="0.01" step="0.01" placeholder="Amount (USD)" class="rounded-xl border border-sky-200 bg-white px-3 py-3 text-sm" @bind="additionalFeeAmount" />
+            <input placeholder="Academic year" class="rounded-xl border border-sky-200 bg-white px-3 py-3 text-sm" @bind="additionalFeeYear" />
+            @if (additionalFeeCycle == "TERM")
+            {
+                <select class="rounded-xl border border-sky-200 bg-white px-3 py-3 text-sm" @bind="additionalFeeTerm">
+                    @foreach (var term in academicTerms)
+                    { <option value="@term">@term.Replace("_", " ")</option> }
+                </select>
+            }
+            <select class="rounded-xl border border-sky-200 bg-white px-3 py-3 text-sm" @bind="additionalFeeCycle">
+                <option value="TERM">One term</option>
+                <option value="MONTHLY">One month</option>
+            </select>
+            @if (additionalFeeCycle == "MONTHLY")
+            {
+                <select class="rounded-xl border border-sky-200 bg-white px-3 py-3 text-sm" @bind="additionalFeeMonth">
+                    @foreach (var month in Enumerable.Range(1, 12))
+                    { <option value="@month">@CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(month)</option> }
+                </select>
+            }
+        </div>
+        <button class="mt-3 rounded-xl bg-sky-700 px-5 py-3 text-sm font-bold text-white disabled:opacity-60" @onclick="SaveAdditionalFeeAsync" disabled="@isSavingAdditionalFee">@(isSavingAdditionalFee ? "Saving..." : "Assign cost")</button>
+        @if (additionalFees.Any())
+        {
+            <div class="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                @foreach (var fee in additionalFees)
+                {
+                    var student = students.FirstOrDefault(s => s.Id == fee.StudentId);
+                    <div class="flex items-center justify-between gap-2 rounded-xl bg-white p-3 text-xs">
+                        <span>@(student is null ? $"Student {fee.StudentId}" : $"{student.FirstName} {student.LastName}") · @fee.Description · @fee.Amount.ToString("C") · @fee.AcademicYear @fee.AcademicTerm @(fee.BillingMonth is int m ? CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m) : "")</span>
+                        @if (fee.Invoiced)
+                        { <span class="font-bold text-emerald-700">Invoiced</span> }
+                        else if (fee.Id is long feeId)
+                        { <button class="font-bold text-rose-600" @onclick="() => DeleteAdditionalFeeAsync(feeId)">Remove</button> }
                     </div>
                 }
             </div>
@@ -293,7 +356,7 @@
                     </div>
                     <p class="text-xs font-medium text-slate-500 -mt-2 mb-4">
                         Use a form for a form-specific structure. Set Form to 0 and choose O_LEVEL or A_LEVEL for a level-wide fallback.
-                        A stream/field can narrow the structure further.
+                        An active structure is reused for later terms until a newer matching structure is activated. A stream/field can narrow it further.
                     </p>
 
                     <div class="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -453,9 +516,25 @@
     }
 </div>
 
+@if (isGeneratingInvoices)
+{
+    <div class="invoice-progress-overlay" role="alertdialog" aria-modal="true" aria-labelledby="invoice-progress-title" aria-describedby="invoice-progress-description">
+        <div class="flex w-full max-w-md items-start gap-4 rounded-2xl bg-white p-6 shadow-2xl">
+            <span class="invoice-progress-spinner" aria-hidden="true"></span>
+            <div>
+                <h2 id="invoice-progress-title" class="text-lg font-extrabold text-slate-900">@invoiceProgressTitle</h2>
+                <p id="invoice-progress-description" class="mt-2 text-sm text-slate-600" aria-live="polite">@invoiceProgressDescription</p>
+                <p class="mt-3 text-xs text-slate-500">Please keep this page open until the process finishes.</p>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private bool isLoading = true;
     private bool isGeneratingInvoices;
+    private string invoiceProgressTitle = "Preparing invoices";
+    private string invoiceProgressDescription = "This may take a few minutes.";
     private string monthlyGenerationMessage = string.Empty;
     private bool monthlyGenerationIsError;
     private List<string> pageWarnings = new();
@@ -465,6 +544,15 @@
     private List<FeesStructureItemDto> structureItems = new();
     private List<StudentProfileModel.Student> students = new();
     private List<ScholarshipStudentDto> scholarships = new();
+    private List<StudentAdditionalFeeDto> additionalFees = new();
+    private long additionalFeeStudentId;
+    private long additionalFeeHeadId;
+    private decimal additionalFeeAmount;
+    private string additionalFeeYear = DateTime.Today.Year.ToString();
+    private string additionalFeeTerm = GetTermForMonth(DateTime.Today.Month);
+    private string additionalFeeCycle = "TERM";
+    private int additionalFeeMonth = DateTime.Today.Month;
+    private bool isSavingAdditionalFee;
 
     private FeesHeadDto editingFeeHead = new() { DefaultFrequency = "TERM_WISE" };
     private FeesStructureDto editingStructure = new() { AcademicTerm = "TERM_1", Currency = "USD", Stream = "default", IsActive = true };
@@ -536,23 +624,24 @@
     private async Task GenerateMonthlyInvoicesAsync()
     {
         isGeneratingInvoices = true;
+        invoiceProgressTitle = "Generating monthly invoices";
+        invoiceProgressDescription = "Preparing student bills. This may take a few minutes.";
         monthlyGenerationMessage = string.Empty;
         monthlyGenerationIsError = false;
+        await InvokeAsync(StateHasChanged);
         try
         {
             var now = DateTime.Today;
             var response = await FinanceService.GenerateMonthlyInvoicesAsync(now.Year.ToString(), now.Month);
-            object created = 0;
-            if (response is not null && response.TryGetValue("createdInvoices", out var value))
-            {
-                created = value ?? 0;
-            }
-            monthlyGenerationMessage = $"Invoice generation completed for {now:MMMM yyyy}. Created: {created}.";
+            monthlyGenerationIsError = ReportCount(response, "failedInvoices") > 0 || ReportCount(response, "unpostedInvoices") > 0;
+            monthlyGenerationMessage = monthlyGenerationIsError
+                ? $"Some {now:MMMM yyyy} bills need attention. Please try again shortly."
+                : $"Monthly bills for {now:MMMM yyyy} are ready.";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             monthlyGenerationIsError = true;
-            monthlyGenerationMessage = "Could not generate invoices. " + ex.Message;
+            monthlyGenerationMessage = "Monthly billing could not finish. Please try again; completed bills will not be duplicated.";
         }
         finally
         {
@@ -563,24 +652,88 @@
     private async Task GenerateAllInvoicesAsync()
     {
         isGeneratingInvoices = true;
+        invoiceProgressTitle = "Generating invoices";
+        invoiceProgressDescription = "Preparing student bills. This may take a few minutes.";
         monthlyGenerationMessage = string.Empty;
         monthlyGenerationIsError = false;
+        await InvokeAsync(StateHasChanged);
+        var processed = 0;
+        var termCreated = 0;
+        var monthlyCreated = 0;
+        var existing = 0;
+        var failed = 0;
+        var unposted = 0;
         try
         {
             var year = string.IsNullOrWhiteSpace(generationAcademicYear) ? DateTime.Today.Year.ToString() : generationAcademicYear.Trim();
             var term = generationAcademicTerm;
-            var response = await FinanceService.GenerateAllInvoicesAsync(year, term, generationBillingMonth);
-            object termCreated = response is not null && response.TryGetValue("termInvoicesCreated", out var termValue) ? termValue ?? 0 : 0;
-            object monthlyCreated = response is not null && response.TryGetValue("monthlyInvoicesCreated", out var monthlyValue) ? monthlyValue ?? 0 : 0;
-            monthlyGenerationMessage = $"Invoice generation completed for {year} {term} / {CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(generationBillingMonth)}. Term invoices: {termCreated}; monthly invoices: {monthlyCreated}. Existing invoices were left unchanged.";
+            long afterStudentId = 0;
+            bool hasMore;
+            do
+            {
+                var response = await FinanceService.GenerateInvoiceBatchAsync(year, term, generationBillingMonth, afterStudentId);
+                if (response is null) throw new InvalidOperationException("Invoice service returned no batch result.");
+                processed += ReportCount(response, "processedStudents");
+                termCreated += ReportCount(response, "termInvoicesCreated");
+                monthlyCreated += ReportCount(response, "monthlyInvoicesCreated");
+                existing += ReportCount(response, "existingInvoices");
+                failed += ReportCount(response, "failedInvoices");
+                unposted += ReportCount(response, "unpostedInvoices");
+                hasMore = ReportBool(response, "hasMore");
+                var nextStudentId = ReportLong(response, "nextStudentId");
+                if (hasMore && nextStudentId <= afterStudentId)
+                    throw new InvalidOperationException("Invoice service did not advance to the next batch.");
+                afterStudentId = nextStudentId;
+                invoiceProgressDescription = $"Checked {processed} students. Please keep this page open.";
+                await InvokeAsync(StateHasChanged);
+            } while (hasMore);
+            monthlyGenerationIsError = failed > 0 || unposted > 0;
+            monthlyGenerationMessage = failed > 0 || unposted > 0
+                ? $"Checked {processed} students. {termCreated + monthlyCreated} new bills were created, and {existing} were already present. {failed + unposted} bills need attention. You can try again safely."
+                : $"Done. Checked {processed} students and created {termCreated + monthlyCreated} new bills. {existing} bills were already present.";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             monthlyGenerationIsError = true;
-            monthlyGenerationMessage = "Could not generate term invoices. " + ex.Message;
+            monthlyGenerationMessage = $"Invoice generation was interrupted after checking {processed} students. Any completed bills were saved. Please try again; existing bills will not be duplicated.";
         }
         finally { isGeneratingInvoices = false; }
     }
+
+    private async Task RetryUnpostedInvoicesAsync()
+    {
+        isGeneratingInvoices = true;
+        invoiceProgressTitle = "Updating student balances";
+        invoiceProgressDescription = "Checking bills that have not yet appeared on student accounts.";
+        await InvokeAsync(StateHasChanged);
+        try
+        {
+            var response = await FinanceService.RetryUnpostedInvoicesAsync();
+            monthlyGenerationIsError = ReportCount(response, "remainingUnpostedInvoices") > 0 || ReportCount(response, "failedInvoices") > 0;
+            var remaining = ReportCount(response, "remainingUnpostedInvoices");
+            monthlyGenerationMessage = remaining > 0
+                ? $"Some bills have not yet appeared on student accounts ({remaining} remaining). Please try again shortly."
+                : "Student account balances are up to date.";
+        }
+        catch (Exception)
+        {
+            monthlyGenerationIsError = true;
+            monthlyGenerationMessage = "Student balances could not be updated right now. Please try again.";
+        }
+        finally { isGeneratingInvoices = false; }
+    }
+
+    private static int ReportCount(Dictionary<string, object>? response, string key) =>
+        response is not null && response.TryGetValue(key, out var value) && int.TryParse(value?.ToString(), out var count)
+            ? count : 0;
+
+    private static long ReportLong(Dictionary<string, object>? response, string key) =>
+        response is not null && response.TryGetValue(key, out var value) && long.TryParse(value?.ToString(), out var count)
+            ? count : 0;
+
+    private static bool ReportBool(Dictionary<string, object>? response, string key) =>
+        response is not null && response.TryGetValue(key, out var value) &&
+        bool.TryParse(value?.ToString(), out var result) && result;
 
     private async Task LoadAsync()
     {
@@ -592,6 +745,20 @@
             feeStructures = await LoadFeeStructuresSafeAsync();
             students = await StudentService.GetStudentsAsync();
             scholarships = await FinanceService.GetScholarshipsAsync() ?? new();
+            try
+            {
+                additionalFees = await FinanceService.GetAdditionalFeesAsync() ?? new();
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                additionalFees = new();
+                pageWarnings.Add("Student cost assignments are unavailable until the invoicing service is updated.");
+            }
+            catch (Exception)
+            {
+                additionalFees = new();
+                pageWarnings.Add("Student cost assignments could not be loaded right now.");
+            }
 
             if (selectedStructure?.Id is long structureId)
             {
@@ -608,6 +775,57 @@
         }
     }
 
+    private async Task SaveAdditionalFeeAsync()
+    {
+        var head = feeHeads.FirstOrDefault(h => h.Id == additionalFeeHeadId);
+        if (additionalFeeStudentId <= 0 || head?.Id is null || additionalFeeAmount <= 0)
+        {
+            NotificationService.ShowError("Select a student and fee head, then enter a positive amount.");
+            return;
+        }
+        isSavingAdditionalFee = true;
+        try
+        {
+            await FinanceService.SaveAdditionalFeeAsync(new StudentAdditionalFeeDto
+            {
+                StudentId = additionalFeeStudentId,
+                FeeHeadId = additionalFeeHeadId,
+                Description = head.Name ?? "Additional fee",
+                Amount = additionalFeeAmount,
+                AcademicYear = additionalFeeYear.Trim(),
+                AcademicTerm = additionalFeeCycle == "MONTHLY" ? GetTermForMonth(additionalFeeMonth) : additionalFeeTerm,
+                BillingCycle = additionalFeeCycle,
+                BillingMonth = additionalFeeCycle == "MONTHLY" ? additionalFeeMonth : null
+            });
+            additionalFees = await FinanceService.GetAdditionalFeesAsync() ?? new();
+            additionalFeeAmount = 0;
+            NotificationService.ShowSuccess("Cost assigned for the next matching invoice run.");
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            NotificationService.ShowError("Student cost assignments are not available yet. Please ask an administrator to update the invoicing service.");
+        }
+        catch (Exception)
+        {
+            NotificationService.ShowError("Could not assign this cost. Please check the details and try again.");
+        }
+        finally { isSavingAdditionalFee = false; }
+    }
+
+    private async Task DeleteAdditionalFeeAsync(long id)
+    {
+        try
+        {
+            await FinanceService.DeleteAdditionalFeeAsync(id);
+            additionalFees.RemoveAll(fee => fee.Id == id);
+            NotificationService.ShowSuccess("Unbilled cost removed.");
+        }
+        catch (Exception)
+        {
+            NotificationService.ShowError("Could not remove this cost. Please try again.");
+        }
+    }
+
     private void ResetScholarshipEditor()
     {
         selectedScholarshipStudentId = 0;
@@ -617,13 +835,73 @@
         selectedScholarshipFeeHeadId = 0;
     }
 
+    private List<FeesHeadDto> GetBillableFeeHeadsForSelectedStudent() =>
+        GetBillableFeeHeads(selectedScholarshipStudentId);
+
+    private List<FeesHeadDto> GetBillableFeeHeads(long studentId)
+    {
+        var student = students.FirstOrDefault(s => s.Id == studentId);
+        if (student is null) return new();
+        var level = ResolveLevel(student.Form);
+        return feeStructures
+            .Where(s => s.IsActive && (s.Form == student.Form ||
+                (s.Form == 0 && string.Equals(s.Level, level, StringComparison.OrdinalIgnoreCase))))
+            .SelectMany(s => s.FeeItems ?? new List<FeesStructureItemDto>())
+            .Where(item => item.FeeHead?.Id is > 0)
+            .Select(item => item.FeeHead!)
+            .GroupBy(head => head.Id)
+            .Select(group => group.First())
+            .OrderBy(head => head.Name)
+            .ToList();
+    }
+
+    private string FormatScholarshipTarget(ScholarshipStudentDto adjustment)
+    {
+        if (adjustment.ScholarshipType.Equals("ALL", StringComparison.OrdinalIgnoreCase)) return "All fee lines";
+        if (adjustment.ScholarshipType.Equals("Discount Student", StringComparison.OrdinalIgnoreCase))
+            return "Tuition (legacy Discount Student assignment)";
+        if (adjustment.ScholarshipType.StartsWith("FEE_HEAD:", StringComparison.OrdinalIgnoreCase) &&
+            long.TryParse(adjustment.ScholarshipType[9..], out var headId))
+            return feeHeads.FirstOrDefault(head => head.Id == headId)?.Name ?? $"Fee head {headId}";
+        return adjustment.ScholarshipType;
+    }
+
+    private bool AdjustmentMatchesBillableHead(ScholarshipStudentDto adjustment)
+    {
+        if (adjustment.ScholarshipType.Equals("ALL", StringComparison.OrdinalIgnoreCase)) return true;
+        var target = FormatScholarshipTarget(adjustment);
+        if (adjustment.ScholarshipType.Equals("Discount Student", StringComparison.OrdinalIgnoreCase))
+            target = "Tuition";
+        return GetBillableFeeHeads(adjustment.StudentId)
+            .Any(head => string.Equals(head.Name, target, StringComparison.OrdinalIgnoreCase));
+    }
+
     private async Task SaveScholarshipAsync()
     {
-        if (selectedScholarshipStudentId <= 0 || scholarshipAmount < 0 ||
+        if (selectedScholarshipStudentId <= 0 || scholarshipAmount <= 0 ||
             (scholarshipScope == "FEE_HEAD" && selectedScholarshipFeeHeadId <= 0))
         {
-            NotificationService.ShowError("Choose a student, adjustment scope, fee line when applicable, and a non-negative amount.");
+            NotificationService.ShowError("Choose a student, adjustment scope, fee line when applicable, and an amount greater than zero.");
             return;
+        }
+        if (scholarshipScope == "FEE_HEAD" && !GetBillableFeeHeadsForSelectedStudent().Any(h => h.Id == selectedScholarshipFeeHeadId))
+        {
+            NotificationService.ShowError("Choose a fee line that is billed to this student's active fee structure.");
+            return;
+        }
+        if (scholarshipScope == "FEE_HEAD")
+        {
+            var selectedHead = feeHeads.FirstOrDefault(head => head.Id == selectedScholarshipFeeHeadId);
+            var alreadyAssigned = scholarships.Any(adjustment => adjustment.StudentId == selectedScholarshipStudentId &&
+                (adjustment.ScholarshipType.Equals($"FEE_HEAD:{selectedScholarshipFeeHeadId}", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(adjustment.ScholarshipType, selectedHead?.Name, StringComparison.OrdinalIgnoreCase) ||
+                 (string.Equals(selectedHead?.Name, "Tuition", StringComparison.OrdinalIgnoreCase) &&
+                  adjustment.ScholarshipType.Equals("Discount Student", StringComparison.OrdinalIgnoreCase))));
+            if (alreadyAssigned)
+            {
+                NotificationService.ShowError("This student already has a discount assigned to that fee line.");
+                return;
+            }
         }
         isSavingScholarship = true;
         try
@@ -633,14 +911,14 @@
                 StudentId = selectedScholarshipStudentId,
                 ScholarshipType = scholarshipScope == "ALL"
                     ? "ALL"
-                    : feeHeads.First(h => h.Id == selectedScholarshipFeeHeadId).Name,
+                    : $"FEE_HEAD:{selectedScholarshipFeeHeadId}",
                 ScholarshipAmount = scholarshipAmount
             });
             scholarships = await FinanceService.GetScholarshipsAsync() ?? new();
             ResetScholarshipEditor();
-            NotificationService.ShowSuccess("Student adjustment saved.");
+            NotificationService.ShowSuccess("Student adjustment saved for invoice generation.");
         }
-        catch (Exception ex) { NotificationService.ShowError("Could not save adjustment: " + ex.Message); }
+        catch (Exception) { NotificationService.ShowError("Could not save this adjustment. Please try again."); }
         finally { isSavingScholarship = false; }
     }
 
@@ -659,7 +937,7 @@
             scholarships = await FinanceService.GetScholarshipsAsync() ?? new();
             NotificationService.ShowSuccess("Student adjustment removed.");
         }
-        catch (Exception ex) { NotificationService.ShowError("Could not remove adjustment: " + ex.Message); }
+        catch (Exception) { NotificationService.ShowError("Could not remove this adjustment. Please try again."); }
     }
 
     private async Task<List<FeesHeadDto>> LoadFeeHeadsSafeAsync()
@@ -836,7 +1114,7 @@
         }
     }
 
-    private static string ResolveLevel(int form) => form is >= 1 and <= 4 ? "O_LEVEL" : form is 5 or 6 ? "A_LEVEL" : "";
+    private static string ResolveLevel(int? form) => form is >= 1 and <= 4 ? "O_LEVEL" : form is 5 or 6 ? "A_LEVEL" : "";
 
     private static string FormatScope(FeesStructureDto structure)
     {
@@ -873,8 +1151,10 @@
         togglingStructureId = structure.Id;
         try
         {
-            await FinanceService.SetFeeStructureStatusAsync(structure.Id.Value, newStatus);
-            await LoadAsync();
+            var updated = await FinanceService.SetFeeStructureStatusAsync(structure.Id.Value, newStatus);
+            if (updated is null || updated.IsActive != newStatus)
+                throw new InvalidOperationException("The fee structure status was not confirmed by the server.");
+            structure.IsActive = updated.IsActive;
             StateHasChanged();
             NotificationService.ShowSuccess($"Fee structure status updated to {(newStatus ? "Active" : "Inactive")}.");
         }

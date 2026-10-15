@@ -10,6 +10,11 @@
 @inject paa_frontend.Client.Services.Auth.AuthService AuthService
 
 <style>
+    .student-utility-link { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%; border: 1px solid #e2e8f0; background: #f8fafc; color: #475569; }
+    .student-utility-link:hover { background: #eef2ff; color: #4338ca; }
+    .student-utility-link.selected { background: #0f172a; color: white; border-color: #0f172a; }
+    .student-utility-link:focus-visible { outline: 3px solid #6366f1; outline-offset: 3px; }
+
     @@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500;600&display=swap');
 
     *, *::before, *::after {
@@ -215,14 +220,14 @@
         <div class="flex items-center gap-2 sm:gap-3 cursor-pointer min-w-0" @onclick='() => Nav.NavigateTo("/portal")'>
             <img src="/images/demo-logo.svg" alt="PrimeApp Demo logo" class="w-9 h-9 sm:w-10 sm:h-10 object-contain drop-shadow-sm shrink-0" />
             <div class="flex flex-col min-w-0">
-                <span class="font-bold text-slate-900 text-[length:1.1rem] tracking-tight leading-tight hidden sm:block">PrimeApp Demo</span>
+                <span class="font-bold text-slate-900 text-[length:1.1rem] tracking-tight leading-tight hidden sm:block truncate">PrimeApp Demo</span>
                 <span class="font-bold text-slate-900 text-base tracking-tight sm:hidden truncate">PrimeApp Demo</span>
                 <span class="text-[length:0.65rem] font-semibold text-slate-400 uppercase tracking-wider hidden sm:block">Student Portal</span>
             </div>
         </div>
 
         <!-- Centered Nav Links (desktop) -->
-        <nav class="hidden lg:flex items-center gap-1 bg-transparent p-1.5 rounded-full">
+        <nav class="hidden 2xl:flex items-center gap-1 bg-transparent p-1.5 rounded-full">
             <button class="px-3 py-2 rounded-full text-[length:0.875rem] font-medium transition-colors @(CurrentPage == "overview" ? "bg-[#0F172A] text-white shadow-md" : "text-slate-500 hover:text-slate-900 hover:bg-slate-50")"
                     @onclick='() => NavigateTo("/portal")'>
                 Overview
@@ -265,7 +270,7 @@
                 <div class="w-7 h-7 rounded-full bg-gradient-to-br from-slate-800 to-slate-600 flex items-center justify-center text-white text-[length:0.6875rem] font-bold shadow-sm">
                     @initials
                 </div>
-                <div class="hidden sm:block text-left mr-1">
+                <div class="hidden xl:block text-left mr-1">
                     <div class="text-[length:0.75rem] font-bold text-slate-800 leading-none">@studentName</div>
                 </div>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-slate-400">
@@ -282,6 +287,13 @@
                 </svg>
             </button>
 
+            <NavLink href="/portal/rules" class="student-utility-link" ActiveClass="selected" title="School rules" aria-label="School rules" @onclick="CloseMobileMenu">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 3H20v19H6.5A2.5 2.5 0 0 1 4 19.5v-14A2.5 2.5 0 0 1 6.5 3Z"/><path d="M8 7h8M8 11h6"/></svg>
+            </NavLink>
+            <NavLink href="/portal/help" class="student-utility-link" ActiveClass="selected" title="Help centre" aria-label="Help centre" @onclick="CloseMobileMenu">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4"/><path d="M12 17h.01"/></svg>
+            </NavLink>
+
             <!-- Logout -->
             <button class="hidden md:flex w-10 h-10 rounded-full bg-slate-50 border border-slate-200 items-center justify-center text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0"
                     @onclick="Logout" title="Sign out">
@@ -293,8 +305,8 @@
             </button>
 
             <!-- Mobile hamburger -->
-            <button class="lg:hidden w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center shrink-0 hover:bg-slate-50 text-slate-600"
-                    @onclick="ToggleMobileMenu">
+            <button class="2xl:hidden w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center shrink-0 hover:bg-slate-50 text-slate-600"
+                    @onclick="ToggleMobileMenu" aria-label="Toggle navigation menu" aria-expanded="@isMobileMenuOpen">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     @if (isMobileMenuOpen)
                     {
@@ -315,8 +327,8 @@
     <!-- ── Mobile Dropdown ─────────────────────────────── -->
     @if (isMobileMenuOpen)
     {
-        <div class="fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-sm lg:hidden mt-[68px] sm:mt-[72px]" @onclick="ToggleMobileMenu"></div>
-        <nav class="fixed top-[68px] sm:top-[72px] left-0 w-full max-h-[calc(100vh-68px)] overflow-y-auto bg-white border-b border-slate-100 p-4 flex flex-col gap-2 z-50 lg:hidden shadow-xl">
+        <div class="fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-sm 2xl:hidden mt-[68px] sm:mt-[72px]" @onclick="ToggleMobileMenu" aria-hidden="true"></div>
+        <nav class="fixed top-[68px] sm:top-[72px] left-0 w-full max-h-[calc(100vh-68px)] overflow-y-auto bg-white border-b border-slate-100 p-4 flex flex-col gap-2 z-50 2xl:hidden shadow-xl">
             <button class="w-full text-left px-5 py-3 rounded-xl text-sm font-semibold flex items-center gap-3 @(CurrentPage == "overview" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50")"
                     @onclick='() => NavigateTo("/portal")'>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>
@@ -379,6 +391,7 @@
             <div class="flex flex-wrap gap-x-4 gap-y-2 font-semibold">
                 <a href="/privacy" class="hover:text-indigo-600">Privacy Notice</a>
                 <a href="/terms" class="hover:text-indigo-600">Terms of Use</a>
+                <a href="/portal/rules" class="hover:text-indigo-600">School rules</a>
                 <a href="/portal/help" class="hover:text-indigo-600">Help centre</a>
             </div>
         </div>
@@ -512,11 +525,15 @@
         Nav.NavigateTo(url);
     }
 
+    private void CloseMobileMenu() => isMobileMenuOpen = false;
+
     private string CurrentPage
     {
         get
         {
-            var uri = Nav.Uri.ToLowerInvariant();
+            var uri = new Uri(Nav.Uri).AbsolutePath.TrimEnd('/').ToLowerInvariant();
+            if (uri.EndsWith("/portal/rules")) return "rules";
+            if (uri.EndsWith("/portal/help")) return "help";
             if (uri.EndsWith("/students/timetable")) return "timetable";
             if (uri.EndsWith("/portal/results")) return "results";
             if (uri.EndsWith("/portal/personal-finance")) return "finance";

@@ -105,6 +105,11 @@
             </div>
 
             <div class="flex flex-col gap-1.5">
+                <label class="text-[length:0.8rem] font-bold text-slate-700">Religion <span class="text-slate-400 font-semibold">(Optional)</span></label>
+                <InputText @bind-Value="newStudent.Religion" maxlength="100" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none" />
+            </div>
+
+            <div class="flex flex-col gap-1.5">
                 <label class="text-[length:0.8rem] font-bold text-slate-700">Temporary ID <span class="text-slate-400 font-semibold">(Optional)</span></label>
                 <InputText @bind-Value="newStudent.TempId" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none font-mono" placeholder="TEMP-001" />
                 <p class="text-[length:0.65rem] text-slate-400 font-medium">Use this if you want to match later imports or transaction uploads.</p>
@@ -338,6 +343,7 @@
                             @ApplicationPrintField("Last name", newStudent.LastName)
                             @ApplicationPrintField("Date of birth", newStudent.DateOfBirth?.ToString("dd MMM yyyy"))
                             @ApplicationPrintField("Gender", newStudent.Gender)
+                            @ApplicationPrintField("Religion", newStudent.Religion)
                             @ApplicationPrintField("National ID", newStudent.NationalId)
                             @ApplicationPrintField("Temporary ID", newStudent.TempId)
                         </div>
@@ -372,7 +378,39 @@
                         <div><span>Date</span><i></i></div>
                     </div>
                     <div class="application-office-use"><strong>For office use</strong><span>Received by: ____________________</span><span>Date: ______________</span></div>
-                    <footer class="application-footer">&copy; @DateTime.Now.Year PrimeApp Demo &nbsp;•&nbsp; All Rights Reserved &nbsp;•&nbsp; Official Student Application &nbsp;•&nbsp; Fictional data · Demonstration only</footer>
+                    <footer class="application-footer">&copy; @DateTime.Now.Year PrimeApp Demo &nbsp;•&nbsp; All Rights Reserved &nbsp;•&nbsp; Development Student Application &nbsp;•&nbsp; Page 1 of 2 &nbsp;•&nbsp; Shared development data · Demonstration interface</footer>
+                </article>
+            </div>
+        </div>
+        <div class="application-cert-wrap">
+            <div class="application-cert-frame">
+                <div class="application-corner tl"><svg viewBox="0 0 48 48" fill="none"><path d="M2 46V12C2 6.48 6.48 2 12 2H46" stroke="#1a7f52" stroke-width="2.5" stroke-linecap="round"/><circle cx="8" cy="8" r="3" fill="#1a7f52" opacity=".6"/></svg></div>
+                <div class="application-corner tr"><svg viewBox="0 0 48 48" fill="none"><path d="M2 46V12C2 6.48 6.48 2 12 2H46" stroke="#1a7f52" stroke-width="2.5" stroke-linecap="round"/><circle cx="8" cy="8" r="3" fill="#1a7f52" opacity=".6"/></svg></div>
+                <div class="application-corner bl"><svg viewBox="0 0 48 48" fill="none"><path d="M2 46V12C2 6.48 6.48 2 12 2H46" stroke="#1a7f52" stroke-width="2.5" stroke-linecap="round"/><circle cx="8" cy="8" r="3" fill="#1a7f52" opacity=".6"/></svg></div>
+                <div class="application-corner br"><svg viewBox="0 0 48 48" fill="none"><path d="M2 46V12C2 6.48 6.48 2 12 2H46" stroke="#1a7f52" stroke-width="2.5" stroke-linecap="round"/><circle cx="8" cy="8" r="3" fill="#1a7f52" opacity=".6"/></svg></div>
+                <article class="application-sheet application-rules-sheet">
+                    <div class="application-watermark"><img src="/images/demo-logo.svg" alt="" /></div>
+                    <header class="application-header">
+                        <img src="/images/demo-logo.svg" alt="PrimeApp Demo" />
+                        <div class="application-school-name">PrimeApp Demo</div>
+                        <div class="application-motto">Equipping youngsters to compete internationally</div>
+                    </header>
+                    <div class="application-title"><h2>School Rules &amp; Regulations</h2></div>
+                    <h3 class="application-rules-heading">Finance rules</h3>
+                    <ol class="application-rules">
+                        @foreach (var rule in paa_frontend.Client.Content.SchoolRules.Finance)
+                        {
+                            <li>@rule</li>
+                        }
+                    </ol>
+                    <h3 class="application-rules-heading">General rules</h3>
+                    <ol class="application-rules application-rules-general">
+                        @foreach (var rule in paa_frontend.Client.Content.SchoolRules.General)
+                        {
+                            <li>@rule</li>
+                        }
+                    </ol>
+                    <footer class="application-footer">PrimeApp Demo &nbsp;•&nbsp; School Rules &amp; Regulations &nbsp;•&nbsp; Page 2 of 2</footer>
                 </article>
             </div>
         </div>
@@ -391,7 +429,7 @@
     .application-corner.br { bottom: 4px; right: 4px; transform: scale(-1,-1); }
     .application-sheet { position: relative; isolation: isolate; display: flex; flex-direction: column; width: 100%; height: 100%; overflow: hidden; color: #14213a; background: #fff; }
     .application-watermark { position: absolute; z-index: 0; inset: 0; display: grid; place-items: center; pointer-events: none; }
-    .application-watermark img { width: 145mm; height: 145mm; object-fit: contain; opacity: .065; }
+    .application-watermark img { width: 145mm; height: 145mm; object-fit: contain; opacity: .16; }
     .application-sheet > :not(.application-watermark) { position: relative; z-index: 1; }
     .application-header { text-align: center; padding-bottom: 3mm; border-bottom: 1px dashed rgba(26,127,82,.35); }
     .application-header img { width: 17mm; height: 17mm; margin: 0 auto 1mm; object-fit: contain; }
@@ -400,7 +438,7 @@
     .application-title { padding: 3mm 0 2mm; text-align: center; }
     .application-title h2 { margin: 0; color: #047857; font-size: 13pt; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
     .application-title p { margin: 1mm 0 0; color: #64748b; font-size: 7pt; }
-    .application-section { margin-top: 3mm; }
+    .application-section { margin-top: 5mm; }
     .application-section h3 { margin: 0 0 1.5mm; padding-bottom: 1mm; border-bottom: 1px solid #dbe4e0; color: #047857; font-size: 8pt; font-weight: 900; letter-spacing: .7px; text-transform: uppercase; }
     .application-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5mm 5mm; }
     .application-field.wide { grid-column: 1 / -1; }
@@ -411,13 +449,21 @@
     .application-signatures i { display: block; height: 10mm; border-bottom: 1px solid #64748b; }
     .application-office-use { display: flex; justify-content: space-between; gap: 5mm; margin-top: 4mm; padding: 2mm 3mm; border: 1px solid #d7e5dc; color: #475569; font-size: 6.5pt; }
     .application-footer { margin-top: 3mm; padding-top: 2mm; border-top: 1px dashed rgba(26,127,82,.35); color: #64748b; text-align: center; font-size: 5.8pt; letter-spacing: .4px; text-transform: uppercase; }
+    .application-rules-heading { margin: 2mm 0 0; color: #047857; font-size: 9pt; font-weight: 900; text-transform: uppercase; }
+    .application-rules { margin: 1mm 0 0; padding-left: 5mm; list-style: decimal; font-size: 7.5pt; line-height: 1.2; }
+    .application-rules-general { columns: 2; column-gap: 7mm; }
+    .application-rules li { padding-left: .5mm; margin-bottom: 1mm; break-inside: avoid; }
+    .application-rules-sheet .application-footer { margin-top: auto; }
     @@media print {
         @@page { size: A4 portrait; margin: 0; }
-        html, body { width: 210mm; height: 297mm; margin: 0 !important; padding: 0 !important; overflow: hidden !important; background: #fff !important; }
+        html, body { width: 210mm; height: auto; margin: 0 !important; padding: 0 !important; overflow: visible !important; background: #fff !important; }
         body * { visibility: hidden !important; }
-        body *:has(.application-print-shell) { position: static !important; transform: none !important; overflow: visible !important; }
+        body *:has(.application-print-shell) { position: static !important; transform: none !important; overflow: visible !important; margin: 0 !important; padding: 0 !important; width: auto !important; height: auto !important; min-height: 0 !important; display: block !important; }
+        body *:has(.application-print-shell) > :not(:has(.application-print-shell)):not(.application-print-shell) { display: none !important; }
+        .application-cert-wrap { width: 210mm; height: 297mm; break-inside: avoid; }
+        .application-cert-wrap + .application-cert-wrap { break-before: page; }
         .application-print-shell, .application-print-shell * { visibility: visible !important; }
-        .application-print-shell { display: block !important; position: fixed !important; top: 0; left: 0; width: 210mm; height: 297mm; margin: 0; padding: 0; overflow: hidden; background: #fff; box-sizing: border-box; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+        .application-print-shell { display: block !important; position: static !important; width: 210mm; height: auto; margin: 0; padding: 0; overflow: visible; background: #fff; box-sizing: border-box; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
     }
 </style>
 

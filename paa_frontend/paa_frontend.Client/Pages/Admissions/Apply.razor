@@ -1,0 +1,132 @@
+@page "/apply"
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+@layout EmptyLayout
+@inject PublicApplicationServiceClient ApplicationService
+
+<PageTitle>Apply for Admission | PrimeApp Demo</PageTitle>
+
+<div class="relative z-10 min-h-screen bg-slate-50 px-4 py-8 sm:py-12">
+    <div class="mx-auto max-w-3xl">
+        <a href="/login" class="inline-flex items-center gap-2 text-sm font-semibold text-indigo-700 hover:underline" aria-label="Back to sign in">← Sign in</a>
+        <header class="my-6 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200 sm:p-9">
+            <div class="flex items-center gap-3">
+                <img src="/images/demo-logo.svg" alt="PrimeApp Demo" class="h-12 w-12 object-contain" />
+                <div><p class="text-xs font-bold uppercase tracking-wider text-indigo-700">PrimeApp Demo</p><h1 class="text-2xl font-extrabold text-slate-900 sm:text-3xl">Application for admission</h1></div>
+            </div>
+            <p class="mt-5 max-w-2xl text-sm leading-6 text-slate-600">This is a frontend demonstration connected to the shared development API. Submitting this form creates a real application in that development environment.</p>
+        </header>
+
+        @if (submittedApplication is not null)
+        {
+            <section class="rounded-3xl border border-emerald-200 bg-white p-6 shadow-sm sm:p-9" role="status" aria-live="polite">
+                <div class="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-2xl text-emerald-700" aria-hidden="true">✓</div>
+                <h2 class="text-2xl font-extrabold text-slate-900">Application received</h2>
+                <p class="mt-3 text-slate-600">Thank you, @submittedApplication.FirstName. Your application has been submitted for the school to review.</p>
+                <p class="mt-5 rounded-xl bg-slate-50 p-4 text-sm">Your application reference: <strong class="text-slate-900">#@submittedApplication.Id</strong>. Keep this reference and contact the school if you need to follow up.</p>
+                <p class="mt-4 text-sm text-slate-500">Your submission was sent to the shared development API. Payment is not processed on this form.</p>
+                <a class="mt-6 inline-flex rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white hover:bg-slate-800" href="/login">Return to sign in</a>
+            </section>
+        }
+        else
+        {
+            @if (!string.IsNullOrWhiteSpace(error))
+            {
+                <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700" role="alert">@error</div>
+            }
+            <EditForm Model="application" OnValidSubmit="SubmitAsync" FormName="public-admission-application" class="space-y-6">
+                <DataAnnotationsValidator />
+                <section class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200 sm:p-9">
+                    <h2 class="text-lg font-bold text-slate-900">Student details</h2>
+                    <p class="mt-1 text-sm text-slate-500">Fields marked required are needed to submit.</p>
+                    <div class="mt-5 grid gap-4 sm:grid-cols-2">
+                        <Field Label="First name" Required="true"><InputText @bind-Value="application.FirstName" autocomplete="given-name" maxlength="100" class="@InputClass" /></Field>
+                        <Field Label="Last name" Required="true"><InputText @bind-Value="application.LastName" autocomplete="family-name" maxlength="100" class="@InputClass" /></Field>
+                        <Field Label="Date of birth" Required="true"><InputDate @bind-Value="application.DateOfBirth" max="@DateTime.Today.ToString("yyyy-MM-dd")" class="@InputClass" /></Field>
+                        <Field Label="Gender" Required="true"><InputSelect @bind-Value="application.Gender" class="@InputClass"><option value="">Select gender</option><option value="Female">Female</option><option value="Male">Male</option><option value="Other">Other</option></InputSelect></Field>
+                        <Field Label="Applying for" Required="true"><InputSelect @bind-Value="application.Form" class="@InputClass"><option value="">Select form</option>@for (var form = 1; form <= 6; form++) { <option value="@form">Form @form</option> }</InputSelect></Field>
+                        <Field Label="Religion" Required="true"><InputText @bind-Value="application.Religion" maxlength="100" class="@InputClass" /></Field>
+                        <Field Label="National ID" Required="false"><InputText @bind-Value="application.NationalId" maxlength="100" class="@InputClass" /></Field>
+                        <Field Label="Home address" Required="true"><InputText @bind-Value="application.Address" autocomplete="street-address" maxlength="100" class="@InputClass" /></Field>
+                    </div>
+                </section>
+                <section class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200 sm:p-9">
+                    <h2 class="text-lg font-bold text-slate-900">Previous education</h2>
+                    <p class="mt-1 text-sm text-slate-500">This helps the admissions team review your application. Leave any item you do not know blank.</p>
+                    <div class="mt-5 grid gap-4 sm:grid-cols-2">
+                        <Field Label="Previous school" Required="false"><InputText @bind-Value="application.PreviousSchool" maxlength="150" class="@InputClass" /></Field>
+                        @if (application.Form == 1)
+                        {
+                            <Field Label="Grade 7 units" Required="false"><InputNumber @bind-Value="application.GradeSevenUnits" min="4" max="36" class="@InputClass" /></Field>
+                        }
+                        else if (application.Form is >= 2 and <= 6)
+                        {
+                            <Field Label="Number of subjects passed" Required="false"><InputNumber @bind-Value="application.SubjectsPassed" min="0" max="30" class="@InputClass" /></Field>
+                        }
+                        <div class="sm:col-span-2"><Field Label="Subjects studied or examined" Required="false"><InputTextArea @bind-Value="application.SubjectsStudied" maxlength="1000" rows="3" placeholder="For example: English, Mathematics, Science" class="@InputClass" /></Field><p class="mt-1 text-xs text-slate-500">Separate subjects with commas.</p></div>
+                    </div>
+                </section>
+                <section class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200 sm:p-9">
+                    <h2 class="text-lg font-bold text-slate-900">Contact details</h2>
+                    <p class="mt-1 text-sm text-slate-500">Provide a phone number the school can use to contact your family. Email is optional.</p>
+                    <div class="mt-5 grid gap-4 sm:grid-cols-2">
+                        <Field Label="Contact phone" Required="true"><InputText @bind-Value="application.Phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0771234567" maxlength="10" class="@InputClass" /></Field>
+                        <Field Label="Student email" Required="false"><InputText @bind-Value="application.Email" type="email" autocomplete="email" maxlength="50" class="@InputClass" /></Field>
+                    </div>
+                </section>
+                <section class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200 sm:p-9">
+                    <h2 class="text-lg font-bold text-slate-900">Parent or guardian</h2>
+                    <p class="mt-1 text-sm text-slate-500">Optional. Add a guardian contact if it differs from the student contact above.</p>
+                    <div class="mt-5 grid gap-4 sm:grid-cols-2">
+                        <Field Label="Guardian name" Required="false"><InputText @bind-Value="application.GuardianName" autocomplete="name" maxlength="100" class="@InputClass" /></Field>
+                        <Field Label="Relationship to student" Required="false"><InputText @bind-Value="application.GuardianRelationship" maxlength="10" placeholder="Parent" class="@InputClass" /></Field>
+                        <Field Label="Guardian phone" Required="false"><InputText @bind-Value="application.GuardianPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0771234567" maxlength="10" class="@InputClass" /></Field>
+                        <Field Label="Guardian email" Required="false"><InputText @bind-Value="application.GuardianEmail" type="email" autocomplete="email" maxlength="50" class="@InputClass" /></Field>
+                    </div>
+                </section>
+                <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">Submitting an application does not confirm admission. The submission will appear in the shared development environment.</div>
+                <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                    <a href="/login" class="rounded-xl border border-slate-300 bg-white px-5 py-3 text-center text-sm font-bold text-slate-700 hover:bg-slate-50">Cancel</a>
+                    <button type="submit" disabled="@saving" class="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-700 px-6 py-3 text-sm font-bold text-white hover:bg-indigo-800 disabled:cursor-wait disabled:opacity-60">
+                        @if (saving) { <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span><span>Submitting…</span> }
+                        else { <span>Submit application</span> }
+                    </button>
+                </div>
+                <ValidationSummary class="rounded-xl bg-rose-50 p-4 text-sm text-rose-700" />
+            </EditForm>
+        }
+        <footer class="py-8 text-center text-xs text-slate-500">Your information will be sent to the shared development environment. <a class="font-semibold underline" href="/privacy">Privacy notice</a></footer>
+    </div>
+</div>
+
+@code {
+    private const string InputClass = "mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
+    private StudentApplicationSubmission application = new();
+    private StudentApplication? submittedApplication;
+    private bool saving;
+    private string? error;
+
+    private async Task SubmitAsync()
+    {
+        if (saving) return;
+        saving = true;
+        error = null;
+        try
+        {
+            if (application.Form == 1) application.SubjectsPassed = null;
+            else application.GradeSevenUnits = null;
+            submittedApplication = await ApplicationService.SubmitAsync(application);
+        }
+        catch (HttpRequestException)
+        {
+            error = "We could not submit your application just now. Please check your connection and try again.";
+        }
+        catch (TaskCanceledException)
+        {
+            error = "The submission took too long. Please try again.";
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+}

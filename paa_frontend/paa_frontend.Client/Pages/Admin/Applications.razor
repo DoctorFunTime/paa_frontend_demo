@@ -1,0 +1,4 @@
+@page "/admin/applications"
+@layout AdminPortalLayout
+@attribute [Authorize(Roles = "ADMIN,SUPER")]
+<ApplicationsReview CanDecide="true" />

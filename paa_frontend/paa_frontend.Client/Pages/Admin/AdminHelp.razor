@@ -1,3 +1,288 @@
 @page "/admin/help"
 @layout paa_frontend.Client.Layout.AdminPortalLayout
-<div class="help-page"><h1>Administration help centre</h1><p class="lead">Use this guide to manage school information safely and consistently.</p><section><h2>Dashboard and directory</h2><p>The dashboard highlights active learners, recent joins, transfers, staff activity, and items needing attention. The student directory is for finding records, updating profiles, importing learners, and viewing class lists.</p></section><section><h2>Students and staff</h2><p>Search before creating a new record to avoid duplicates. Check names, class, status, and contact details before saving. Use the staff area to manage teacher and bursar accounts according to your school’s process.</p></section><section><h2>Academics</h2><p>Set up classes, subjects, and academic choices before teachers enter marks. Make changes carefully because setup affects what staff can select later.</p></section><section><h2>Marks approval</h2><p>Review the subject, assessment title, term, year, scores, and teacher before approving. Approved marks are what students use for their results. If a report is regenerated, review and approve it again before release.</p></section><section><h2>Reports and analytics</h2><p>Choose the correct term and year. Use report management for official report cards and teacher analytics for patterns across classes and subjects. Treat generated comments as drafts until reviewed.</p></section><section><h2>Safety and support</h2><p>Do not share passwords. Double-check bulk imports and deletions. If a page looks wrong, record the learner, term, year, and action you took before asking for help.</p></section></div><style>.help-page{max-width:900px;margin:32px auto;padding:0 20px;color:#0f172a}.help-page h1{font-size:32px;margin:0 0 8px}.lead{color:#64748b;margin-bottom:26px}.help-page section{background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:20px;margin:14px 0;box-shadow:0 4px 14px #0f172a0a}.help-page h2{font-size:18px;margin:0 0 8px}.help-page p{line-height:1.65;color:#475569}</style>
+
+<PageTitle>Administration help centre | PrimeApp Demo</PageTitle>
+<PortalGuide>
+    <header class="guide-hero" id="admin-help-top">
+        <div class="guide-kicker">PrimeApp Demo · Administration Portal</div>
+        <h1>Administrator help centre</h1>
+        <p>This guide explains the administrator portal in everyday language: what each area is for, how records move through the school, how marks and reports are handled, and what to check before making changes.</p>
+        <p>Administrators coordinate the process. Teachers submit marks and attendance through their staff portal; administrators review, resolve setup issues, and control when official reports are approved.</p>
+        <div class="guide-links"><NavLink href="/admin">Open Dashboard</NavLink><NavLink href="/students">Open Student Directory</NavLink><NavLink href="/admin/academics">Open Academics</NavLink><NavLink href="/admin/grades/approval">Open Marks &amp; Reports</NavLink></div>
+    </header>
+
+    <nav class="guide-contents" aria-label="Administrator help topics">
+        <h2>Jump to a topic</h2>
+        <ol>
+            <li><a href="#start">How the admin portal is organized</a></li>
+            <li><a href="#daily-flow">A safe daily workflow</a></li>
+            <li><a href="#dashboard">Dashboard and navigation</a></li>
+            <li><a href="#students">Student directory and records</a></li>
+            <li><a href="#imports">Bulk imports</a></li>
+            <li><a href="#staff">Teacher, bursar, and administrator accounts</a></li>
+            <li><a href="#attendance">Attendance</a></li>
+            <li><a href="#academics">Academic setup: Forms 1–4 and Forms 5–6</a></li>
+            <li><a href="#timetable">Timetable management</a></li>
+            <li><a href="#marks-process">Marks and report process</a></li>
+            <li><a href="#marks-terms">Marks terminology and calculations</a></li>
+            <li><a href="#marks-review">Review missing and submitted marks</a></li>
+            <li><a href="#report-approval">Generate, review, approve, and regenerate reports</a></li>
+            <li><a href="#grade-settings">Grade settings</a></li>
+            <li><a href="#analytics">Teacher analytics</a></li>
+            <li><a href="#passes">Student passes and scanner</a></li>
+            <li><a href="#statements">Student statements</a></li>
+            <li><a href="#profile">Profile, passwords, and security</a></li>
+            <li><a href="#troubleshooting">Common problems</a></li>
+        </ol>
+    </nav>
+
+    <section id="start">
+        <h2>1. How the admin portal is organized</h2>
+        <p>The admin portal is the school’s management workspace. It brings together student records, staff accounts, attendance, academic setup, report generation and approval, student passes, and administrative tools. Your available pages may depend on the account permissions assigned to you.</p>
+        <p>Use the top navigation on a computer. On a phone or narrow screen, open the three-line menu. Select a page name to go directly to that page. The Help link opens this guide; internal links in this guide open the corresponding portal area.</p>
+        <div class="guide-note"><strong>Who does what?</strong> Teachers enter class marks and registers through the staff portal. Administrators set up the academic structure, monitor submissions, resolve missing or incorrect setup, generate report drafts, and approve official reports. If a teacher reports a problem, gather the class, subject, assessment, term, year, and student details before investigating.</div>
+        <dl>
+            <dt>Student Directory</dt><dd>Find, add, update, import, and organize learner records and class lists.</dd>
+            <dt>Staff</dt><dd>Maintain teacher, bursar, and administrator accounts.</dd>
+            <dt>Academics</dt><dd>Configure classes, subject offerings, A-Level choices, assessments, grading, and reports.</dd>
+            <dt>Attendance</dt><dd>Review school, class, individual-student, and staff attendance records.</dd>
+            <dt>Student Passes</dt><dd>Manage student pass/card records and use the scanner for pass activity.</dd>
+        </dl>
+    </section>
+
+    <section id="daily-flow">
+        <h2>2. A safe daily workflow</h2>
+        <ol>
+            <li>Start on the <NavLink href="/admin">Dashboard</NavLink> and review the current overview and quick links.</li>
+            <li>Before editing a learner or staff record, search for the person first. Confirm the name, ID, form/class, and status so you do not create a duplicate.</li>
+            <li>Before setting up classes, subjects, or assessments, confirm the correct academic year, school level, form, class, and term.</li>
+            <li>For marks, first check setup and teacher submissions in <NavLink href="/admin/grades/approval">Marks &amp; Reports</NavLink>. Resolve missing marks or subject setup before generating reports.</li>
+            <li>Review generated reports in <NavLink href="/admin/grades/reports">Report Approval</NavLink>. Approve only after checking the period and report details.</li>
+            <li>After a consequential action, wait for the page’s success or error message. Reopen or refresh the relevant record to confirm the result.</li>
+        </ol>
+        <p>Use one term and year consistently across setup, teacher submissions, and report generation. A report that looks incomplete may be using the wrong period or may have been generated before all marks were submitted.</p>
+    </section>
+
+    <section id="dashboard">
+        <h2>3. Dashboard and navigation</h2>
+        <p>The <NavLink href="/admin">Dashboard</NavLink> is a starting point. It shows school overview information and shortcuts to common tasks. Use the top navigation for the complete directories and academic tools.</p>
+        <p>Quick links may include attendance, academic setup, marks approval, analytics, profile, and administrator management. A shortcut is simply a faster route to the relevant page; it does not replace checking the selected class, term, or year inside that page.</p>
+        <p>If a page seems to show unexpected results, check its filters first. Search text, form, class, subject, status, term, and year filters can hide records. Clear or broaden the filters before concluding something is missing.</p>
+    </section>
+
+    <section id="students">
+        <h2>4. Student directory and records</h2>
+        <p>Open <NavLink href="/students">Student Directory</NavLink> to find and maintain learner records. Use the search box and filters to narrow the list:</p>
+        <ul>
+            <li><strong>Search:</strong> look up a learner by name, temporary ID, or student ID.</li>
+            <li><strong>Status:</strong> show all, active, or inactive learners. A learner’s status affects how they appear in active lists.</li>
+            <li><strong>Form and class:</strong> narrow the directory to a school level or a particular class.</li>
+            <li><strong>Gender and pagination:</strong> refine the list or move through additional pages.</li>
+        </ul>
+        <p>Open a learner to view the profile or use Edit to correct their details. Check spelling, identifiers, form, classroom, contact information, and status before saving. If you move a learner, verify their destination class and subject eligibility as well.</p>
+        <h3>Adding and updating a student</h3>
+        <p>Use <NavLink href="/students/add">Add Student</NavLink> for a new record. Search the directory first, then enter details from the school’s verified source documents. Review the form and class carefully before saving. Use the learner’s permanent school identifier where available and avoid inventing one if the school has not assigned it.</p>
+        <p>For Forms 5–6, the directory can provide an A-Level subject assignment action. Assign only subjects the learner has chosen and that are available for their class. If the subject is absent, check the A-Level subject catalogue and class setup before changing the learner record.</p>
+        <h3>Class lists and student statements</h3>
+        <p>Use the directory’s class-list controls to select the form and class, review the list, and print it if required. The selected class is important: verify the heading and students before handing the printout to anyone.</p>
+        <p>The student statement page provides a learner’s account statement. Open it from the directory, identify the correct learner, and check the displayed record before printing or sharing it.</p>
+        <h3>Removing a learner</h3>
+        <p>Bulk-selection actions may include export and removal. Treat removal as a consequential record change. Confirm the selected learner names and IDs before proceeding, and follow the school’s record-retention process. If your goal is simply to stop a learner appearing in active lists, check whether changing status is the intended action instead.</p>
+    </section>
+
+    <section id="imports">
+        <h2>5. Bulk imports</h2>
+        <p>Bulk import can create many records from a spreadsheet-style file. Use it when the source list is clean and verified. Download or prepare the expected template, keep the headers exactly as required, and check a small sample of rows before importing a large list.</p>
+        <h3>Student import</h3>
+        <p>Open <NavLink href="/students/bulk-import">Bulk Import Students</NavLink>. Required columns include <code>firstName</code>, <code>lastName</code>, <code>form</code>, <code>classroom</code>, <code>gender</code>, and <code>status</code>. Optional columns include contact details, date of birth, join date, religion, national ID, temporary ID, and emergency-contact fields.</p>
+        <ol>
+            <li>Check that every row belongs to the intended school and academic cohort.</li>
+            <li>Use valid forms 1–6 and the exact class names used in the portal.</li>
+            <li>Check spelling, duplicate IDs, dates, status values, and required fields.</li>
+            <li>Review the preview and per-row validation results before starting the import.</li>
+            <li>After import, read the success and failure counts. Correct failed rows and search the directory to confirm the imported learners.</li>
+        </ol>
+        <h3>Staff import</h3>
+        <p>Open <NavLink href="/admin/teachers/bulk-import">Bulk Import Teachers</NavLink>. The file uses fields such as first name, last name, email, phone, gender, national ID, date of birth, and status. Email is required; the import page indicates other required fields and expected formats.</p>
+        <p>Review the validation preview and results carefully. If the system displays generated sign-in credentials for newly created accounts, handle them as confidential: provide them only to the correct staff member using the school’s secure process, and ask them to change any temporary password at first sign-in.</p>
+        <div class="guide-note"><strong>Do not blindly retry an import.</strong> If the result is unclear, search for a few expected records first. Retrying can create duplicates if the first request partly succeeded.</div>
+    </section>
+
+    <section id="staff">
+        <h2>6. Teacher, bursar, and administrator accounts</h2>
+        <p>The Staff menus have separate directories for <NavLink href="/admin/teachers">Teachers</NavLink>, <NavLink href="/admin/bursers">Bursers</NavLink>, and <NavLink href="/admin/admins">Administrators</NavLink>. Each directory supports finding accounts and opening add/edit workflows. Search by a person’s name, email, or ID and check the status filter when an account does not appear.</p>
+        <p>Before adding an account, search for the person to avoid duplicates. Verify the email address and identifying information with the staff member or the school’s records. Give each person only the account type they need for their role.</p>
+        <dl>
+            <dt>Teachers</dt><dd>Staff accounts used for teaching workflows such as their classes, attendance, and marks. Teacher bulk import is available from the teacher directory.</dd>
+            <dt>Bursers</dt><dd>Accounts for bursary responsibilities. Confirm the role and contact details before activating or changing an account.</dd>
+            <dt>Administrators</dt><dd>Accounts with administrative responsibilities. Limit access to authorized staff and verify the account before changing its role or status.</dd>
+        </dl>
+        <p>When editing an existing account, check the record identity at the top of the page before saving. When disabling or removing access, ensure the action is intended and coordinate any handover through the school’s process.</p>
+    </section>
+
+    <section id="attendance">
+        <h2>7. Attendance</h2>
+        <p>Open <NavLink href="/admin/attendance">Attendance</NavLink> to review attendance information. The page separates several scopes so you can check the right register:</p>
+        <dl>
+            <dt>Overview</dt><dd>A summary of register activity for the selected date or period. Use it to see what has been completed and which registers need attention.</dd>
+            <dt>School</dt><dd>Review school-level attendance for a selected date.</dd>
+            <dt>Class</dt><dd>Select the form, class, and date, then load the class register to inspect its entries.</dd>
+            <dt>Student</dt><dd>Look up an individual learner’s attendance history.</dd>
+            <dt>Staff Register</dt><dd>Review the staff attendance register.</dd>
+        </dl>
+        <p>Always check the date, form, and class shown before interpreting the results. A register can be incomplete because it has not yet been submitted. If the class roster or an entry appears wrong, verify the student’s enrollment and ask the responsible staff member to clarify before changing a record.</p>
+    </section>
+
+    <section id="academics">
+        <h2>8. Academic setup: Forms 1–4 and Forms 5–6</h2>
+        <p>Open <NavLink href="/admin/academics">Academics</NavLink> for school structure and assessment tools. Establish the class and subject structure before teachers create assessments or enter marks. Setup determines which subjects and students can appear in later workflows.</p>
+        <h3>O-Level: Forms 1–4</h3>
+        <p>Open <NavLink href="/admin/academics/olevel">Forms 1–4</NavLink>. Its tabs cover overview, classes/class presets, setup and class subjects, and assessments.</p>
+        <ul>
+            <li>Confirm the form and class structure, including class names, before allocating subjects.</li>
+            <li>Set up the subjects offered to each class. Class subject offerings are the source used for student eligibility and later mark entry.</li>
+            <li>Review student subject exceptions or opt-outs separately where that workflow is available; do not remove a subject from the whole class to fix one learner’s exception.</li>
+            <li>Review assessment setup only after the class and subject context is correct.</li>
+        </ul>
+        <h3>A-Level: Forms 5–6</h3>
+        <p>Open <NavLink href="/admin/academics/alevel">Forms 5–6</NavLink>. Its tabs cover overview, class presets, the subjects catalogue, students, and assessments.</p>
+        <ul>
+            <li>Maintain the available subject catalogue and class presets first.</li>
+            <li>Check the student’s chosen subjects and class assignment against the school’s approved records.</li>
+            <li>Make sure the subjects selected for a learner are available and correctly associated before teachers enter marks.</li>
+            <li>Use the assessments area after validating student and subject setup.</li>
+        </ul>
+        <p>When teachers report that a student or subject is missing from a mark sheet, check class assignment and subject offering/selection before asking them to re-enter marks.</p>
+    </section>
+
+    <section id="timetable">
+        <h2>9. Timetable management</h2>
+        <p>Open <NavLink href="/admin/academics/timetable">Timetable Management</NavLink> to generate timetable drafts, inspect schedules, and make controlled manual adjustments.</p>
+        <ol>
+            <li>Check that classes, subjects, teachers, and required teaching allocations are in place.</li>
+            <li>Generate a draft for the intended school setup.</li>
+            <li>Review the draft for missing lessons, conflicting periods, and incorrect teacher, class, or subject assignments.</li>
+            <li>Make necessary adjustments and recheck the affected schedules.</li>
+            <li>Publish or finalize only when the reviewed schedule is ready for staff to use.</li>
+        </ol>
+        <p>A timetable draft is not automatically a confirmed schedule. If the page reports that required data is missing, return to academic setup and correct the source records first.</p>
+    </section>
+
+    <section id="marks-process">
+        <h2>10. Marks and report process</h2>
+        <p>Marks move through several steps. Knowing which step you are viewing prevents a saved mark from being mistaken for an approved report.</p>
+        <ol>
+            <li><strong>Configure:</strong> classes, subjects, student choices, assessments, grading settings, and the reporting period must be correct.</li>
+            <li><strong>Teacher entry:</strong> teachers record raw scores against the correct assessment, class, subject, term, and year.</li>
+            <li><strong>Administrator review:</strong> use <NavLink href="/admin/grades/approval">Marks Review &amp; Generation</NavLink> to inspect readiness, missing marks, and teacher submissions.</li>
+            <li><strong>Generate:</strong> create report drafts for the chosen level, class, term, year, and coursework weighting.</li>
+            <li><strong>Report approval:</strong> use <NavLink href="/admin/grades/reports">Report Approval Queue</NavLink> to inspect report details and approve reports when ready.</li>
+            <li><strong>Release:</strong> after approval, reports become the official records used by the school’s student/parent reporting flow.</li>
+        </ol>
+        <div class="guide-note"><strong>Submitted is not approved.</strong> A teacher’s saved mark means the entry was recorded. Report generation creates a draft; an administrator must review and approve the report before it should be treated as final.</div>
+    </section>
+
+    <section id="marks-terms">
+        <h2>11. Marks terminology and calculations</h2>
+        <dl>
+            <dt>Raw score</dt><dd>The points the student earned, such as 32 points on a test out of 40. Teachers enter the score, not a grade letter or a weighted total.</dd>
+            <dt>Maximum score</dt><dd>The total points available in the assessment. The same raw score gives a different percentage if the maximum is wrong.</dd>
+            <dt>Percentage</dt><dd>Raw score divided by maximum score, multiplied by 100. For example, 32 ÷ 40 × 100 = 80%.</dd>
+            <dt>Assessment weight</dt><dd>A setting on an assessment that controls its contribution in report calculations. It is not a multiplier teachers should apply to the score before entry.</dd>
+            <dt>Coursework</dt><dd>Non-exam assessment contribution for the reporting period. Assignment and Test marks are coursework in the staff mark workflow; Exam marks are handled separately.</dd>
+            <dt>Coursework weight for generation</dt><dd>The percentage of the report calculation allocated to coursework. The remaining percentage is allocated to the exam. For example, a 30% coursework setting leaves 70% for the exam.</dd>
+            <dt>Generated report</dt><dd>A report draft calculated from available marks and settings. It still needs review and approval.</dd>
+            <dt>Approved report</dt><dd>A report that an administrator has reviewed and approved for official use. Staff may no longer be able to edit its marks.</dd>
+        </dl>
+        <p>Grade boundaries can be configured for O-Level and A-Level. Do not assume that an on-screen grade in a teacher mark sheet is the final report grade or that every level uses identical boundaries. Check the active grade settings and the report’s detailed breakdown.</p>
+        <p>Missing coursework or exam marks may leave a report incomplete or prevent it from being ready. Check the detailed marks source and readiness status rather than filling in a score on behalf of a teacher without verified evidence.</p>
+    </section>
+
+    <section id="marks-review">
+        <h2>12. Review missing and submitted marks</h2>
+        <p>In <NavLink href="/admin/grades/approval">Marks Review &amp; Generation</NavLink>, select the intended level/form, class, field where relevant, term, year, and coursework weight. Confirm these selectors before loading the queue; they define which students and results you are inspecting.</p>
+        <dl>
+            <dt>Ready</dt><dd>Students/classes with sufficient submitted data for report generation under the selected filters.</dd>
+            <dt>Missing Marks</dt><dd>Students with incomplete or absent marks. Inspect the subject and assessment context, then ask the responsible teacher or correct the underlying setup through the school’s process.</dd>
+            <dt>Generated Drafts</dt><dd>Reports that have already been generated for the selected period and may be awaiting review or approval.</dd>
+            <dt>Teacher Submissions</dt><dd>Submitted mark information that helps you see teacher entry activity. Use it to locate the relevant class/subject and period.</dd>
+        </dl>
+        <p>Use search or filters to narrow the queue. Read the page’s status labels and row details; a queue count is a summary, not an explanation of why a student is missing. Confirm student identity, class, subject, assessment title, term, and year before following up.</p>
+        <p>Generate reports individually or in bulk when the listed students are ready. For bulk generation, check that every selected learner belongs to the intended cohort and that their marks are complete. If generation reports failures, record the affected learner and message, resolve the source issue, then reload the queue before retrying.</p>
+    </section>
+
+    <section id="report-approval">
+        <h2>13. Generate, review, approve, and regenerate reports</h2>
+        <p>Open <NavLink href="/admin/grades/reports">Report Approval Queue</NavLink> for the review and approval stage. Filter by level, class, term, year, or search to find the reports you intend to process.</p>
+        <h3>Read the queue status</h3>
+        <dl>
+            <dt>Ready</dt><dd>Available for review in the queue.</dd>
+            <dt>Pending</dt><dd>Generated but not yet approved. Open the report and inspect it before approval.</dd>
+            <dt>Approved</dt><dd>Reviewed and approved. Treat this as an official result and follow the school’s correction process if an issue is discovered later.</dd>
+        </dl>
+        <h3>Review before approval</h3>
+        <ol>
+            <li>Check the selected term and year and confirm the student’s name, ID, form, and class.</li>
+            <li>Open the report details and review the <strong>Subject Breakdown</strong> for subjects, grades, and calculated results.</li>
+            <li>Inspect <strong>Detailed Marks Source</strong> when a total or grade needs explanation. Compare source coursework/exam marks and weighting with the intended period and setup.</li>
+            <li>Resolve missing or incorrect source marks before approval. If the underlying teacher submission is wrong, coordinate correction through the administrator and teacher workflow.</li>
+            <li>Approve an individual report or use bulk approval only after checking that all selected rows belong to the intended class and period.</li>
+        </ol>
+        <h3>Regeneration needs special care</h3>
+        <p>Use the dedicated regenerate action only when an existing report needs to be recalculated from corrected marks or settings. Regeneration can replace the existing generated report and return it to pending review. Read the confirmation carefully, verify the student and period, and inspect the new report again before approving it. Do not use regeneration simply to refresh the queue.</p>
+        <div class="guide-note"><strong>Approval is a decision point.</strong> Once approved, the report may be treated as official and mark editing may be restricted. Pause if a source mark, subject, grade scale, coursework weight, class, term, or year is uncertain.</div>
+    </section>
+
+    <section id="grade-settings">
+        <h2>14. Grade settings</h2>
+        <p>Open <NavLink href="/admin/grades/settings">Grade Settings</NavLink> to configure the coursework/exam split and grade scales by school level. Check whether you are editing O-Level or A-Level settings and compare each boundary with the school’s approved grading policy.</p>
+        <p>The coursework percentage and exam percentage together make the full report calculation. For example, if coursework is 30%, the remaining 70% belongs to the exam. Confirm the intended split with school policy before saving.</p>
+        <p>Grade boundaries must be complete, ordered, and non-overlapping. Check every range, grade label, and boundary before saving. Saved grade scales apply to future report generation; reports already generated may need to be regenerated through the controlled report workflow if policy requires recalculation.</p>
+        <p>Some report-generation screens allow a coursework-weight override. The value selected for that generation controls the calculation for that operation; verify it each time instead of assuming it always matches the saved default.</p>
+    </section>
+
+    <section id="analytics">
+        <h2>15. Teacher analytics</h2>
+        <p>Open <NavLink href="/admin/grades/teacher-analytics">Teacher Analytics</NavLink> to review teacher submission patterns and marks information. Select the correct term and year first. Use the teacher list or search to open the staff member you need.</p>
+        <p>Analytics help identify missing submissions or patterns that need follow-up. They do not by themselves prove why a score is high, low, or missing. Open the assessment or submission details, check the class, subject, period, and mark breakdown, then discuss any discrepancy through the administrator-led process.</p>
+        <p>When discussing results, share only the information needed for the school task and keep individual student records private.</p>
+    </section>
+
+    <section id="passes">
+        <h2>16. Student passes and scanner</h2>
+        <p>Open <NavLink href="/admin/passes">Pass Management</NavLink> to work with student pass records and cards. Use <NavLink href="/student-pass/scanner">Scanner</NavLink> for scanning pass activity.</p>
+        <p>Before assigning or changing a pass/card record, confirm the student identity and the physical card or pass identifier. If a card is replaced, check that the record reflects the intended current card so old and new identifiers are not confused. Follow the on-screen result message after each scan or update.</p>
+        <p>If a scan is not recognized, verify the student/pass assignment and scanner connection, then try again. Do not record a scan against a different student as a workaround.</p>
+    </section>
+
+    <section id="statements">
+        <h2>17. Student statements</h2>
+        <p>Open <NavLink href="/admin/student-statement">Student Statement</NavLink>, or use the statement action from the student directory. Identify the learner by name and ID, then review the statement details before printing or sharing.</p>
+        <p>Statements contain private student information. Share them only with people authorized to receive that learner’s record and use the school’s approved delivery process.</p>
+    </section>
+
+    <section id="profile">
+        <h2>18. Profile, passwords, and security</h2>
+        <p>Open <NavLink href="/admin/profile">Profile</NavLink> from the top-right account control or dashboard. Review your account details and update fields that the page allows. Contact the appropriate school administrator if a protected detail needs correction.</p>
+        <ul>
+            <li>Never share your password or leave an administrator session open on a shared computer.</li>
+            <li>Use Sign Out when finished. A temporary or forced password change should be completed before continuing.</li>
+            <li>Keep imported account credentials private and deliver them only to the correct staff member.</li>
+            <li>Check the selected record before changing status, removing a record, approving a report, or regenerating results.</li>
+            <li>When reporting a system problem, include the page, action, student/staff ID where appropriate, class, term/year, and the message shown. Never send passwords.</li>
+        </ul>
+    </section>
+
+    <section id="troubleshooting">
+        <h2>19. Common problems</h2>
+        <details><summary>A student or subject is missing from a mark list.</summary><p>Check the student’s active status, form and class, then verify the class subject offering or A-Level subject selection. Confirm the assessment is set up for that class, subject, type, term, and year. Ask the teacher to confirm their selected assessment if setup is correct.</p></details>
+        <details><summary>The marks queue says marks are missing.</summary><p>Open the relevant queue details and identify the student, subject, and reporting period. Check the teacher submission status and class setup. Follow up with the responsible teacher through the administrator workflow; do not guess or enter a substitute score.</p></details>
+        <details><summary>A report is not ready or looks incomplete.</summary><p>Confirm the term, year, class, coursework weight, and marks readiness. Inspect Detailed Marks Source for missing coursework or exam records and verify subject eligibility. Resolve the source data, then generate or regenerate only as appropriate.</p></details>
+        <details><summary>A grade differs from what I expected.</summary><p>Check the raw score, maximum score, assessment weights, coursework/exam split, level-specific grade scale, and report period. Compare the report breakdown with school policy before changing settings or regenerating a report.</p></details>
+        <details><summary>I cannot find a student or staff member.</summary><p>Clear search text and filters, switch the status filter to include inactive records, and check spelling or ID. For students, check form and class filters. Search before adding a new record.</p></details>
+        <details><summary>A bulk import partly succeeded.</summary><p>Read the row-level result, correct validation failures, and search for several successful records before retrying. Import only the rows that did not succeed so duplicates are not created.</p></details>
+        <details><summary>I approved or regenerated the wrong report.</summary><p>Stop further approvals or regeneration. Record the student ID, class, term/year, action, and time, then contact the school’s designated system administrator through the approved support route. Do not attempt repeated regeneration to reverse the change.</p></details>
+        <details><summary>A page appears empty or out of date.</summary><p>Check filters and selected period, wait for the loading message to finish, and reload the page once. If the issue remains, note the exact page and selections and report the displayed error to the appropriate system administrator.</p></details>
+        <div class="guide-links"><a href="#admin-help-top">Back to the top</a><NavLink href="/admin">Open Dashboard</NavLink><NavLink href="/admin/grades/approval">Open Marks &amp; Reports</NavLink><NavLink href="/admin/grades/reports">Open Report Approval</NavLink></div>
+    </section>
+</PortalGuide>

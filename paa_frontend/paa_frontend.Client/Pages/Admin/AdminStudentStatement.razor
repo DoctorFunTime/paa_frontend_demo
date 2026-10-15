@@ -391,43 +391,60 @@
 
     private static List<StudentStatementRow> BuildStudentStatementRows(FinancialStatementDto? statement, List<PaymentRecord> payments)
     {
-        var rows = new List<StudentStatementRow>();
-        var runningBalance = 0m;
+        var entries = new List<StudentStatementRow>();
         var totalCharged = ExtractDecimal(statement?.AccountSummary, "totalCharged");
-
-        if (totalCharged > 0)
+        foreach (var charge in statement?.Charges ?? new List<StatementChargeDto>())
         {
-            runningBalance += totalCharged;
-            rows.Add(new StudentStatementRow
+            entries.Add(new StudentStatementRow
             {
-                When = ParseDate(statement?.GeneratedAt) ?? DateTime.Today,
-                Reference = "ACCOUNT",
-                Description = "Total charges posted to account",
-                Charge = totalCharged,
-                Paid = 0,
-                RunningBalance = runningBalance,
+                When = ParseDate(charge.ChargedAt) ?? DateTime.Today,
+                Reference = charge.InvoiceNumber ?? "FEES",
+                Description = charge.Description ?? "Fee charge",
+                Charge = charge.AmountUsd,
                 Status = "Fees billed"
             });
         }
 
-        foreach (var payment in payments
-            .OrderBy(p => ParseDate(p.Date) ?? DateTime.Today)
-            .ThenBy(p => p.PaymentReference))
+        var unitemized = totalCharged - entries.Sum(row => row.Charge);
+        if (unitemized > 0)
         {
-            var paidAmount = payment.AmountUsd > 0 ? payment.AmountUsd : payment.Amount;
-            runningBalance -= paidAmount;
-            rows.Add(new StudentStatementRow
+            entries.Add(new StudentStatementRow
+            {
+                When = ParseDate(statement?.GeneratedAt) ?? DateTime.Today,
+                Reference = "ACCOUNT",
+                Description = "Earlier charges without fee detail",
+                Charge = unitemized,
+                Status = "Fees billed"
+            });
+        }
+
+        foreach (var payment in payments)
+        {
+            entries.Add(new StudentStatementRow
             {
                 When = ParseDate(payment.Date) ?? DateTime.Today,
                 Reference = payment.PaymentReference ?? string.Empty,
                 Description = payment.Description ?? "Payment",
-                Charge = 0,
-                Paid = paidAmount,
-                RunningBalance = runningBalance,
+                Paid = payment.AmountUsd > 0 ? payment.AmountUsd : payment.Amount,
                 Status = payment.IsConfirmed ? "Payment received" : (payment.Status ?? string.Empty)
             });
         }
 
+        var running = 0m;
+        var rows = new List<StudentStatementRow>();
+        foreach (var entry in entries.OrderBy(row => row.When).ThenBy(row => row.Reference).ThenByDescending(row => row.Charge))
+        {
+            running += entry.Charge - entry.Paid;
+            rows.Add(new StudentStatementRow
+            {
+                When = entry.When,
+                Reference = entry.Reference,
+                Description = entry.Description,
+                Charge = entry.Charge,
+                Paid = entry.Paid,
+                RunningBalance = running, Status = entry.Status
+            });
+        }
         return rows;
     }
 

@@ -722,7 +722,7 @@
             }
 
             <!-- TAB 2 DOCUMENT: SCHOOL CASHBOOK -->
-            else if (activeTab == "cashflow")
+            @if (activeTab == "cashflow")
             {
                 <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
                     <div class="rounded-2xl bg-emerald-50 border border-emerald-100 p-3.5">
@@ -797,7 +797,7 @@
             }
 
             <!-- TAB 3 DOCUMENT: TRANSACTION REGISTER -->
-            else
+            @if (activeTab == "register")
             {
                 <table class="w-full text-left border-collapse text-xs">
                     <thead class="bg-slate-100 border-b-2 border-slate-900">
@@ -913,6 +913,7 @@
     private List<CashFlowResponseDto> cashflowMovements = new();
     private List<RegisterRow> registerRows = new();
     private bool cashflowLoaded;
+    private bool registerLoaded;
 
     private DateTime periodStartValue = new(DateTime.Today.Year, DateTime.Today.Month, 1);
     private DateTime periodEndValue = DateTime.Today;
@@ -975,7 +976,7 @@
         {
             await LoadSchoolCashflowAsync();
         }
-        else if (tab == "register" && (!cashflowLoaded || !registerRows.Any()))
+        else if (tab == "register" && !registerLoaded)
         {
             await LoadSchoolCashflowAsync();
         }
@@ -1168,6 +1169,7 @@
 
                 var paymentRows = await Task.WhenAll(paymentTasks);
                 rows.AddRange(paymentRows.SelectMany(r => r));
+                registerLoaded = true;
             }
 
             registerRows = rows;
@@ -1307,44 +1309,60 @@
 
     private static List<StudentStatementRow> BuildStudentStatementRows(FinancialStatementDto? statement, List<PaymentRecord> payments)
     {
-        var rows = new List<StudentStatementRow>();
-        var runningBalance = 0m;
+        var entries = new List<StudentStatementRow>();
         var totalCharged = ExtractDecimal(statement?.AccountSummary, "totalCharged");
-
-        if (totalCharged > 0)
+        foreach (var charge in statement?.Charges ?? new List<StatementChargeDto>())
         {
-            runningBalance += totalCharged;
-            rows.Add(new StudentStatementRow
+            entries.Add(new StudentStatementRow
             {
-                When = ParseDate(statement?.GeneratedAt) ?? DateTime.Today,
-                Reference = "BILLING",
-                Description = "Total charges posted to account",
-                Charge = totalCharged,
-                Paid = 0,
-                RunningBalance = runningBalance,
+                When = ParseDate(charge.ChargedAt) ?? DateTime.Today,
+                Reference = charge.InvoiceNumber ?? "FEES",
+                Description = charge.Description ?? "Fee charge",
+                Charge = charge.AmountUsd,
                 Status = "Fees billed"
             });
         }
 
-        foreach (var payment in payments
-                     .OrderBy(p => ParseDate(p.Date) ?? DateTime.Today)
-                     .ThenBy(p => p.PaymentReference))
+        var unitemized = totalCharged - entries.Sum(row => row.Charge);
+        if (unitemized > 0)
         {
-            var paidAmount = payment.AmountUsd > 0 ? payment.AmountUsd : payment.Amount;
-            runningBalance -= paidAmount;
+            entries.Add(new StudentStatementRow
+            {
+                When = ParseDate(statement?.GeneratedAt) ?? DateTime.Today,
+                Reference = "ACCOUNT",
+                Description = "Earlier charges without fee detail",
+                Charge = unitemized,
+                Status = "Fees billed"
+            });
+        }
 
-            rows.Add(new StudentStatementRow
+        foreach (var payment in payments)
+        {
+            entries.Add(new StudentStatementRow
             {
                 When = ParseDate(payment.Date) ?? DateTime.Today,
                 Reference = payment.PaymentReference ?? string.Empty,
                 Description = payment.Description ?? "Payment",
-                Charge = 0,
-                Paid = paidAmount,
-                RunningBalance = runningBalance,
+                Paid = payment.AmountUsd > 0 ? payment.AmountUsd : payment.Amount,
                 Status = payment.IsConfirmed ? "Payment received" : (payment.Status ?? string.Empty)
             });
         }
 
+        var running = 0m;
+        var rows = new List<StudentStatementRow>();
+        foreach (var entry in entries.OrderBy(row => row.When).ThenBy(row => row.Reference).ThenByDescending(row => row.Charge))
+        {
+            running += entry.Charge - entry.Paid;
+            rows.Add(new StudentStatementRow
+            {
+                When = entry.When,
+                Reference = entry.Reference,
+                Description = entry.Description,
+                Charge = entry.Charge,
+                Paid = entry.Paid,
+                RunningBalance = running, Status = entry.Status
+            });
+        }
         return rows;
     }
 
